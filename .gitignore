@@ -1,0 +1,22 @@
+# Environments
+.venv/
+__pycache__/
+*.py[cod]
+
+# Data — re-downloadable / regeneratable, never committed
+data/fastf1_cache/
+data/raw/
+data/processed/
+demo/baku_cache/
+demo/baku_outputs/
+*.zip
+
+# Model artifacts and generated dashboard payloads
+models/
+outputs/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
