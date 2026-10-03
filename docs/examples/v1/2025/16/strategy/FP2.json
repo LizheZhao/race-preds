@@ -1,0 +1,290 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "artifact": "strategy",
+    "season": 2025,
+    "round": 16,
+    "stage": "FP2",
+    "generated_at": "2025-09-05T17:10:00Z",
+    "run_id": "example-fixture"
+  },
+  "model": {
+    "name": "strategy_sim",
+    "version": "0.1.0",
+    "trained_through": "2025-08-31",
+    "features": [
+      "practice_long_run_pace",
+      "team_form_5",
+      "driver_form_5",
+      "circuit_type"
+    ],
+    "calibrated": true,
+    "backtest": []
+  },
+  "race_laps": 53,
+  "pit_loss_s": 23.8,
+  "compounds_available": {
+    "HARD": "C3",
+    "MEDIUM": "C4",
+    "SOFT": "C5"
+  },
+  "options": [
+    {
+      "id": "1stop-m-h",
+      "stints": [
+        {
+          "compound": "MEDIUM",
+          "start_lap": 1,
+          "end_lap": 22
+        },
+        {
+          "compound": "HARD",
+          "start_lap": 23,
+          "end_lap": 53
+        }
+      ],
+      "expected_time_delta_s": 0.0,
+      "pit_windows": [
+        {
+          "stop": 1,
+          "earliest_lap": 18,
+          "latest_lap": 27
+        }
+      ],
+      "p_best": 0.58,
+      "stops": 1
+    },
+    {
+      "id": "1stop-h-m",
+      "stints": [
+        {
+          "compound": "HARD",
+          "start_lap": 1,
+          "end_lap": 33
+        },
+        {
+          "compound": "MEDIUM",
+          "start_lap": 34,
+          "end_lap": 53
+        }
+      ],
+      "expected_time_delta_s": 3.1,
+      "pit_windows": [
+        {
+          "stop": 1,
+          "earliest_lap": 29,
+          "latest_lap": 38
+        }
+      ],
+      "p_best": 0.27,
+      "stops": 1
+    },
+    {
+      "id": "2stop-s-m-h",
+      "stints": [
+        {
+          "compound": "SOFT",
+          "start_lap": 1,
+          "end_lap": 12
+        },
+        {
+          "compound": "MEDIUM",
+          "start_lap": 13,
+          "end_lap": 30
+        },
+        {
+          "compound": "HARD",
+          "start_lap": 31,
+          "end_lap": 53
+        }
+      ],
+      "expected_time_delta_s": 11.4,
+      "pit_windows": [
+        {
+          "stop": 1,
+          "earliest_lap": 10,
+          "latest_lap": 15
+        },
+        {
+          "stop": 2,
+          "earliest_lap": 27,
+          "latest_lap": 34
+        }
+      ],
+      "p_best": 0.15,
+      "stops": 2
+    }
+  ],
+  "degradation": [
+    {
+      "compound": "SOFT",
+      "tyre_life": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "lap_delta_s": [
+        0.064,
+        0.136,
+        0.216,
+        0.304,
+        0.4,
+        0.504,
+        0.616,
+        0.736,
+        0.864,
+        1.0,
+        1.144,
+        1.296,
+        1.456,
+        1.624
+      ],
+      "source_sessions": [
+        "FP2"
+      ]
+    },
+    {
+      "compound": "MEDIUM",
+      "tyre_life": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "lap_delta_s": [
+        0.042,
+        0.086,
+        0.134,
+        0.184,
+        0.238,
+        0.294,
+        0.354,
+        0.416,
+        0.481,
+        0.55,
+        0.621,
+        0.696,
+        0.774,
+        0.854,
+        0.938,
+        1.024,
+        1.114,
+        1.206,
+        1.301,
+        1.4,
+        1.502,
+        1.606,
+        1.714,
+        1.824
+      ],
+      "source_sessions": [
+        "FP2"
+      ]
+    },
+    {
+      "compound": "HARD",
+      "tyre_life": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ],
+      "lap_delta_s": [
+        0.031,
+        0.063,
+        0.096,
+        0.131,
+        0.167,
+        0.205,
+        0.244,
+        0.285,
+        0.327,
+        0.37,
+        0.415,
+        0.461,
+        0.508,
+        0.557,
+        0.607,
+        0.659,
+        0.712,
+        0.767,
+        0.823,
+        0.88,
+        0.939,
+        0.999,
+        1.06,
+        1.123,
+        1.188,
+        1.253,
+        1.32,
+        1.389,
+        1.459,
+        1.53,
+        1.603,
+        1.677
+      ],
+      "source_sessions": [
+        "FP2"
+      ]
+    }
+  ]
+}

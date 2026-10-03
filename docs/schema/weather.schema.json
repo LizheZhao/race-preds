@@ -1,0 +1,351 @@
+{
+  "$defs": {
+    "Climatology": {
+      "additionalProperties": false,
+      "description": "Historical prior for this circuit, from FastF1 observed weather in past seasons.",
+      "properties": {
+        "seasons": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Seasons",
+          "type": "array"
+        },
+        "wet_race_share": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Wet Race Share",
+          "type": "number"
+        },
+        "air_temp_c_mean": {
+          "title": "Air Temp C Mean",
+          "type": "number"
+        },
+        "track_temp_c_mean": {
+          "title": "Track Temp C Mean",
+          "type": "number"
+        }
+      },
+      "required": [
+        "seasons",
+        "wet_race_share",
+        "air_temp_c_mean",
+        "track_temp_c_mean"
+      ],
+      "title": "Climatology",
+      "type": "object"
+    },
+    "HourlyForecast": {
+      "additionalProperties": false,
+      "properties": {
+        "time_utc": {
+          "format": "date-time",
+          "title": "Time Utc",
+          "type": "string"
+        },
+        "air_temp_c": {
+          "title": "Air Temp C",
+          "type": "number"
+        },
+        "p_rain": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "P Rain",
+          "type": "number"
+        },
+        "rain_mm": {
+          "minimum": 0,
+          "title": "Rain Mm",
+          "type": "number"
+        },
+        "wind_speed_ms": {
+          "minimum": 0,
+          "title": "Wind Speed Ms",
+          "type": "number"
+        },
+        "wind_dir_deg": {
+          "exclusiveMaximum": 360,
+          "minimum": 0,
+          "title": "Wind Dir Deg",
+          "type": "number"
+        },
+        "humidity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Humidity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "time_utc",
+        "air_temp_c",
+        "p_rain",
+        "rain_mm",
+        "wind_speed_ms",
+        "wind_dir_deg",
+        "humidity"
+      ],
+      "title": "HourlyForecast",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "artifact": {
+          "enum": [
+            "index",
+            "manifest",
+            "event",
+            "weather",
+            "finishing_order",
+            "qualifying",
+            "race_incidents",
+            "strategy",
+            "facts",
+            "results"
+          ],
+          "title": "Artifact",
+          "type": "string"
+        },
+        "season": {
+          "minimum": 1950,
+          "title": "Season",
+          "type": "integer"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "season",
+        "generated_at",
+        "run_id"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "ObservedWeather": {
+      "additionalProperties": false,
+      "description": "Summary of FastF1 Session.weather_data, filled once the session has run.",
+      "properties": {
+        "air_temp_c_mean": {
+          "title": "Air Temp C Mean",
+          "type": "number"
+        },
+        "track_temp_c_max": {
+          "title": "Track Temp C Max",
+          "type": "number"
+        },
+        "humidity_mean": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Humidity Mean",
+          "type": "number"
+        },
+        "wind_speed_ms_mean": {
+          "minimum": 0,
+          "title": "Wind Speed Ms Mean",
+          "type": "number"
+        },
+        "rain_share": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Rain Share",
+          "type": "number"
+        }
+      },
+      "required": [
+        "air_temp_c_mean",
+        "track_temp_c_max",
+        "humidity_mean",
+        "wind_speed_ms_mean",
+        "rain_share"
+      ],
+      "title": "ObservedWeather",
+      "type": "object"
+    },
+    "SessionForecast": {
+      "additionalProperties": false,
+      "properties": {
+        "air_temp_c": {
+          "title": "Air Temp C",
+          "type": "number"
+        },
+        "p_rain": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "P Rain",
+          "type": "number"
+        },
+        "wind_speed_ms": {
+          "minimum": 0,
+          "title": "Wind Speed Ms",
+          "type": "number"
+        }
+      },
+      "required": [
+        "air_temp_c",
+        "p_rain",
+        "wind_speed_ms"
+      ],
+      "title": "SessionForecast",
+      "type": "object"
+    },
+    "SessionWeather": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "enum": [
+            "FP1",
+            "FP2",
+            "FP3",
+            "SQ",
+            "S",
+            "Q",
+            "R"
+          ],
+          "title": "Session Id",
+          "type": "string"
+        },
+        "start_utc": {
+          "format": "date-time",
+          "title": "Start Utc",
+          "type": "string"
+        },
+        "forecast": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SessionForecast"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservedWeather"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "session_id",
+        "start_utc"
+      ],
+      "title": "SessionWeather",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Refreshed on a timer, not per session -- forecasts move independently of timing data.",
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "source": {
+      "title": "Source",
+      "type": "string"
+    },
+    "issued_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Issued At"
+    },
+    "sessions": {
+      "items": {
+        "$ref": "#/$defs/SessionWeather"
+      },
+      "title": "Sessions",
+      "type": "array"
+    },
+    "hourly": {
+      "items": {
+        "$ref": "#/$defs/HourlyForecast"
+      },
+      "title": "Hourly",
+      "type": "array"
+    },
+    "climatology": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Climatology"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "meta",
+    "source",
+    "issued_at",
+    "sessions",
+    "hourly"
+  ],
+  "title": "WeatherDoc",
+  "type": "object",
+  "$id": "race-preds/v1/weather"
+}

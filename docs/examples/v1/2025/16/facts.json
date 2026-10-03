@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "artifact": "facts",
+    "season": 2025,
+    "round": 16,
+    "stage": "FP2",
+    "generated_at": "2025-09-05T17:10:00Z",
+    "run_id": "example-fixture"
+  },
+  "facts": [
+    {
+      "id": "monza-fastest-lap-record",
+      "category": "circuit",
+      "headline": "Monza is the fastest track on the calendar",
+      "body": "Average lap speeds above 250 km/h and roughly 80% of the lap at full throttle.",
+      "driver_ids": [],
+      "team_ids": [],
+      "source": "example"
+    },
+    {
+      "id": "fp2-top-speed",
+      "category": "telemetry",
+      "headline": "Top speed in FP2: 349 km/h at the Speed Trap",
+      "body": "Synthetic fixture value.",
+      "driver_ids": [
+        "albon"
+      ],
+      "team_ids": [
+        "williams"
+      ],
+      "source": "example"
+    },
+    {
+      "id": "ferrari-home-race",
+      "category": "team",
+      "headline": "Ferrari's home race",
+      "body": null,
+      "driver_ids": [],
+      "team_ids": [
+        "ferrari"
+      ],
+      "source": "example"
+    }
+  ]
+}

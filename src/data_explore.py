@@ -5,6 +5,7 @@ import numpy as np
 import fastf1
 from fastf1.ergast import Ergast
 from fastf1.ergast.interface import ErgastMultiResponse
+import src.session as session_utils
 
 
 def establish_api(limit=100):
@@ -86,7 +87,10 @@ def _sprint_qualifying_from_fastf1(year: int) -> tuple[pd.DataFrame, pd.DataFram
     ids = sprint[["round", "driverCode", "driverId", "constructorId", "constructorName"]]
     rounds = []
     for rnd in sorted(sprint["round"].unique()):
-        session = fastf1.get_session(year, int(rnd), "Sprint Qualifying")
+        sq_name = next((s["session_name"] for s in session_utils.get_sessions(year, int(rnd)) if s["session_id"] == "SQ"), None)
+        if sq_name is None:
+            continue
+        session = fastf1.get_session(year, int(rnd), sq_name)
         session.load(laps=True, telemetry=False, weather=False, messages=True)
         res = session.results.rename(columns={
             "Abbreviation": "driverCode",
@@ -123,7 +127,6 @@ def get_results(years: Iterable[int], kind: str = "race") -> tuple[pd.DataFrame,
         all_races.append(races)
     return pd.concat(all_results, ignore_index=True), pd.concat(all_races, ignore_index=True)
 
-
 # ---------------------------------------------------------------------------
 # Per-session summaries
 # ---------------------------------------------------------------------------
@@ -155,7 +158,14 @@ def session_window(session) -> tuple[pd.Timedelta, pd.Timedelta]:
 
 
 def _track_status_summary(session, start: pd.Timedelta, end: pd.Timedelta) -> dict:
-    """count and minutes of yellow / SC / red / VSC inside the session window"""
+    """
+    count and minutes of yellow / SC / red / VSC inside the session window
+
+    counting rule (the race_incidents label definition):
+      every status period active at any point inside the window counts, including one
+      that began before the start (a wet start behind the SC counts as one SC)
+      SC -> red flag -> SC counts as two SC periods and one red flag
+    """
 
     TRACK_STATUS_NAMES = {"2": "yellow", "4": "sc", "5": "red", "6": "vsc"}
 
@@ -334,17 +344,23 @@ def summarize_session(session) -> tuple[pd.DataFrame, pd.DataFrame]:
 # Per-session timeline
 # ---------------------------------------------------------------------------
 
-def _session_t0_date(session, start: pd.Timedelta) -> pd.Timestamp:
+def _session_t0_date(session, start: pd.Timedelta, end: pd.Timedelta) -> pd.Timestamp:
     """
-    UTC timestamp of session time 0
-    LapStartDate is only filled when telemetry is loaded; otherwise assume the
-    first "Started" happened at the scheduled start (off by the delay if the
-    session started late, e.g. a rain delay)
+    UTC timestamp of session time 0, best source first:
+      1. lap dates vs lap times (only filled when telemetry is loaded)
+      2. the chequered flag message (UTC) vs the last "Finished" (session time);
+         within ~2 s of 1. on 2025 test sessions
+      3. the scheduled start; minutes off for races (formation lap, delays), last resort
     """
     laps = session.laps
     offset = (laps["LapStartDate"] - laps["LapStartTime"]).dropna()
     if len(offset):
         return offset.median()
+
+    rc = session.race_control_messages
+    chequered = rc.loc[rc["Flag"] == "CHEQUERED", "Time"]
+    if len(chequered) and pd.notna(end):
+        return chequered.max() - end
     return session.date - start
 
 
@@ -400,7 +416,7 @@ def session_timeline(session, freq: str = "1min") -> pd.DataFrame:
     """
     start, end = session_window(session)
     step = pd.Timedelta(freq)
-    t0_date = _session_t0_date(session, start)
+    t0_date = _session_t0_date(session, start, end)
 
     grid = pd.DataFrame({"SessionTime": pd.timedelta_range(start, end, freq=step)})
     grid.insert(0, "minute", _seconds(grid["SessionTime"] - start) / 60)

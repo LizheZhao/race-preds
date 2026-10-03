@@ -1,0 +1,305 @@
+{
+  "$defs": {
+    "CircuitIncidentHistory": {
+      "additionalProperties": false,
+      "properties": {
+        "season": {
+          "title": "Season",
+          "type": "integer"
+        },
+        "safety_cars": {
+          "minimum": 0,
+          "title": "Safety Cars",
+          "type": "integer"
+        },
+        "vscs": {
+          "minimum": 0,
+          "title": "Vscs",
+          "type": "integer"
+        },
+        "red_flags": {
+          "minimum": 0,
+          "title": "Red Flags",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "season",
+        "safety_cars",
+        "vscs",
+        "red_flags"
+      ],
+      "title": "CircuitIncidentHistory",
+      "type": "object"
+    },
+    "LapWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "start_lap": {
+          "minimum": 1,
+          "title": "Start Lap",
+          "type": "integer"
+        },
+        "end_lap": {
+          "minimum": 1,
+          "title": "End Lap",
+          "type": "integer"
+        },
+        "p_safety_car": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "P Safety Car",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_lap",
+        "end_lap",
+        "p_safety_car"
+      ],
+      "title": "LapWindow",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "artifact": {
+          "enum": [
+            "index",
+            "manifest",
+            "event",
+            "weather",
+            "finishing_order",
+            "qualifying",
+            "race_incidents",
+            "strategy",
+            "facts",
+            "results"
+          ],
+          "title": "Artifact",
+          "type": "string"
+        },
+        "season": {
+          "minimum": 1950,
+          "title": "Season",
+          "type": "integer"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "season",
+        "generated_at",
+        "run_id"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "Metric": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "lower_is_better": {
+          "title": "Lower Is Better",
+          "type": "boolean"
+        },
+        "baseline_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Name"
+        },
+        "baseline_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Value"
+        },
+        "evaluated_on": {
+          "title": "Evaluated On",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "lower_is_better",
+        "evaluated_on"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "ModelInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "trained_through": {
+          "format": "date",
+          "title": "Trained Through",
+          "type": "string"
+        },
+        "features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Features",
+          "type": "array"
+        },
+        "calibrated": {
+          "title": "Calibrated",
+          "type": "boolean"
+        },
+        "backtest": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Metric"
+          },
+          "title": "Backtest",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "trained_through",
+        "calibrated"
+      ],
+      "title": "ModelInfo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelInfo"
+    },
+    "p_safety_car": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "P Safety Car",
+      "type": "number"
+    },
+    "p_vsc": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "P Vsc",
+      "type": "number"
+    },
+    "p_red_flag": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "P Red Flag",
+      "type": "number"
+    },
+    "expected_safety_cars": {
+      "minimum": 0,
+      "title": "Expected Safety Cars",
+      "type": "number"
+    },
+    "by_lap_window": {
+      "items": {
+        "$ref": "#/$defs/LapWindow"
+      },
+      "title": "By Lap Window",
+      "type": "array"
+    },
+    "circuit_history": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CircuitIncidentHistory"
+      },
+      "title": "Circuit History",
+      "type": "array"
+    }
+  },
+  "required": [
+    "meta",
+    "model",
+    "p_safety_car",
+    "p_vsc",
+    "p_red_flag",
+    "expected_safety_cars",
+    "by_lap_window"
+  ],
+  "title": "RaceIncidentsDoc",
+  "type": "object",
+  "$id": "race-preds/v1/race_incidents"
+}

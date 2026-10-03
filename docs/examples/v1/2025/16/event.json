@@ -1,0 +1,1044 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "artifact": "event",
+    "season": 2025,
+    "round": 16,
+    "stage": "FP2",
+    "generated_at": "2025-09-05T17:10:00Z",
+    "run_id": "example-fixture"
+  },
+  "name": "Italian Grand Prix",
+  "official_name": "FORMULA 1 PIRELLI GRAN PREMIO D'ITALIA 2025",
+  "format": "conventional",
+  "circuit": {
+    "id": "monza",
+    "name": "Autodromo Nazionale di Monza",
+    "locality": "Monza",
+    "country": "Italy",
+    "lat": 45.6156,
+    "lon": 9.28111,
+    "length_km": 5.793,
+    "race_laps": 53,
+    "outline": [
+      [
+        1.0,
+        0.2327
+      ],
+      [
+        0.9982,
+        0.2484
+      ],
+      [
+        0.9929,
+        0.2641
+      ],
+      [
+        0.9842,
+        0.2795
+      ],
+      [
+        0.9722,
+        0.2948
+      ],
+      [
+        0.9571,
+        0.3097
+      ],
+      [
+        0.9392,
+        0.3242
+      ],
+      [
+        0.9188,
+        0.3384
+      ],
+      [
+        0.8963,
+        0.352
+      ],
+      [
+        0.872,
+        0.365
+      ],
+      [
+        0.8464,
+        0.3774
+      ],
+      [
+        0.8198,
+        0.3891
+      ],
+      [
+        0.7927,
+        0.4001
+      ],
+      [
+        0.7655,
+        0.4103
+      ],
+      [
+        0.7385,
+        0.4197
+      ],
+      [
+        0.7121,
+        0.4283
+      ],
+      [
+        0.6868,
+        0.436
+      ],
+      [
+        0.6626,
+        0.4428
+      ],
+      [
+        0.64,
+        0.4488
+      ],
+      [
+        0.6191,
+        0.4538
+      ],
+      [
+        0.6,
+        0.4579
+      ],
+      [
+        0.5828,
+        0.4611
+      ],
+      [
+        0.5676,
+        0.4634
+      ],
+      [
+        0.5542,
+        0.4649
+      ],
+      [
+        0.5427,
+        0.4655
+      ],
+      [
+        0.5328,
+        0.4652
+      ],
+      [
+        0.5244,
+        0.4642
+      ],
+      [
+        0.5172,
+        0.4624
+      ],
+      [
+        0.5109,
+        0.4599
+      ],
+      [
+        0.5053,
+        0.4566
+      ],
+      [
+        0.5,
+        0.4527
+      ],
+      [
+        0.4947,
+        0.4483
+      ],
+      [
+        0.4891,
+        0.4432
+      ],
+      [
+        0.4828,
+        0.4377
+      ],
+      [
+        0.4756,
+        0.4317
+      ],
+      [
+        0.4672,
+        0.4252
+      ],
+      [
+        0.4573,
+        0.4185
+      ],
+      [
+        0.4458,
+        0.4114
+      ],
+      [
+        0.4324,
+        0.404
+      ],
+      [
+        0.4172,
+        0.3964
+      ],
+      [
+        0.4,
+        0.3886
+      ],
+      [
+        0.3809,
+        0.3807
+      ],
+      [
+        0.36,
+        0.3727
+      ],
+      [
+        0.3374,
+        0.3646
+      ],
+      [
+        0.3132,
+        0.3565
+      ],
+      [
+        0.2879,
+        0.3483
+      ],
+      [
+        0.2615,
+        0.3402
+      ],
+      [
+        0.2345,
+        0.3321
+      ],
+      [
+        0.2073,
+        0.324
+      ],
+      [
+        0.1802,
+        0.316
+      ],
+      [
+        0.1536,
+        0.3081
+      ],
+      [
+        0.128,
+        0.3003
+      ],
+      [
+        0.1037,
+        0.2925
+      ],
+      [
+        0.0812,
+        0.2848
+      ],
+      [
+        0.0608,
+        0.2772
+      ],
+      [
+        0.0429,
+        0.2697
+      ],
+      [
+        0.0278,
+        0.2622
+      ],
+      [
+        0.0158,
+        0.2548
+      ],
+      [
+        0.0071,
+        0.2474
+      ],
+      [
+        0.0018,
+        0.2401
+      ],
+      [
+        0.0,
+        0.2327
+      ],
+      [
+        0.0018,
+        0.2254
+      ],
+      [
+        0.0071,
+        0.2181
+      ],
+      [
+        0.0158,
+        0.2107
+      ],
+      [
+        0.0278,
+        0.2033
+      ],
+      [
+        0.0429,
+        0.1958
+      ],
+      [
+        0.0608,
+        0.1883
+      ],
+      [
+        0.0812,
+        0.1807
+      ],
+      [
+        0.1037,
+        0.173
+      ],
+      [
+        0.128,
+        0.1652
+      ],
+      [
+        0.1536,
+        0.1574
+      ],
+      [
+        0.1802,
+        0.1495
+      ],
+      [
+        0.2073,
+        0.1415
+      ],
+      [
+        0.2345,
+        0.1334
+      ],
+      [
+        0.2615,
+        0.1253
+      ],
+      [
+        0.2879,
+        0.1172
+      ],
+      [
+        0.3132,
+        0.109
+      ],
+      [
+        0.3374,
+        0.1009
+      ],
+      [
+        0.36,
+        0.0928
+      ],
+      [
+        0.3809,
+        0.0848
+      ],
+      [
+        0.4,
+        0.0769
+      ],
+      [
+        0.4172,
+        0.0691
+      ],
+      [
+        0.4324,
+        0.0615
+      ],
+      [
+        0.4458,
+        0.0541
+      ],
+      [
+        0.4573,
+        0.047
+      ],
+      [
+        0.4672,
+        0.0402
+      ],
+      [
+        0.4756,
+        0.0338
+      ],
+      [
+        0.4828,
+        0.0278
+      ],
+      [
+        0.4891,
+        0.0223
+      ],
+      [
+        0.4947,
+        0.0172
+      ],
+      [
+        0.5,
+        0.0127
+      ],
+      [
+        0.5053,
+        0.0089
+      ],
+      [
+        0.5109,
+        0.0056
+      ],
+      [
+        0.5172,
+        0.0031
+      ],
+      [
+        0.5244,
+        0.0013
+      ],
+      [
+        0.5328,
+        0.0002
+      ],
+      [
+        0.5427,
+        0.0
+      ],
+      [
+        0.5542,
+        0.0006
+      ],
+      [
+        0.5676,
+        0.002
+      ],
+      [
+        0.5828,
+        0.0044
+      ],
+      [
+        0.6,
+        0.0076
+      ],
+      [
+        0.6191,
+        0.0117
+      ],
+      [
+        0.64,
+        0.0167
+      ],
+      [
+        0.6626,
+        0.0226
+      ],
+      [
+        0.6868,
+        0.0295
+      ],
+      [
+        0.7121,
+        0.0372
+      ],
+      [
+        0.7385,
+        0.0458
+      ],
+      [
+        0.7655,
+        0.0552
+      ],
+      [
+        0.7927,
+        0.0654
+      ],
+      [
+        0.8198,
+        0.0764
+      ],
+      [
+        0.8464,
+        0.0881
+      ],
+      [
+        0.872,
+        0.1005
+      ],
+      [
+        0.8963,
+        0.1135
+      ],
+      [
+        0.9188,
+        0.1271
+      ],
+      [
+        0.9392,
+        0.1412
+      ],
+      [
+        0.9571,
+        0.1558
+      ],
+      [
+        0.9722,
+        0.1707
+      ],
+      [
+        0.9842,
+        0.186
+      ],
+      [
+        0.9929,
+        0.2014
+      ],
+      [
+        0.9982,
+        0.217
+      ]
+    ],
+    "corners": [
+      {
+        "number": 1,
+        "letter": "",
+        "x": 0.9722,
+        "y": 0.2948
+      },
+      {
+        "number": 2,
+        "letter": "",
+        "x": 0.7121,
+        "y": 0.4283
+      },
+      {
+        "number": 3,
+        "letter": "",
+        "x": 0.5244,
+        "y": 0.4642
+      },
+      {
+        "number": 4,
+        "letter": "",
+        "x": 0.4458,
+        "y": 0.4114
+      },
+      {
+        "number": 5,
+        "letter": "",
+        "x": 0.2073,
+        "y": 0.324
+      },
+      {
+        "number": 6,
+        "letter": "",
+        "x": 0.0018,
+        "y": 0.2401
+      },
+      {
+        "number": 7,
+        "letter": "",
+        "x": 0.1536,
+        "y": 0.1574
+      },
+      {
+        "number": 8,
+        "letter": "",
+        "x": 0.4172,
+        "y": 0.0691
+      },
+      {
+        "number": 9,
+        "letter": "",
+        "x": 0.5109,
+        "y": 0.0056
+      },
+      {
+        "number": 10,
+        "letter": "",
+        "x": 0.6626,
+        "y": 0.0226
+      },
+      {
+        "number": 11,
+        "letter": "",
+        "x": 0.9571,
+        "y": 0.1558
+      }
+    ],
+    "past_winners": [
+      {
+        "season": 2024,
+        "driver_name": "Charles Leclerc",
+        "team_name": "Ferrari"
+      },
+      {
+        "season": 2023,
+        "driver_name": "Max Verstappen",
+        "team_name": "Red Bull"
+      },
+      {
+        "season": 2022,
+        "driver_name": "Max Verstappen",
+        "team_name": "Red Bull"
+      }
+    ]
+  },
+  "sessions": [
+    {
+      "id": "FP1",
+      "name": "Practice 1",
+      "start_utc": "2025-09-05T11:30:00Z",
+      "status": "completed"
+    },
+    {
+      "id": "FP2",
+      "name": "Practice 2",
+      "start_utc": "2025-09-05T15:00:00Z",
+      "status": "completed"
+    },
+    {
+      "id": "FP3",
+      "name": "Practice 3",
+      "start_utc": "2025-09-06T10:30:00Z",
+      "status": "upcoming"
+    },
+    {
+      "id": "Q",
+      "name": "Qualifying",
+      "start_utc": "2025-09-06T14:00:00Z",
+      "status": "upcoming"
+    },
+    {
+      "id": "R",
+      "name": "Race",
+      "start_utc": "2025-09-07T13:00:00Z",
+      "status": "upcoming"
+    }
+  ],
+  "teams": [
+    {
+      "id": "mclaren",
+      "name": "McLaren",
+      "color": "#FF8000"
+    },
+    {
+      "id": "ferrari",
+      "name": "Ferrari",
+      "color": "#E80020"
+    },
+    {
+      "id": "red_bull",
+      "name": "Red Bull",
+      "color": "#3671C6"
+    },
+    {
+      "id": "mercedes",
+      "name": "Mercedes",
+      "color": "#27F4D2"
+    },
+    {
+      "id": "aston_martin",
+      "name": "Aston Martin",
+      "color": "#229971"
+    },
+    {
+      "id": "alpine",
+      "name": "Alpine",
+      "color": "#0093CC"
+    },
+    {
+      "id": "williams",
+      "name": "Williams",
+      "color": "#64C4FF"
+    },
+    {
+      "id": "rb",
+      "name": "Racing Bulls",
+      "color": "#6692FF"
+    },
+    {
+      "id": "haas",
+      "name": "Haas",
+      "color": "#B6BABD"
+    },
+    {
+      "id": "sauber",
+      "name": "Kick Sauber",
+      "color": "#52E252"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "norris",
+      "code": "NOR",
+      "number": 4,
+      "first_name": "Lando",
+      "last_name": "Norris",
+      "team_id": "mclaren",
+      "headshot_url": null
+    },
+    {
+      "id": "piastri",
+      "code": "PIA",
+      "number": 81,
+      "first_name": "Oscar",
+      "last_name": "Piastri",
+      "team_id": "mclaren",
+      "headshot_url": null
+    },
+    {
+      "id": "max_verstappen",
+      "code": "VER",
+      "number": 1,
+      "first_name": "Max",
+      "last_name": "Verstappen",
+      "team_id": "red_bull",
+      "headshot_url": null
+    },
+    {
+      "id": "leclerc",
+      "code": "LEC",
+      "number": 16,
+      "first_name": "Charles",
+      "last_name": "Leclerc",
+      "team_id": "ferrari",
+      "headshot_url": null
+    },
+    {
+      "id": "hamilton",
+      "code": "HAM",
+      "number": 44,
+      "first_name": "Lewis",
+      "last_name": "Hamilton",
+      "team_id": "ferrari",
+      "headshot_url": null
+    },
+    {
+      "id": "russell",
+      "code": "RUS",
+      "number": 63,
+      "first_name": "George",
+      "last_name": "Russell",
+      "team_id": "mercedes",
+      "headshot_url": null
+    },
+    {
+      "id": "antonelli",
+      "code": "ANT",
+      "number": 12,
+      "first_name": "Andrea Kimi",
+      "last_name": "Antonelli",
+      "team_id": "mercedes",
+      "headshot_url": null
+    },
+    {
+      "id": "albon",
+      "code": "ALB",
+      "number": 23,
+      "first_name": "Alexander",
+      "last_name": "Albon",
+      "team_id": "williams",
+      "headshot_url": null
+    },
+    {
+      "id": "sainz",
+      "code": "SAI",
+      "number": 55,
+      "first_name": "Carlos",
+      "last_name": "Sainz",
+      "team_id": "williams",
+      "headshot_url": null
+    },
+    {
+      "id": "tsunoda",
+      "code": "TSU",
+      "number": 22,
+      "first_name": "Yuki",
+      "last_name": "Tsunoda",
+      "team_id": "red_bull",
+      "headshot_url": null
+    },
+    {
+      "id": "hadjar",
+      "code": "HAD",
+      "number": 6,
+      "first_name": "Isack",
+      "last_name": "Hadjar",
+      "team_id": "rb",
+      "headshot_url": null
+    },
+    {
+      "id": "lawson",
+      "code": "LAW",
+      "number": 30,
+      "first_name": "Liam",
+      "last_name": "Lawson",
+      "team_id": "rb",
+      "headshot_url": null
+    },
+    {
+      "id": "alonso",
+      "code": "ALO",
+      "number": 14,
+      "first_name": "Fernando",
+      "last_name": "Alonso",
+      "team_id": "aston_martin",
+      "headshot_url": null
+    },
+    {
+      "id": "stroll",
+      "code": "STR",
+      "number": 18,
+      "first_name": "Lance",
+      "last_name": "Stroll",
+      "team_id": "aston_martin",
+      "headshot_url": null
+    },
+    {
+      "id": "hulkenberg",
+      "code": "HUL",
+      "number": 27,
+      "first_name": "Nico",
+      "last_name": "Hulkenberg",
+      "team_id": "sauber",
+      "headshot_url": null
+    },
+    {
+      "id": "bortoleto",
+      "code": "BOR",
+      "number": 5,
+      "first_name": "Gabriel",
+      "last_name": "Bortoleto",
+      "team_id": "sauber",
+      "headshot_url": null
+    },
+    {
+      "id": "ocon",
+      "code": "OCO",
+      "number": 31,
+      "first_name": "Esteban",
+      "last_name": "Ocon",
+      "team_id": "haas",
+      "headshot_url": null
+    },
+    {
+      "id": "bearman",
+      "code": "BEA",
+      "number": 87,
+      "first_name": "Oliver",
+      "last_name": "Bearman",
+      "team_id": "haas",
+      "headshot_url": null
+    },
+    {
+      "id": "gasly",
+      "code": "GAS",
+      "number": 10,
+      "first_name": "Pierre",
+      "last_name": "Gasly",
+      "team_id": "alpine",
+      "headshot_url": null
+    },
+    {
+      "id": "colapinto",
+      "code": "COL",
+      "number": 43,
+      "first_name": "Franco",
+      "last_name": "Colapinto",
+      "team_id": "alpine",
+      "headshot_url": null
+    }
+  ],
+  "standings": {
+    "after_round": 15,
+    "drivers": [
+      {
+        "driver_id": "norris",
+        "position": 1,
+        "points": 320.0,
+        "wins": 6
+      },
+      {
+        "driver_id": "piastri",
+        "position": 2,
+        "points": 298.0,
+        "wins": 5
+      },
+      {
+        "driver_id": "max_verstappen",
+        "position": 3,
+        "points": 276.0,
+        "wins": 4
+      },
+      {
+        "driver_id": "leclerc",
+        "position": 4,
+        "points": 254.0,
+        "wins": 3
+      },
+      {
+        "driver_id": "hamilton",
+        "position": 5,
+        "points": 232.0,
+        "wins": 2
+      },
+      {
+        "driver_id": "russell",
+        "position": 6,
+        "points": 210.0,
+        "wins": 1
+      },
+      {
+        "driver_id": "antonelli",
+        "position": 7,
+        "points": 188.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "albon",
+        "position": 8,
+        "points": 166.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "sainz",
+        "position": 9,
+        "points": 144.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "tsunoda",
+        "position": 10,
+        "points": 122.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "hadjar",
+        "position": 11,
+        "points": 100.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "lawson",
+        "position": 12,
+        "points": 78.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "alonso",
+        "position": 13,
+        "points": 56.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "stroll",
+        "position": 14,
+        "points": 34.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "hulkenberg",
+        "position": 15,
+        "points": 12.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "bortoleto",
+        "position": 16,
+        "points": 0.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "ocon",
+        "position": 17,
+        "points": 0.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "bearman",
+        "position": 18,
+        "points": 0.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "gasly",
+        "position": 19,
+        "points": 0.0,
+        "wins": 0
+      },
+      {
+        "driver_id": "colapinto",
+        "position": 20,
+        "points": 0.0,
+        "wins": 0
+      }
+    ],
+    "teams": [
+      {
+        "team_id": "mclaren",
+        "position": 1,
+        "points": 560.0,
+        "wins": 9
+      },
+      {
+        "team_id": "ferrari",
+        "position": 2,
+        "points": 500.0,
+        "wins": 6
+      },
+      {
+        "team_id": "red_bull",
+        "position": 3,
+        "points": 440.0,
+        "wins": 3
+      },
+      {
+        "team_id": "mercedes",
+        "position": 4,
+        "points": 380.0,
+        "wins": 0
+      },
+      {
+        "team_id": "aston_martin",
+        "position": 5,
+        "points": 320.0,
+        "wins": 0
+      },
+      {
+        "team_id": "alpine",
+        "position": 6,
+        "points": 260.0,
+        "wins": 0
+      },
+      {
+        "team_id": "williams",
+        "position": 7,
+        "points": 200.0,
+        "wins": 0
+      },
+      {
+        "team_id": "rb",
+        "position": 8,
+        "points": 140.0,
+        "wins": 0
+      },
+      {
+        "team_id": "haas",
+        "position": 9,
+        "points": 80.0,
+        "wins": 0
+      },
+      {
+        "team_id": "sauber",
+        "position": 10,
+        "points": 20.0,
+        "wins": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "$defs": {
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "artifact": {
+          "enum": [
+            "index",
+            "manifest",
+            "event",
+            "weather",
+            "finishing_order",
+            "qualifying",
+            "race_incidents",
+            "strategy",
+            "facts",
+            "results"
+          ],
+          "title": "Artifact",
+          "type": "string"
+        },
+        "season": {
+          "minimum": 1950,
+          "title": "Season",
+          "type": "integer"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "season",
+        "generated_at",
+        "run_id"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "RoundSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "round": {
+          "minimum": 1,
+          "title": "Round",
+          "type": "integer"
+        },
+        "event_name": {
+          "title": "Event Name",
+          "type": "string"
+        },
+        "country": {
+          "title": "Country",
+          "type": "string"
+        },
+        "circuit_id": {
+          "title": "Circuit Id",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "conventional",
+            "sprint_qualifying"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "race_start_utc": {
+          "format": "date-time",
+          "title": "Race Start Utc",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "upcoming",
+            "current",
+            "completed",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "manifest_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manifest Path"
+        }
+      },
+      "required": [
+        "round",
+        "event_name",
+        "country",
+        "circuit_id",
+        "format",
+        "race_start_utc",
+        "status"
+      ],
+      "title": "RoundSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Entry point. The front end fetches this first and follows current_round.",
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "current_round": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Current Round"
+    },
+    "rounds": {
+      "items": {
+        "$ref": "#/$defs/RoundSummary"
+      },
+      "title": "Rounds",
+      "type": "array"
+    }
+  },
+  "required": [
+    "meta",
+    "current_round",
+    "rounds"
+  ],
+  "title": "SeasonIndex",
+  "type": "object",
+  "$id": "race-preds/v1/index"
+}

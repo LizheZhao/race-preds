@@ -1,0 +1,254 @@
+{
+  "$defs": {
+    "DriverQualiPrediction": {
+      "additionalProperties": false,
+      "properties": {
+        "driver_id": {
+          "pattern": "^[a-z0-9_]+$",
+          "title": "Driver Id",
+          "type": "string"
+        },
+        "position_probs": {
+          "items": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "type": "number"
+          },
+          "title": "Position Probs",
+          "type": "array"
+        },
+        "p_pole": {
+          "readOnly": true,
+          "title": "P Pole",
+          "type": "number"
+        },
+        "p_top10": {
+          "readOnly": true,
+          "title": "P Top10",
+          "type": "number"
+        },
+        "expected_position": {
+          "readOnly": true,
+          "title": "Expected Position",
+          "type": "number"
+        }
+      },
+      "required": [
+        "driver_id",
+        "position_probs",
+        "p_pole",
+        "p_top10",
+        "expected_position"
+      ],
+      "title": "DriverQualiPrediction",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "artifact": {
+          "enum": [
+            "index",
+            "manifest",
+            "event",
+            "weather",
+            "finishing_order",
+            "qualifying",
+            "race_incidents",
+            "strategy",
+            "facts",
+            "results"
+          ],
+          "title": "Artifact",
+          "type": "string"
+        },
+        "season": {
+          "minimum": 1950,
+          "title": "Season",
+          "type": "integer"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "season",
+        "generated_at",
+        "run_id"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "Metric": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "lower_is_better": {
+          "title": "Lower Is Better",
+          "type": "boolean"
+        },
+        "baseline_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Name"
+        },
+        "baseline_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Value"
+        },
+        "evaluated_on": {
+          "title": "Evaluated On",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "lower_is_better",
+        "evaluated_on"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "ModelInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "trained_through": {
+          "format": "date",
+          "title": "Trained Through",
+          "type": "string"
+        },
+        "features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Features",
+          "type": "array"
+        },
+        "calibrated": {
+          "title": "Calibrated",
+          "type": "boolean"
+        },
+        "backtest": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Metric"
+          },
+          "title": "Backtest",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "trained_through",
+        "calibrated"
+      ],
+      "title": "ModelInfo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Superseded by results.json once qualifying has run; the manifest keeps it as history.",
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelInfo"
+    },
+    "drivers": {
+      "items": {
+        "$ref": "#/$defs/DriverQualiPrediction"
+      },
+      "title": "Drivers",
+      "type": "array"
+    }
+  },
+  "required": [
+    "meta",
+    "model",
+    "drivers"
+  ],
+  "title": "QualifyingDoc",
+  "type": "object",
+  "$id": "race-preds/v1/qualifying"
+}

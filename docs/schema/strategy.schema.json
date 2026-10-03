@@ -1,0 +1,425 @@
+{
+  "$defs": {
+    "DegradationCurve": {
+      "additionalProperties": false,
+      "properties": {
+        "compound": {
+          "enum": [
+            "SOFT",
+            "MEDIUM",
+            "HARD",
+            "INTERMEDIATE",
+            "WET"
+          ],
+          "title": "Compound",
+          "type": "string"
+        },
+        "tyre_life": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Tyre Life",
+          "type": "array"
+        },
+        "lap_delta_s": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Lap Delta S",
+          "type": "array"
+        },
+        "source_sessions": {
+          "items": {
+            "enum": [
+              "FP1",
+              "FP2",
+              "FP3",
+              "SQ",
+              "S",
+              "Q",
+              "R"
+            ],
+            "type": "string"
+          },
+          "title": "Source Sessions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "compound",
+        "tyre_life",
+        "lap_delta_s",
+        "source_sessions"
+      ],
+      "title": "DegradationCurve",
+      "type": "object"
+    },
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "artifact": {
+          "enum": [
+            "index",
+            "manifest",
+            "event",
+            "weather",
+            "finishing_order",
+            "qualifying",
+            "race_incidents",
+            "strategy",
+            "facts",
+            "results"
+          ],
+          "title": "Artifact",
+          "type": "string"
+        },
+        "season": {
+          "minimum": 1950,
+          "title": "Season",
+          "type": "integer"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "season",
+        "generated_at",
+        "run_id"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "Metric": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        },
+        "lower_is_better": {
+          "title": "Lower Is Better",
+          "type": "boolean"
+        },
+        "baseline_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Name"
+        },
+        "baseline_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Value"
+        },
+        "evaluated_on": {
+          "title": "Evaluated On",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value",
+        "lower_is_better",
+        "evaluated_on"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "ModelInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "trained_through": {
+          "format": "date",
+          "title": "Trained Through",
+          "type": "string"
+        },
+        "features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Features",
+          "type": "array"
+        },
+        "calibrated": {
+          "title": "Calibrated",
+          "type": "boolean"
+        },
+        "backtest": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Metric"
+          },
+          "title": "Backtest",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "trained_through",
+        "calibrated"
+      ],
+      "title": "ModelInfo",
+      "type": "object"
+    },
+    "PitWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "stop": {
+          "minimum": 1,
+          "title": "Stop",
+          "type": "integer"
+        },
+        "earliest_lap": {
+          "minimum": 1,
+          "title": "Earliest Lap",
+          "type": "integer"
+        },
+        "latest_lap": {
+          "minimum": 1,
+          "title": "Latest Lap",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stop",
+        "earliest_lap",
+        "latest_lap"
+      ],
+      "title": "PitWindow",
+      "type": "object"
+    },
+    "Stint": {
+      "additionalProperties": false,
+      "properties": {
+        "compound": {
+          "enum": [
+            "SOFT",
+            "MEDIUM",
+            "HARD",
+            "INTERMEDIATE",
+            "WET"
+          ],
+          "title": "Compound",
+          "type": "string"
+        },
+        "start_lap": {
+          "minimum": 1,
+          "title": "Start Lap",
+          "type": "integer"
+        },
+        "end_lap": {
+          "minimum": 1,
+          "title": "End Lap",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "compound",
+        "start_lap",
+        "end_lap"
+      ],
+      "title": "Stint",
+      "type": "object"
+    },
+    "StrategyOption": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "stints": {
+          "items": {
+            "$ref": "#/$defs/Stint"
+          },
+          "minItems": 1,
+          "title": "Stints",
+          "type": "array"
+        },
+        "expected_time_delta_s": {
+          "minimum": 0,
+          "title": "Expected Time Delta S",
+          "type": "number"
+        },
+        "pit_windows": {
+          "items": {
+            "$ref": "#/$defs/PitWindow"
+          },
+          "title": "Pit Windows",
+          "type": "array"
+        },
+        "p_best": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "P Best"
+        },
+        "stops": {
+          "readOnly": true,
+          "title": "Stops",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "stints",
+        "expected_time_delta_s",
+        "pit_windows",
+        "stops"
+      ],
+      "title": "StrategyOption",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelInfo"
+    },
+    "race_laps": {
+      "exclusiveMinimum": 0,
+      "title": "Race Laps",
+      "type": "integer"
+    },
+    "pit_loss_s": {
+      "exclusiveMinimum": 0,
+      "title": "Pit Loss S",
+      "type": "number"
+    },
+    "compounds_available": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "enum": [
+              "SOFT",
+              "MEDIUM",
+              "HARD"
+            ]
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Compounds Available"
+    },
+    "options": {
+      "items": {
+        "$ref": "#/$defs/StrategyOption"
+      },
+      "minItems": 1,
+      "title": "Options",
+      "type": "array"
+    },
+    "degradation": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DegradationCurve"
+      },
+      "title": "Degradation",
+      "type": "array"
+    }
+  },
+  "required": [
+    "meta",
+    "model",
+    "race_laps",
+    "pit_loss_s",
+    "options"
+  ],
+  "title": "StrategyDoc",
+  "type": "object",
+  "$id": "race-preds/v1/strategy"
+}

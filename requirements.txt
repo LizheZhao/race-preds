@@ -1,0 +1,17 @@
+# Core data stack
+pandas>=2.2
+numpy>=2.0
+
+# Artifact schema (src/schema.py)
+pydantic>=2.9,<3
+
+# F1 data
+fastf1>=3.8,<4
+
+# Modeling
+scikit-learn>=1.6,<2
+xgboost>=3.0,<4
+
+# Plotting / notebooks
+matplotlib>=3.9
+jupyterlab>=4.2

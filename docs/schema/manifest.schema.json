@@ -1,0 +1,262 @@
+{
+  "$defs": {
+    "Meta": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "artifact": {
+          "enum": [
+            "index",
+            "manifest",
+            "event",
+            "weather",
+            "finishing_order",
+            "qualifying",
+            "race_incidents",
+            "strategy",
+            "facts",
+            "results"
+          ],
+          "title": "Artifact",
+          "type": "string"
+        },
+        "season": {
+          "minimum": 1950,
+          "title": "Season",
+          "type": "integer"
+        },
+        "round": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Round"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact",
+        "season",
+        "generated_at",
+        "run_id"
+      ],
+      "title": "Meta",
+      "type": "object"
+    },
+    "SectionStatus": {
+      "additionalProperties": false,
+      "description": "What the front end should render for one dashboard panel.\n\nready          -- fresh document at `path`\nstale          -- last good document at `path`; the latest refresh failed\npending        -- not produced yet; expected from stage `available_from`\nerror          -- failed and there is no earlier document to fall back on\nnot_applicable -- does not exist for this weekend",
+      "properties": {
+        "status": {
+          "enum": [
+            "ready",
+            "stale",
+            "pending",
+            "error",
+            "not_applicable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "available_from": {
+          "anyOf": [
+            {
+              "enum": [
+                "pre_weekend",
+                "FP1",
+                "FP2",
+                "FP3",
+                "SQ",
+                "S",
+                "Q",
+                "R"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Available From"
+        },
+        "history": {
+          "default": [],
+          "items": {
+            "enum": [
+              "pre_weekend",
+              "FP1",
+              "FP2",
+              "FP3",
+              "SQ",
+              "S",
+              "Q",
+              "R"
+            ],
+            "type": "string"
+          },
+          "title": "History",
+          "type": "array"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "SectionStatus",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Per-round index. Every section is listed explicitly; the front end never guesses.",
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/Meta"
+    },
+    "event_name": {
+      "title": "Event Name",
+      "type": "string"
+    },
+    "format": {
+      "enum": [
+        "conventional",
+        "sprint_qualifying"
+      ],
+      "title": "Format",
+      "type": "string"
+    },
+    "race_start_utc": {
+      "format": "date-time",
+      "title": "Race Start Utc",
+      "type": "string"
+    },
+    "sections": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SectionStatus"
+      },
+      "propertyNames": {
+        "enum": [
+          "event",
+          "weather",
+          "finishing_order",
+          "qualifying",
+          "race_incidents",
+          "strategy",
+          "facts",
+          "results"
+        ]
+      },
+      "title": "Sections",
+      "type": "object"
+    }
+  },
+  "required": [
+    "meta",
+    "event_name",
+    "format",
+    "race_start_utc",
+    "sections"
+  ],
+  "title": "RaceManifest",
+  "type": "object",
+  "$id": "race-preds/v1/manifest"
+}

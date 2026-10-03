@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "artifact": "manifest",
+    "season": 2025,
+    "round": 16,
+    "stage": "FP2",
+    "generated_at": "2025-09-05T17:10:00Z",
+    "run_id": "example-fixture"
+  },
+  "event_name": "Italian Grand Prix",
+  "format": "conventional",
+  "race_start_utc": "2025-09-07T13:00:00Z",
+  "sections": {
+    "event": {
+      "status": "ready",
+      "path": "event.json",
+      "stage": "FP2",
+      "updated_at": "2025-09-05T17:10:00Z",
+      "available_from": null,
+      "history": [],
+      "message": null
+    },
+    "weather": {
+      "status": "ready",
+      "path": "weather.json",
+      "stage": "FP2",
+      "updated_at": "2025-09-05T17:10:00Z",
+      "available_from": null,
+      "history": [],
+      "message": null
+    },
+    "finishing_order": {
+      "status": "ready",
+      "path": "finishing_order/FP2.json",
+      "stage": "FP2",
+      "updated_at": "2025-09-05T17:10:00Z",
+      "available_from": null,
+      "history": [
+        "FP1"
+      ],
+      "message": null
+    },
+    "qualifying": {
+      "status": "ready",
+      "path": "qualifying/FP2.json",
+      "stage": "FP2",
+      "updated_at": "2025-09-05T17:10:00Z",
+      "available_from": null,
+      "history": [],
+      "message": null
+    },
+    "race_incidents": {
+      "status": "ready",
+      "path": "race_incidents/FP2.json",
+      "stage": "FP2",
+      "updated_at": "2025-09-05T17:10:00Z",
+      "available_from": null,
+      "history": [],
+      "message": null
+    },
+    "strategy": {
+      "status": "ready",
+      "path": "strategy/FP2.json",
+      "stage": "FP2",
+      "updated_at": "2025-09-05T17:10:00Z",
+      "available_from": null,
+      "history": [],
+      "message": null
+    },
+    "facts": {
+      "status": "stale",
+      "path": "facts.json",
+      "stage": "FP2",
+      "updated_at": "2025-09-05T14:10:00Z",
+      "available_from": null,
+      "history": [],
+      "message": "Fun facts could not be refreshed after FP2; showing the latest set."
+    },
+    "results": {
+      "status": "pending",
+      "path": null,
+      "stage": null,
+      "updated_at": null,
+      "available_from": "Q",
+      "history": [],
+      "message": null
+    }
+  }
+}

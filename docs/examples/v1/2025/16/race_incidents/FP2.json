@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "artifact": "race_incidents",
+    "season": 2025,
+    "round": 16,
+    "stage": "FP2",
+    "generated_at": "2025-09-05T17:10:00Z",
+    "run_id": "example-fixture"
+  },
+  "model": {
+    "name": "race_incidents_logit",
+    "version": "0.1.0",
+    "trained_through": "2025-08-31",
+    "features": [
+      "practice_long_run_pace",
+      "team_form_5",
+      "driver_form_5",
+      "circuit_type"
+    ],
+    "calibrated": false,
+    "backtest": []
+  },
+  "p_safety_car": 0.42,
+  "p_vsc": 0.35,
+  "p_red_flag": 0.06,
+  "expected_safety_cars": 0.51,
+  "by_lap_window": [
+    {
+      "start_lap": 1,
+      "end_lap": 1,
+      "p_safety_car": 0.14
+    },
+    {
+      "start_lap": 2,
+      "end_lap": 10,
+      "p_safety_car": 0.12
+    },
+    {
+      "start_lap": 11,
+      "end_lap": 30,
+      "p_safety_car": 0.14
+    },
+    {
+      "start_lap": 31,
+      "end_lap": 45,
+      "p_safety_car": 0.1
+    },
+    {
+      "start_lap": 46,
+      "end_lap": 53,
+      "p_safety_car": 0.06
+    }
+  ],
+  "circuit_history": [
+    {
+      "season": 2024,
+      "safety_cars": 0,
+      "vscs": 1,
+      "red_flags": 0
+    },
+    {
+      "season": 2023,
+      "safety_cars": 0,
+      "vscs": 0,
+      "red_flags": 0
+    },
+    {
+      "season": 2022,
+      "safety_cars": 1,
+      "vscs": 1,
+      "red_flags": 0
+    },
+    {
+      "season": 2021,
+      "safety_cars": 1,
+      "vscs": 0,
+      "red_flags": 0
+    },
+    {
+      "season": 2020,
+      "safety_cars": 1,
+      "vscs": 0,
+      "red_flags": 1
+    }
+  ]
+}
