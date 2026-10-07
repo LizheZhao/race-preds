@@ -99,16 +99,28 @@ The Phase 1 deliverable and the map of the whole project. Sections 1–9 are eac
 dashboard panel: schedule → results → weather → circuit → laps/tyres → track status →
 telemetry → Ergast → an **availability map** (which panel can refresh on which day) and a
 **cost table** (what each FastF1 load costs). Read section 9 before designing the Phase 2
-refresh job — it is the contract the pipeline has to honour. Sections 10–14 apply
-`src/data_explore.py`: season results, session summaries, long runs / degradation, a
+refresh job — it is the contract the pipeline has to honour. Sections 10–14 apply the
+modules below: season results, session summaries, long runs / degradation, a
 stage-safe weekend feature table and the minute timeline.
+`nb/race-weekend-predict.ipynb` uses the same modules for one weekend's predictions.
 
-### `src/data_explore.py`
-Reusable exploration functions, written with the owner. `get_season_results(year, kind)` /
-`get_results(years, kind)` fetch race, sprint, qualifying (Ergast, via the generic pager
-`collect_pages`) and sprint qualifying (FastF1, which Ergast lacks). `summarize_session()`
-returns a per-driver and a per-session table for any session type. `session_timeline()`
-returns one row per minute. Sessions must be loaded with laps, weather and messages.
+### Exploration modules in `src/`
+Reusable functions written with the owner, one file per future pipeline table (see the
+mapping in `docs/pipeline-plan.md`). Functions that take a `session` need it loaded with
+laps, weather and messages.
+
+- `sessions.py`: weekend formats. `SESSION_IDS` (FastF1 name → id, Sprint Shootout → SQ),
+  `get_sessions`, `get_session_stage` (sessions usable at a stage), `load_weekend`, and
+  `session_window` (first Started → last Finished).
+- `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
+  sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
+  qualifying (FastF1, which Ergast lacks).
+- `summaries.py`: `summarize_session()` returns a per-driver and a per-session table for
+  any session type. Its track status counts are the `race_incidents` label definition.
+- `timeline.py`: `session_timeline()` returns one row per minute.
+- `long_runs.py`: `long_runs()` returns one row per clean stint, with median pace and
+  degradation slope.
+- `features.py`: `weekend_features()` joins per-session features side by side for a stage.
 
 ### `demo/`
 A borrowed educational notebook (XGBoost pre-qualifying winner model for Baku, features

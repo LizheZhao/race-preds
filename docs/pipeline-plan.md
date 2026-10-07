@@ -94,7 +94,7 @@ Decisions:
 - **One module owns the mapping**: `src/sessions.py`, with the name → id table, the
   ordered session list of an event, and the sessions allowed at a stage. The notebook's
   `SESSION_IDS`, `STAGE_SESSIONS` and the hardcoded `"Sprint Qualifying"` in
-  `src/data_explore.py` all move onto it. Ingest, silver and the dispatcher use it too.
+  `src/results.py` all moved onto it. Ingest, silver and the dispatcher use it too.
 - **Historical formats are for training only.** `src/schema.py` stays at `conventional`
   and `sprint_qualifying`, the formats of the season being published. Publish refuses any
   other format. A check asserts that the order derived for these two formats equals
@@ -112,16 +112,19 @@ name mapped, every format producing the order above, and 2026 matching
 
 ### From exploration code to tables
 
-The functions in `src/data_explore.py` are prototypes of the silver and gold tables:
+The exploration modules in `src/` are prototypes of the silver and gold tables, one file
+per table:
 
-| function | table | grain |
+| function (file) | table | grain |
 |---|---|---|
-| `get_season_results` | bronze results | season × round × session × driver |
-| `session_timeline` | silver timeline | session × minute |
-| `summarize_session` → `by_driver` | gold | driver × session |
-| `summarize_session` → `session_row` | gold | session; the `race_incidents` label source |
-| `long_runs` (notebook section 12) | gold | driver × stint |
-| `weekend_features` (notebook section 13) | features | driver × round × stage |
+| `get_season_results` (`results.py`) | bronze results | season × round × session × driver |
+| `session_timeline` (`timeline.py`) | silver timeline | session × minute |
+| `summarize_session` → `by_driver` (`summaries.py`) | gold | driver × session |
+| `summarize_session` → `session_row` (`summaries.py`) | gold | session; the `race_incidents` label source |
+| `long_runs` (`long_runs.py`) | gold | driver × stint |
+| `weekend_features` (`features.py`) | features | driver × round × stage |
+
+`sessions.py` holds what they share: the weekend formats and `session_window`.
 
 How they run on Spark:
 
@@ -314,7 +317,7 @@ Each phase has an exit check. Don't start the next one until it passes.
 1. Build `src/sessions.py` and pass its exit check (see Weekend formats). Without it the
    backfill breaks on the 2021–23 sprint weekends.
 2. Phase 0.
-3. Before Phase 1, refactor the `data_explore` functions to take tables instead of a
+3. Before Phase 1, refactor the exploration modules to take tables instead of a
    `Session` (see From exploration code to tables).
 
 | # | phase | exit check |
@@ -334,7 +337,7 @@ working front end.
 
 - **Animated flag map.** A circuit map whose marshal sectors light up yellow / red as the
   session plays back minute by minute, with SC / VSC and race control messages alongside.
-  - Already exists: `session_timeline()` in `src/data_explore.py`, which has one row per
+  - Already exists: `session_timeline()` in `src/timeline.py`, which has one row per
     minute with track status, session status, cars on track and race control messages.
   - Still needed:
     1. Parse sector-scoped flags from race control (`Scope == "Sector"`, the `Sector`

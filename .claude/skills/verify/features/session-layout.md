@@ -1,9 +1,8 @@
 # Weekend session layout
 
-`src/session.py` maps an event's `Session1..5` names to short ids (`FP1 FP2 FP3 Q SQ S R`)
-and answers "which sessions have happened by stage X". It is the basis for
-`src/sessions.py` in `docs/pipeline-plan.md`, so conventional and sprint weekends must
-both work. Never key off `Session4 == "Qualifying"`.
+`src/sessions.py` maps an event's `Session1..5` names to short ids (`FP1 FP2 FP3 Q SQ S R`)
+and answers "which sessions have happened by stage X" (see Weekend formats in
+`docs/pipeline-plan.md`), so conventional and sprint weekends must both work. Never key off `Session4 == "Qualifying"`.
 
 ## Sub-features
 
@@ -23,7 +22,7 @@ schedule. Cached schedules make it offline.
 python - <<'EOF' 2>&1 | tee "$EV/session-layout.txt"
 from src.config import enable_cache
 enable_cache()
-from src.session import get_sessions, get_session_stage
+from src.sessions import get_sessions, get_session_stage
 print([s["session_id"] for s in get_sessions(2025, 16)])      # conventional: Monza
 print(get_session_stage(2025, 16, "FP2"))
 print(get_session_stage(2025, 13, "Q"))                       # sprint weekend, pick one in the 2025 sprint list

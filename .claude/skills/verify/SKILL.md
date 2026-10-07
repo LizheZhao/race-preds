@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Prove changes to race-preds work. There is no running app yet (no server, no front end), so "driving" means running the artifact-schema CLI, the example/JSON-Schema regeneration, the FastF1 session helpers and the exploration notebook against the local cache. Use after editing src/schema.py, src/session.py, src/data_explore.py, src/config.py, docs/examples/make_examples.py or nb/*.ipynb.
+description: Prove changes to race-preds work. There is no running app yet (no server, no front end), so "driving" means running the artifact-schema CLI, the example/JSON-Schema regeneration, the FastF1 session helpers and the exploration notebook against the local cache. Use after editing src/schema.py, src/sessions.py, src/results.py, src/summaries.py, src/timeline.py, src/long_runs.py, src/features.py, src/config.py, docs/examples/make_examples.py or nb/*.ipynb.
 ---
 
 # Verify race-preds

@@ -1,8 +1,8 @@
 # Session summary + timeline
 
-`src/data_explore.py` turns one loaded FastF1 session into feature tables:
-`summarize_session` (per-driver and per-session rows) and `session_timeline` (one row per
-minute). These feed the stage-safe weekend feature table in notebook section 13.
+`src/summaries.py` and `src/timeline.py` turn one loaded FastF1 session into feature
+tables: `summarize_session` (per-driver and per-session rows) and `session_timeline` (one
+row per minute). Both use `session_window` from `src/sessions.py`. These feed the stage-safe weekend feature table in notebook section 13.
 
 ## Sub-features
 
@@ -10,7 +10,7 @@ minute). These feed the stage-safe weekend feature table in notebook section 13.
   control counts per driver; window, weather, track status, race control per session.
 - `session_timeline(session, freq="1min")`: weather, track status flags (`is_yellow`,
   `is_sc`, `is_red`, `is_vsc`), `cars_on_track`, `max_laps_completed`, race control messages.
-- Season results: `get_season_results` / `get_results` (Ergast via jolpica; needs network,
+- Season results (`src/results.py`): `get_season_results` / `get_results` (Ergast via jolpica; needs network,
   rate limited; verify only if you changed them).
 
 ## How to get to it (user POV)
@@ -25,7 +25,8 @@ python - <<'EOF' 2>&1 | tee "$EV/session-summary-timeline.txt"
 import fastf1
 from src.config import enable_cache
 enable_cache()
-from src.data_explore import summarize_session, session_timeline
+from src.summaries import summarize_session
+from src.timeline import session_timeline
 
 s = fastf1.get_session(2025, 16, "R")                  # Monza race, cached
 s.load(laps=True, telemetry=False, weather=True, messages=True)

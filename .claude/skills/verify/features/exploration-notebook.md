@@ -9,7 +9,7 @@ sections 1 to 9 (one per dashboard panel plus availability map and cost table) a
 
 - Sections 0 to 9: schedule, results, weather (Open-Meteo), circuit, laps/tyres, track
   status, telemetry, Ergast, availability map.
-- Sections 10 to 14: apply `src/data_explore.py` (see
+- Sections 10 to 14: apply the exploration modules in `src/` (see
   [session-summary-timeline.md](session-summary-timeline.md)).
 
 ## How to get to it (user POV)

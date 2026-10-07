@@ -1,14 +1,9 @@
-from collections.abc import Callable, Iterable
-
 import pandas as pd
-import numpy as np
 import fastf1
-from fastf1.ergast import Ergast
-from fastf1.ergast.interface import ErgastMultiResponse
 
 # session mapping
 SESSION_IDS = {
-    "Practice 1": "FP1", 
+    "Practice 1": "FP1",
     "Practice 2": "FP2",
     "Practice 3": "FP3",
     "Qualifying": "Q",
@@ -68,4 +63,15 @@ def get_session_stage(year: int, rnd: int, stage: str):
     return prev_stages
 
 
-
+def session_window(session) -> tuple[pd.Timedelta, pd.Timedelta]:
+    """
+    first "Started" to last "Finished" in session time
+    """
+    status = session.session_status
+    start = status.loc[status["Status"] == "Started", "Time"].min()
+    end = status.loc[status["Status"] == "Finished", "Time"].max()
+    if pd.isna(start):
+        start = pd.Timedelta(0)
+    if pd.isna(end):
+        end = session.laps["Time"].max()
+    return start, end
