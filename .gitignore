@@ -20,3 +20,7 @@ outputs/
 
 # OS
 .DS_Store
+
+# Secrets — Databricks host/token
+.env
+.env.*

@@ -110,6 +110,12 @@ Exit check: a loop over the 2018–2026 schedules (testing excluded) finds every
 name mapped, every format producing the order above, and 2026 matching
 `schema.STAGE_ORDER`. Re-run it before each season to catch new format changes.
 
+Passed on 2026-10-07 with one known exception: **2020 round 13 (Emilia Romagna)** was a
+two-day weekend, FP1 → Q → R, but FastF1 still labels it `conventional`. So the table
+above is the typical order of a format, not a guarantee. The derived per-event list from
+`get_sessions` is authoritative; `ops.processed_sessions` and the backfill must be
+filled from it, otherwise they wait forever for an FP2 and FP3 that never existed.
+
 ### From exploration code to tables
 
 The exploration modules in `src/` are prototypes of the silver and gold tables, one file

@@ -48,8 +48,11 @@ def get_sessions(year: int, rnd: int) -> list[dict]:
 
 
 def get_session_stage(year: int, rnd: int, stage: str):
+    """sessions usable at a stage, in weekend order; pre_weekend has none"""
+    if stage == "pre_weekend":
+        return []
     if stage not in SESSION_IDS.values():
-        raise ValueError(f"stage must in {SESSION_IDS.values()}")
+        raise ValueError(f"stage must be pre_weekend or one of {sorted(set(SESSION_IDS.values()))}")
     sessions = get_sessions(year, rnd)
     prev_stages = []
     for s in sessions:
