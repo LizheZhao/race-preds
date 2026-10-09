@@ -17,7 +17,7 @@ The repo has three parts:
 
 ```
 FastF1 / Jolpica / Open-Meteo
-        │  ① ingest                      (GitHub Actions runner)
+        │  ① ingest                      (Databricks job)
         ▼
 UC Volume: raw Parquet
         │  ② Spark ETL                   (Databricks job)
@@ -53,11 +53,29 @@ static host  ←  browser fetches JSON; all interaction is client-side
 
 ### Where ingest runs
 
-Ingest is planned on a GitHub Actions runner, **outside** Databricks. Databricks Free
-Edition serverless compute probably has restricted outbound internet access, which the
-FastF1 live-timing endpoint and Open-Meteo both need. The runner pulls the data, writes
-Parquet, and uploads it to a Unity Catalog Volume. If Phase 0 shows serverless can reach
-those hosts, ingest can move into Databricks later without changing the tables.
+Ingest runs **inside Databricks**, as the first task of the session job. Phase 0
+(2026-10-08) showed that Free Edition serverless reaches `livetiming.formula1.com`,
+`api.jolpi.ca` and `api.open-meteo.com`, and that a FastF1 `session.load()` completes
+there. The job pulls the data, writes Parquet into the Unity Catalog Volume, and the
+ETL tasks read it from there. The GitHub Actions runner only triggers the job and runs
+publish.
+
+Two conditions on this decision:
+
+- The Free Edition docs describe outbound access as "a limited set of trusted domains",
+  so the allow-list can change. `src/ingest/` stays plain Python + FastF1 with no
+  Databricks imports, so it can fall back to the GitHub Actions runner (pull, write
+  Parquet, `fs cp` to the Volume) without touching the tables.
+- Serverless local disk is ephemeral. Point `fastf1.Cache.enable_cache()` at a Volume
+  path (e.g. `/Volumes/race_preds/raw/fastf1_cache`) or every run re-downloads.
+
+Parquet written for Spark needs two conversions, found in Phase 0: pandas
+`datetime64[ns]` columns must be coerced to microseconds (`coerce_timestamps="us"`), and
+`Timedelta` columns converted to seconds as `double`. Spark's Parquet reader rejects
+nanosecond timestamps and duration types, and serverless does not let you work around it
+with reader settings. Without telemetry, FastF1 leaves `LapStartDate` entirely null
+(`t0_date` is not loaded), so silver must not use it; session time (`Time`,
+`LapStartTime`) is complete, and UTC alignment comes from race control messages.
 
 ### Layers
 
@@ -285,6 +303,16 @@ weekend lifecycle). The dispatcher just maps a finished FastF1 session to its st
 ### Known constraints
 
 - GitHub cron can run 5–20 min late. Irrelevant here.
+- Free Edition allows **5 concurrent job tasks** per account. The dispatcher processes
+  one session at a time; a backfill must not fan out into parallel job runs. Spark's
+  own parallelism inside a task (`mapInPandas`, `applyInPandas`) is unaffected.
+- One SQL warehouse (2X-Small). Cold start measured at 26.7 s for the first query,
+  2 s to connect. This is the number behind "the browser never talks to Databricks".
+- Over-quota serverless usage stops compute for the rest of the day, in extreme cases
+  the month. Data and settings survive. The quota itself is not published.
+- Personal access tokens expire. Note the expiry date when creating the one in GitHub
+  Actions secrets; an expired token makes the dispatcher fail silently until the
+  failure email arrives.
 - Scheduled workflows in a public repo are disabled after 60 days without commits. Keep
   a monthly off-season heartbeat, or re-enable before the season.
 - Failed runs email the repo owner. That is the monitoring for now.
@@ -320,21 +348,44 @@ Each phase has an exit check. Don't start the next one until it passes.
 
 **Next up**, in order:
 
-1. Build `src/sessions.py` and pass its exit check (see Weekend formats). Without it the
-   backfill breaks on the 2021–23 sprint weekends.
-2. Phase 0.
+1. ~~Build `src/sessions.py` and pass its exit check.~~ Done 2026-10-07.
+2. ~~Phase 0.~~ Done 2026-10-08, see Phase 0 results below.
 3. Before Phase 1, refactor the exploration modules to take tables instead of a
    `Session` (see From exploration code to tables).
+4. Phase 1, with ingest as a job task (see Where ingest runs).
 
 | # | phase | exit check |
 |---|---|---|
-| 0 | **Platform spike.** Connect to the workspace locally, create catalog/schema/volume, upload one Parquet file. In a Databricks notebook, try a FastF1 `session.load()`. Read a table back locally with the SQL connector. Trigger a job from outside with a token. | Written answers to: can serverless reach the internet? Can a job be triggered externally on Free Edition? What are the Vector Search / model serving / job quotas? |
+| 0 | **Platform spike.** Connect to the workspace locally, create catalog/schema/volume, upload one Parquet file. In a Databricks notebook, try a FastF1 `session.load()`. Read a table back locally with the SQL connector. Trigger a job from outside with a token. | **Passed 2026-10-08.** Answers below. |
 | 1 | **Lakehouse, one race.** Ingest one historical race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | Gold tables for that race. Re-running produces identical tables. |
 | 2 | **Replay.** Run the dispatcher against a past weekend by faking the clock, session by session, with baseline models and a real publish step. | A full round directory that passes `python -m src.schema check`, produced without manual steps. |
 | 3 | **Backfill + models.** Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness (see Research swarm). | A swarm-proposed change beats the production model on the backtest **and** on the untouched holdout season, and goes live through owner approval. |
 | 4 | **Front end** (parallel from the start). Choose framework and host, build against `docs/examples/v1/`, then point at real output. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
 | 5 | **Go live.** Enable the schedule for the current season. | One real weekend published end to end with no manual step. |
+
+### Phase 0 results
+
+Everything measured on Free Edition, 2026-10-07/08.
+
+| question | answer |
+|---|---|
+| Serverless outbound network | Yes. Jolpica, Open-Meteo and livetiming all reachable; `session.load(telemetry=False)` for 2025 R1 completed in a job. |
+| External job trigger | Yes, both ways. CLI `bundle run`: 41 s for a job that pip-installs FastF1 and loads one session. SDK `jobs.run_now(...).result()`: 32 s. Dispatcher will use the SDK. |
+| Own catalog | Allowed. `race_preds` catalog, `raw` schema, `fastf1` Volume created with plain SQL. |
+| Volume upload from outside | Works with `databricks fs cp`. One race's laps ≈ 88 KB as Parquet. |
+| Local read with SQL connector | Works. Needs host, PAT and the warehouse HTTP path from `.env`. |
+| Concurrent job tasks | 5 per account. |
+| SQL warehouse | One, 2X-Small. |
+| Model Serving | Available, CPU only, limited endpoint count, no batch inference. Not needed by the plan. |
+| Vector Search | One endpoint, one search unit. Not needed by the plan. |
+| Account level | No account console, no account APIs, one workspace. Everything is workspace-level; a workspace PAT is all GitHub Actions needs. |
+| Serverless quota | Not published. Over-use stops compute for the day. |
+
+Spike assets: `databricks/` holds the Asset Bundle (`databricks.yml` from the
+`default-python` template, catalog `race_preds`, no personal schemas) and the `spike`
+job with its network-check notebook. The bundle's `dev` target prefixes job names with
+`[dev <user>]`.
 
 ## Backlog
 
@@ -367,8 +418,6 @@ static architecture rules out.
 
 ## Open questions
 
-- Databricks Free Edition limits: outbound network, external job triggers, compute and
-  job quotas. Phase 0 answers these.
 - Front-end framework and host.
 - Data source for the Pirelli tyre allocation (not in FastF1).
 - Research swarm sandbox runtime: GitHub Actions matrix, containers or local worktrees.

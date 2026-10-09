@@ -1,0 +1,8 @@
+resources:
+  jobs:
+    spike:
+      name: spike
+      tasks:
+        - task_key: network_check
+          notebook_task:
+            notebook_path: ../notebooks/spike_network.py
