@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 
-from src.sessions import session_window
+from src.sessions import SessionTables, as_tables, session_window
 
 
-def _session_t0_date(session, start: pd.Timedelta, end: pd.Timedelta) -> pd.Timestamp:
+def _session_t0_date(tables: SessionTables, start: float, end: float) -> pd.Timestamp:
     """
     UTC timestamp of session time 0, best source first:
       1. lap dates vs lap times (only filled when telemetry is loaded)
@@ -12,29 +12,29 @@ def _session_t0_date(session, start: pd.Timedelta, end: pd.Timedelta) -> pd.Time
          within ~2 s of 1. on 2025 test sessions
       3. the scheduled start; minutes off for races (formation lap, delays), last resort
     """
-    laps = session.laps
-    offset = (laps["LapStartDate"] - laps["LapStartTime"]).dropna()
+    laps = tables.laps
+    offset = (laps["LapStartDate"] - pd.to_timedelta(laps["LapStartTime"], unit="s")).dropna()
     if len(offset):
         return offset.median()
 
-    rc = session.race_control_messages
+    rc = tables.race_control
     chequered = rc.loc[rc["Flag"] == "CHEQUERED", "Time"]
     if len(chequered) and pd.notna(end):
-        return chequered.max() - end
-    return session.date - start
+        return chequered.max() - pd.Timedelta(seconds=end)
+    return tables.date - pd.Timedelta(seconds=start)
 
 
-def _bin_index(times: pd.Series, start: pd.Timedelta, step: pd.Timedelta) -> pd.Series:
+def _bin_index(times: pd.Series, start: float, step: float) -> pd.Series:
     """which timeline row (0, 1, 2, ...) each session time falls into"""
     return ((times - start) // step).astype(int)
 
 
-def _track_status_per_tick(session, grid: pd.DataFrame, start, end, step) -> pd.Series:
+def _track_status_per_tick(tables: SessionTables, grid: pd.DataFrame, start, end, step) -> pd.Series:
     """
     every status active during each tick, concatenated like the per-lap TrackStatus
     ("12" = clear then yellow), so .str.contains() works the same way
     """
-    ts = session.track_status[["Time", "Status"]].sort_values("Time")
+    ts = tables.track_status[["Time", "Status"]].sort_values("Time")
 
     # status already active when the tick starts
     at_start = pd.merge_asof(grid[["SessionTime"]], ts.rename(columns={"Time": "SessionTime"}),
@@ -72,33 +72,37 @@ def session_timeline(session, freq: str = "1min") -> pd.DataFrame:
     weather, track status, session status, cars on track, laps completed,
     and the race control messages issued during the tick
 
-    session must be loaded with laps, weather and messages (same as summarize_session)
+    session is SessionTables, or a FastF1 Session loaded with laps, weather and messages
+    (same as summarize_session); SessionTime is in seconds
     """
-    start, end = session_window(session)
-    step = pd.Timedelta(freq)
-    t0_date = _session_t0_date(session, start, end)
+    tables = as_tables(session)
+    start, end = session_window(tables)
+    step = pd.Timedelta(freq).total_seconds()
+    t0_date = _session_t0_date(tables, start, end)
 
-    grid = pd.DataFrame({"SessionTime": pd.timedelta_range(start, end, freq=step)})
-    grid.insert(0, "minute", (grid["SessionTime"] - start).dt.total_seconds() / 60)
-    grid["Date"] = t0_date + grid["SessionTime"]
+    # ticks start, start + step, ... up to and including end
+    n_ticks = int(np.floor((end - start) / step + 1e-9)) + 1
+    grid = pd.DataFrame({"SessionTime": start + step * np.arange(n_ticks)})
+    grid.insert(0, "minute", (grid["SessionTime"] - start) / 60)
+    grid["Date"] = t0_date + pd.to_timedelta(grid["SessionTime"], unit="s")
 
     # weather: latest reading at or before each tick (weather is sampled about once a minute)
-    weather = session.weather_data.rename(columns={"Time": "SessionTime"}).sort_values("SessionTime")
+    weather = tables.weather.rename(columns={"Time": "SessionTime"}).sort_values("SessionTime")
     grid = pd.merge_asof(grid, weather, on="SessionTime", direction="backward")
 
     # session status (Started / Aborted / Finished) at each tick
-    status = session.session_status.rename(columns={"Time": "SessionTime", "Status": "session_status"})
+    status = tables.session_status.rename(columns={"Time": "SessionTime", "Status": "session_status"})
     grid = pd.merge_asof(grid, status.sort_values("SessionTime"), on="SessionTime", direction="backward")
 
     # track status during each tick, plus one boolean per interruption type
-    grid["track_status"] = _track_status_per_tick(session, grid, start, end, step)
+    grid["track_status"] = _track_status_per_tick(tables, grid, start, end, step)
     grid["is_yellow"] = grid["track_status"].str.contains("2")
     grid["is_sc"] = grid["track_status"].str.contains("4")
     grid["is_red"] = grid["track_status"].str.contains("5")
     grid["is_vsc"] = grid["track_status"].str.contains("6|7")
 
     # running order: how many cars are out, and the most laps anyone has completed
-    laps = session.laps[~session.laps["FastF1Generated"]]
+    laps = tables.laps[~tables.laps["FastF1Generated"]]
     grid["cars_on_track"] = _cars_on_track(laps, grid["SessionTime"])
     finished = laps[["Time", "LapNumber"]].dropna().sort_values("Time")
     finished["LapNumber"] = finished["LapNumber"].cummax()
@@ -107,8 +111,8 @@ def session_timeline(session, freq: str = "1min") -> pd.DataFrame:
     grid["max_laps_completed"] = grid["max_laps_completed"].fillna(0).astype(int)
 
     # race control messages: Time is a UTC timestamp, convert to session time first
-    rc = session.race_control_messages.copy()
-    rc["SessionTime"] = rc["Time"] - t0_date
+    rc = tables.race_control.copy()
+    rc["SessionTime"] = (rc["Time"] - t0_date).dt.total_seconds()
     rc = rc[(rc["SessionTime"] >= start) & (rc["SessionTime"] <= end)]
     by_tick = rc.groupby(_bin_index(rc["SessionTime"], start, step))["Message"]
     grid["rc_n"] = by_tick.size().reindex(grid.index, fill_value=0)

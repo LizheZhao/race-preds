@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import pandas as pd
 import fastf1
 
@@ -66,15 +68,65 @@ def get_session_stage(year: int, rnd: int, stage: str):
     return prev_stages
 
 
-def session_window(session) -> tuple[pd.Timedelta, pd.Timedelta]:
+def _to_seconds(df) -> pd.DataFrame:
+    """plain DataFrame copy with every Timedelta column as float seconds"""
+    df = pd.DataFrame(df)
+    timedeltas = df.select_dtypes("timedelta").columns
+    return df.assign(**{c: df[c].dt.total_seconds() for c in timedeltas})
+
+
+@dataclass(frozen=True)
+class SessionTables:
     """
-    first "Started" to last "Finished" in session time
+    one session as plain DataFrames: what ingest writes to the Volume and what the
+    exploration functions read, so the same code runs on a FastF1 Session locally and
+    on tables in Spark (applyInPandas)
+
+    every Timedelta column is float seconds; timestamps (laps LapStartDate, race_control
+    Time, date) stay UTC datetimes
     """
-    status = session.session_status
+    season: int
+    round: int
+    session: str  # FastF1 session name, e.g. "Race"
+    event_format: str
+    date: pd.Timestamp  # scheduled start, UTC
+    laps: pd.DataFrame
+    results: pd.DataFrame
+    weather: pd.DataFrame
+    track_status: pd.DataFrame
+    session_status: pd.DataFrame
+    race_control: pd.DataFrame
+
+    @classmethod
+    def from_session(cls, session) -> "SessionTables":
+        """session must be loaded with laps, weather and messages"""
+        return cls(
+            season=int(session.event.year),
+            round=int(session.event["RoundNumber"]),
+            session=session.name,
+            event_format=session.event["EventFormat"],
+            date=session.date,
+            laps=_to_seconds(session.laps),
+            results=_to_seconds(session.results),
+            weather=_to_seconds(session.weather_data),
+            track_status=_to_seconds(session.track_status),
+            session_status=_to_seconds(session.session_status),
+            race_control=_to_seconds(session.race_control_messages),
+        )
+
+
+def as_tables(session) -> SessionTables:
+    """accept a loaded FastF1 Session or SessionTables, so notebooks can keep passing sessions"""
+    return session if isinstance(session, SessionTables) else SessionTables.from_session(session)
+
+
+def session_window(tables: SessionTables) -> tuple[float, float]:
+    """first "Started" to last "Finished", in session seconds"""
+    status = tables.session_status
     start = status.loc[status["Status"] == "Started", "Time"].min()
     end = status.loc[status["Status"] == "Finished", "Time"].max()
     if pd.isna(start):
-        start = pd.Timedelta(0)
+        start = 0.0
     if pd.isna(end):
-        end = session.laps["Time"].max()
+        end = tables.laps["Time"].max()
     return start, end

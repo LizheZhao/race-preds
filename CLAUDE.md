@@ -33,9 +33,9 @@ still undecided, so don't scaffold a front end until they're chosen.
 Free Edition platform spike) are done. Phase 0 showed serverless can reach FastF1 /
 Jolpica / Open-Meteo, so **ingest runs inside a Databricks job**, not on the GitHub
 runner; the runner only triggers jobs and publishes. Results and remaining constraints
-are in `docs/pipeline-plan.md` (Phase 0 results, Known constraints). Next is the "Next
-up" list there: refactor the exploration modules to take tables instead of a `Session`,
-then Phase 1, the lakehouse for one race.
+are in `docs/pipeline-plan.md` (Phase 0 results, Known constraints). The exploration
+modules already take tables (`SessionTables`). Next is Phase 1 in that plan, the
+lakehouse for one race.
 
 `databricks/` holds the Asset Bundle (`databricks.yml`, `resources/*.yml`, notebooks in
 Databricks source format). Local Databricks access reads `DATABRICKS_HOST`,
@@ -114,12 +114,17 @@ stage-safe weekend feature table and the minute timeline.
 
 ### Exploration modules in `src/`
 Reusable functions written with the owner, one file per future pipeline table (see the
-mapping in `docs/pipeline-plan.md`). Functions that take a `session` need it loaded with
-laps, weather and messages.
+mapping in `docs/pipeline-plan.md`). The session-level functions take a `SessionTables`
+or a FastF1 `Session` loaded with laps, weather and messages; a `Session` is converted
+with `as_tables()`. Inside them every duration is float seconds, never a `Timedelta`.
 
 - `sessions.py`: weekend formats. `SESSION_IDS` (FastF1 name → id, Sprint Shootout → SQ),
   `get_sessions`, `get_session_stage` (sessions usable at a stage), `load_weekend`, and
-  `session_window` (first Started → last Finished).
+  `session_window` (first Started → last Finished). Also `SessionTables`, one session as
+  six plain DataFrames with Timedeltas in seconds: the unit ingest writes and Spark hands
+  to `applyInPandas`.
+- `laps.py`: `not_deleted`, `clean_laps`, `quick_laps`, plain replacements for FastF1's
+  `Laps.pick_*` filters (the future silver lap flags).
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).

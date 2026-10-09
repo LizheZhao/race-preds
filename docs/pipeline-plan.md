@@ -158,10 +158,16 @@ How they run on Spark:
   `session_timeline` run through `groupBy(season, round, session).applyInPandas(...)`,
   which sends each session's rows to the existing pandas code in parallel. Knowing when
   to use native operators and when to use a pandas UDF is itself a talking point.
-- **Prerequisite refactor:** `applyInPandas` hands a function DataFrames, not a FastF1
-  `Session`. Before Phase 1, change these functions to take the tables they read (laps,
-  track status, session status, weather, race control messages, results) instead of a
-  `session`. A thin wrapper can keep the notebook calling them with a session.
+- **Prerequisite refactor (done 2026-10-08):** `applyInPandas` hands a function
+  DataFrames, not a FastF1 `Session`. The functions now read a `SessionTables`
+  (`src/sessions.py`): six plain DataFrames (laps, results, weather, track status,
+  session status, race control) plus season / round / session / format / date, with
+  every `Timedelta` column as float seconds. `SessionTables.from_session()` is the
+  conversion ingest applies before writing Parquet, and `as_tables()` lets the notebooks
+  keep passing a loaded `Session`. FastF1's `Laps.pick_*` filters became plain functions
+  in `src/laps.py`, the seed of the silver lap flags. Checked on 20 sessions across four
+  weekend shapes: outputs identical to the old code (timeline `Date` differs by 1 ns of
+  float rounding), and identical again after a Parquet round trip of the tables.
 
 ### State table
 
@@ -350,8 +356,8 @@ Each phase has an exit check. Don't start the next one until it passes.
 
 1. ~~Build `src/sessions.py` and pass its exit check.~~ Done 2026-10-07.
 2. ~~Phase 0.~~ Done 2026-10-08, see Phase 0 results below.
-3. Before Phase 1, refactor the exploration modules to take tables instead of a
-   `Session` (see From exploration code to tables).
+3. ~~Refactor the exploration modules to take tables instead of a `Session`.~~ Done
+   2026-10-08.
 4. Phase 1, with ingest as a job task (see Where ingest runs).
 
 | # | phase | exit check |
