@@ -29,10 +29,18 @@ a state table and processes each finished session. **No Streamlit.** The owner u
 at work and rejected it as too inflexible. The front-end framework and hosting are
 still undecided, so don't scaffold a front end until they're chosen.
 
-**Status**: data exploration and the artifact schema are done. Next steps are the
-"Next up" list in `docs/pipeline-plan.md`: `src/sessions.py` for the weekend formats,
-then Phase 0, a platform spike to establish Free Edition's outbound network, external
-job triggers and quotas.
+**Status**: data exploration, the artifact schema, `src/sessions.py` and Phase 0 (the
+Free Edition platform spike) are done. Phase 0 showed serverless can reach FastF1 /
+Jolpica / Open-Meteo, so **ingest runs inside a Databricks job**, not on the GitHub
+runner; the runner only triggers jobs and publishes. Results and remaining constraints
+are in `docs/pipeline-plan.md` (Phase 0 results, Known constraints). Next is the "Next
+up" list there: refactor the exploration modules to take tables instead of a `Session`,
+then Phase 1, the lakehouse for one race.
+
+`databricks/` holds the Asset Bundle (`databricks.yml`, `resources/*.yml`, notebooks in
+Databricks source format). Local Databricks access reads `DATABRICKS_HOST`,
+`DATABRICKS_TOKEN` and `DATABRICKS_HTTP_PATH` from `.env` via `python-dotenv`; the CLI
+uses the `race-preds` profile.
 
 ## Setup & commands
 
