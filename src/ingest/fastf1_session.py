@@ -13,12 +13,23 @@ from pathlib import Path
 
 import fastf1
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from fastf1.exceptions import DataNotLoadedError
 
 from src.sessions import SessionTables, get_sessions
 
 TABLES = [f.name for f in fields(SessionTables) if f.type is pd.DataFrame]
 META = [f.name for f in fields(SessionTables) if f.type is not pd.DataFrame]
+
+# Parquet types for columns FastF1 leaves all-None in many sessions (race control Lap,
+# Status, RacingNumber, Sector...). Written as they are, they get Parquet's null type,
+# which Delta cannot store and which differs from the same column in other sessions
+FIXED_TYPES = {
+    "race_control": {"Category": pa.string(), "Message": pa.string(), "Status": pa.string(),
+                     "Flag": pa.string(), "Scope": pa.string(), "Sector": pa.float64(),
+                     "RacingNumber": pa.string(), "Lap": pa.int64()},
+}
 
 
 class SessionNotAvailable(Exception):
@@ -27,6 +38,18 @@ class SessionNotAvailable(Exception):
 
 def session_dir(root: Path | str, season: int, rnd: int, session_id: str) -> Path:
     return Path(root) / str(season) / str(rnd) / session_id
+
+
+def _write_parquet(df: pd.DataFrame, path: Path, fixed: dict[str, pa.DataType]) -> None:
+    """one table as Parquet that Spark and Delta accept: microsecond timestamps, no null-typed columns"""
+    table = pa.Table.from_pandas(df, preserve_index=False)
+    schema = pa.schema([pa.field(f.name, fixed.get(f.name, f.type)) for f in table.schema],
+                       metadata=table.schema.metadata)
+    untyped = [f.name for f in schema if pa.types.is_null(f.type)]
+    if untyped:
+        raise ValueError(f"{path}: {untyped} are empty in this session and have no type in FIXED_TYPES")
+    # the pandas metadata is kept, so read_session gets the original pandas dtypes back
+    pq.write_table(table.cast(schema), path, coerce_timestamps="us", allow_truncated_timestamps=True)
 
 
 def ingest_session(season: int, rnd: int, session_id: str, root: Path | str) -> Path:
@@ -49,9 +72,7 @@ def ingest_session(season: int, rnd: int, session_id: str, root: Path | str) -> 
     out = session_dir(root, season, rnd, session_id)
     out.mkdir(parents=True, exist_ok=True)
     for name in TABLES:
-        # Spark rejects nanosecond timestamps; durations are already float seconds
-        getattr(tables, name).to_parquet(out / f"{name}.parquet", index=False,
-                                         coerce_timestamps="us", allow_truncated_timestamps=True)
+        _write_parquet(getattr(tables, name), out / f"{name}.parquet", FIXED_TYPES.get(name, {}))
 
     # written last, so a directory without meta.json is an interrupted pull
     meta = {k: getattr(tables, k) for k in META}

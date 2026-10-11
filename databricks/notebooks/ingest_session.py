@@ -26,3 +26,6 @@ CACHE_DIR = f"{tempfile.gettempdir()}/fastf1_cache"
 enable_cache(cache_dir=CACHE_DIR)
 out = ingest_session(season, rnd, session_id, RAW_ROOT)
 print(f"{out}: {sorted(p.name for p in out.iterdir())}")
+
+# the bronze task reads this directory
+dbutils.jobs.taskValues.set(key="session_dir", value=str(out))

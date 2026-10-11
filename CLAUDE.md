@@ -127,9 +127,13 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   `Laps.pick_*` filters (the future silver lap flags).
 - `ingest/fastf1_session.py` (pipeline, not exploration): `ingest_session()` writes one
   session's `SessionTables` as Parquet + `meta.json` under a root (`data/raw` locally,
-  `/Volumes/race_preds/raw/fastf1` in the `ingest_session` bundle job);
+  `/Volumes/race_preds/raw/fastf1` in the `process_session` bundle job);
   `read_session()` reads it back without FastF1. No Databricks imports. In a job, keep
-  the FastF1 cache on local temp disk: SQLite does not work on a Volume.
+  the FastF1 cache on local temp disk: SQLite does not work on a Volume. Columns that
+  can be all-empty need a type in `FIXED_TYPES`, or ingest refuses to write them.
+- `etl/bronze.py` (pipeline, Spark only, no FastF1): `load_session(spark, session_dir)`
+  replaces one session in the `race_preds.bronze.*` Delta tables. Runs as the second
+  task of `process_session`; needs a Databricks Spark session, so it cannot run locally.
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).

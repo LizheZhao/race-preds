@@ -86,7 +86,7 @@ with reader settings. Without telemetry, FastF1 leaves `LapStartDate` entirely n
 | layer | contents | notes |
 |---|---|---|
 | raw (Volume) | `SessionTables` per session: `laps`, `results`, `weather`, `track_status`, `session_status`, `race_control` Parquet plus `meta.json`, at `/Volumes/race_preds/raw/fastf1/<season>/<round>/<session_id>/`. Later: Jolpica results and standings, Open-Meteo forecasts. | Written by `src/ingest/fastf1_session.py`. Overwritten on re-ingest; `meta.json` is written last, so a directory without it is an interrupted pull. |
-| bronze | The raw files loaded into Delta, one table per source entity, plus ingest metadata (source, pulled_at, FastF1 version). | Append/merge by session key. Schema evolution on. |
+| bronze | `race_preds.bronze.<table>`, one Delta table per raw Parquet file, each row prefixed with `season`, `round`, `session_id` and suffixed with `pulled_at`, `fastf1_version` from `meta.json`. | Written by `src/etl/bronze.py`. A session is replaced as a whole (`overwrite` + `replaceWhere` on the session key), not merged: bronze rows have no natural key (weather, duplicate race control messages). Unpartitioned. `mergeSchema` on. |
 | silver | Cleaned and conformed: typed columns, Ergast ids as join keys, lap flags (in-lap, out-lap, SC/VSC/red flag via `TrackStatus` contains), stint number and tyre age per lap, fuel-corrected lap time. | Window functions per driver-session live here. |
 | gold | Analysis grain tables: driver × session pace summaries, driver × race × stint degradation, circuit incident history, rolling driver/team form. | This is what the models read. |
 
@@ -362,13 +362,24 @@ Each phase has an exit check. Don't start the next one until it passes.
 2. ~~Phase 0.~~ Done 2026-10-08, see Phase 0 results below.
 3. ~~Refactor the exploration modules to take tables instead of a `Session`.~~ Done
    2026-10-08.
-4. Phase 1, on 2026 R16 (Bahrain, conventional, 22 cars). Step 1, ingest, is done
-   (2026-10-08): `src/ingest/fastf1_session.py` writes the raw layer, the bundle job
-   `ingest_session` (parameters season / round / session_id) runs it on serverless in
-   about 30 s, and the SQL warehouse reads all six tables with the expected types
-   (durations `double`, `Deleted` `boolean`, UTC timestamps `timestamp_ntz`). A re-pull
-   writes byte-identical Parquet. A session that has not run, or does not exist in that
-   weekend, raises `SessionNotAvailable` and writes nothing. Next: bronze.
+4. Phase 1, on 2026 R16 (Bahrain, conventional, 22 cars). The bundle job
+   `process_session` (parameters season / round / session_id) runs one task per layer;
+   ingest passes its output directory to the next task as a task value.
+   - **Ingest, done 2026-10-08.** `src/ingest/fastf1_session.py` writes the raw layer in
+     about 30 s on serverless; the SQL warehouse reads all six tables with the expected
+     types (durations `double`, `Deleted` `boolean`, UTC timestamps `timestamp_ntz`). A
+     re-pull writes byte-identical Parquet. A session that has not run, or does not
+     exist in that weekend, raises `SessionNotAvailable` and writes nothing.
+     FastF1 leaves some race control columns (`Lap`, `Status`, `RacingNumber`,
+     `Sector`) all-None in most sessions, which Parquet stores as the null type that
+     Delta rejects; ingest writes them with fixed types (`FIXED_TYPES`) and fails loudly
+     on any other all-empty column. 25 sessions across five weekends then share one
+     schema per table.
+   - **Bronze, done 2026-10-11.** `src/etl/bronze.py`, Spark only. Ingest + bronze take
+     about 2 min per session. Checked on R and FP1: row counts equal the Volume files,
+     re-running R gives zero differing rows (`EXCEPT ALL` both ways on Delta time
+     travel, `pulled_at` excluded), and writing FP1 leaves every R row unchanged.
+   - Next: silver.
 
 | # | phase | exit check |
 |---|---|---|

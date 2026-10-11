@@ -1,7 +1,7 @@
 resources:
   jobs:
-    ingest_session:
-      name: ingest_session
+    process_session:
+      name: process_session
       parameters:
         - name: season
           default: "2026"
@@ -15,3 +15,10 @@ resources:
         - task_key: ingest
           notebook_task:
             notebook_path: ../notebooks/ingest_session.py
+        - task_key: bronze
+          depends_on:
+            - task_key: ingest
+          notebook_task:
+            notebook_path: ../notebooks/bronze_session.py
+            base_parameters:
+              session_dir: "{{tasks.ingest.values.session_dir}}"
