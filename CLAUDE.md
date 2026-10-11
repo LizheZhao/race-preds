@@ -26,8 +26,9 @@ such as this file and `docs/*.md` is fine when asked.
 The browser never talks to Databricks, and there is no application server. A GitHub
 Actions dispatcher runs everything on a schedule: it reads the FastF1 event schedule and
 a state table and processes each finished session. **No Streamlit.** The owner uses it
-at work and rejected it as too inflexible. The front-end framework and hosting are
-still undecided, so don't scaffold a front end until they're chosen.
+at work and rejected it as too inflexible. Front end (decided): a React app designed
+once in Lovable, copied into `web/` and maintained here, deployed to GitHub Pages
+together with the published JSON (see Part 3 of `docs/pipeline-plan.md`).
 
 **Status**: data exploration, the artifact schema, `src/sessions.py` and Phase 0 (the
 Free Edition platform spike) are done. Phase 0 showed serverless can reach FastF1 /
@@ -134,6 +135,10 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
 - `etl/bronze.py` (pipeline, Spark only, no FastF1): `load_session(spark, session_dir)`
   replaces one session in the `race_preds.bronze.*` Delta tables. Runs as the second
   task of `process_session`; needs a Databricks Spark session, so it cannot run locally.
+- `etl/silver.py` (pipeline, Spark-native): `load_session(spark, season, round, session_id)`
+  rebuilds `race_preds.silver.laps` / `results` for one session from bronze. Its
+  `is_clean` / `is_quick` flags must keep selecting the same laps as `src/laps.py`;
+  change both together. Ergast ids are null while a weekend is in progress (see the plan).
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).

@@ -87,7 +87,7 @@ with reader settings. Without telemetry, FastF1 leaves `LapStartDate` entirely n
 |---|---|---|
 | raw (Volume) | `SessionTables` per session: `laps`, `results`, `weather`, `track_status`, `session_status`, `race_control` Parquet plus `meta.json`, at `/Volumes/race_preds/raw/fastf1/<season>/<round>/<session_id>/`. Later: Jolpica results and standings, Open-Meteo forecasts. | Written by `src/ingest/fastf1_session.py`. Overwritten on re-ingest; `meta.json` is written last, so a directory without it is an interrupted pull. |
 | bronze | `race_preds.bronze.<table>`, one Delta table per raw Parquet file, each row prefixed with `season`, `round`, `session_id` and suffixed with `pulled_at`, `fastf1_version` from `meta.json`. | Written by `src/etl/bronze.py`. A session is replaced as a whole (`overwrite` + `replaceWhere` on the session key), not merged: bronze rows have no natural key (weather, duplicate race control messages). Unpartitioned. `mergeSchema` on. |
-| silver | Cleaned and conformed: typed columns, Ergast ids as join keys, lap flags (in-lap, out-lap, SC/VSC/red flag via `TrackStatus` contains), stint number and tyre age per lap, fuel-corrected lap time. | Window functions per driver-session live here. |
+| silver | `race_preds.silver.laps` (one row per driver lap) and `race_preds.silver.results` (one row per entrant). snake_case, durations `_s`, Ergast `driver_id` / `constructor_id`. Lap flags `is_green`, `has_yellow` / `has_sc` / `has_vsc` / `has_red` (status string *contains*), `is_in_lap`, `is_out_lap`, `is_deleted`, `is_clean` and `is_quick` (the exact sets `src/laps.py` and `summarize_session` use), `stint_lap`, `fuel_kg` and `lap_time_fuel_corr_s` (R and S only). | Written by `src/etl/silver.py`, Spark-native, window functions per session and per driver stint. A session is replaced as a whole, like bronze. |
 | gold | Analysis grain tables: driver × session pace summaries, driver × race × stint degradation, circuit incident history, rolling driver/team form. | This is what the models read. |
 
 Telemetry stays out until the lap-level pipeline is working end to end. It is the
@@ -178,6 +178,21 @@ How they run on Spark:
 `ops.processed_sessions` records, per (season, round, session): the ingest, ETL, scoring
 and publish status, timestamps, and the last error. The dispatcher (below) reads it to
 decide what still needs doing.
+
+### Silver assumptions to revisit
+
+- **Ergast ids during a live weekend.** FastF1 fills `DriverId` / `TeamId` only after
+  Ergast publishes the round (after the race), and never for sprint qualifying. Silver
+  takes them from any session of the same round, so on a weekend in progress they are
+  null (checked: 2026 R17 FP1 and SQ had 22 empty ids on race day). `driver`, the
+  three-letter code, is always set. Phase 2 (live replay) needs a season reference table
+  from Jolpica (`drivers` and `constructors` for the season, plus the latest
+  driver → constructor pairing) to fill them before the race.
+- **Fuel correction.** `lap_time_fuel_corr_s = lap_time_s - 0.03 s/kg × fuel_kg`, with the
+  start fuel burned linearly to zero over the session's laps. Start fuel is 110 kg to
+  2025 and **70 kg from 2026, an approximation**: the 2026 rules limit fuel energy, not
+  mass. Sprints get 100/305 of it. Practice and qualifying are not corrected, their
+  fuel loads are unknown. Revisit both numbers when fitting the degradation model.
 
 ## Part 2: Models
 
@@ -273,9 +288,41 @@ browser fetches `index.json` → `manifest.json` → section documents and does 
 interaction locally: switching stages, filtering drivers, heatmaps, hover. The layout is
 specified in `docs/artifact-schema.md`.
 
-Hosting candidates: GitHub Pages, Cloudflare Pages (free, deploy on push). Framework is
-still undecided. Build against `docs/examples/v1/` until real output exists, which means
-this part can proceed in parallel with Parts 1–2.
+Build against `docs/examples/v1/` until real output exists, which means this part can
+proceed in parallel with Parts 1–2.
+
+### Front end and hosting (decided)
+
+- **Code: React, designed once in Lovable, then owned here.** Lovable produces the first
+  design and code. The code is copied into `web/` and maintained in this repo from then
+  on. There is no ongoing Lovable sync. All data fetching lives in one module, typed from
+  `docs/schema/*.schema.json`, with a configurable base URL.
+- **Hosting: GitHub Pages**, deployed by a GitHub Actions workflow
+  (`actions/upload-pages-artifact` + `actions/deploy-pages`), not from a branch. Published
+  JSON is never committed to git.
+- **One deploy = front end + data.** The deploy job builds `web/`, copies the full
+  published tree into `dist/data/v1/`, and deploys the result. Front end and data share
+  one origin (no CORS), and every deploy is a consistent snapshot. A bad publish is
+  rolled back by redeploying the previous run.
+- **Source of truth for published JSON** is a folder on a Unity Catalog Volume
+  (`published/v1/`), written by publish. Each Pages deploy replaces the whole site, so
+  the deploy job downloads the entire tree, including earlier stage snapshots, not just
+  the new files.
+
+GitHub Pages specifics to handle:
+
+- **Base path.** A project site is served at `https://<user>.github.io/race-preds/`. Set
+  Vite's `base` to `/race-preds/`. Lovable apps assume `/`, so asset paths break without it.
+  It's a single page, so no router fallback is needed.
+- **Fixed 10-minute cache.** Pages sets `max-age=600`, and response headers can't be
+  changed. So:
+  - fetch `index.json` and `manifest.json` with a cache-busting query (`?t=<now>`)
+  - fetch section documents with `?v=<manifest updated_at>`
+
+  Stage snapshot files never change after publish, so caching them is harmless.
+- **The repo must be public** for Pages on the free plan. That matches a public dashboard.
+- Pages limits (1 GB site, soft bandwidth cap) are far above this site's size. A deploy
+  per finished session (a dozen per weekend) is well within normal use.
 
 A server-side compute path is needed only if the page offers free-form what-ifs (e.g. "if
 this driver pits on lap 18"). Options, in order of preference:
@@ -295,8 +342,9 @@ off-weekend). Each run:
 
 1. Reads the season schedule from FastF1 (session start times, weekend format).
 2. Compares finished sessions against `ops.processed_sessions`.
-3. For each finished, unprocessed session: ingest → trigger the Databricks ETL + scoring
-   job and wait → publish → deploy.
+3. For each finished, unprocessed session: trigger the Databricks ingest + ETL + scoring
+   job and wait → publish (schema-validated JSON to the Volume's `published/v1/`) →
+   deploy (download `published/v1/`, build `web/`, deploy to GitHub Pages).
 4. If FastF1 data is not available yet (usually 30–60 min after a session ends), leaves
    the session pending for the next run.
 5. Refreshes the weather forecast every few hours regardless of sessions.
@@ -348,7 +396,7 @@ src/
   publish/               predictions tables → schema-validated JSON
   dispatch/              schedule + state table → what to run now
 databricks/              Asset Bundle: databricks.yml, job definitions, notebooks
-web/                     front end (after framework is chosen)
+web/                     front end: React (from Lovable), built and deployed to GitHub Pages
 .github/workflows/       dispatcher, weekly training, deploy
 ```
 
@@ -379,7 +427,12 @@ Each phase has an exit check. Don't start the next one until it passes.
      about 2 min per session. Checked on R and FP1: row counts equal the Volume files,
      re-running R gives zero differing rows (`EXCEPT ALL` both ways on Delta time
      travel, `pulled_at` excluded), and writing FP1 leaves every R row unchanged.
-   - Next: silver.
+   - **Silver, done 2026-10-11.** `src/etl/silver.py`, third task of the job, about
+     30 s. Checked on R and FP1 against the pandas code: `is_clean` and `is_quick` select
+     exactly the laps of `src/laps.py`, per-driver `clean_lap_median` from silver equals
+     `summarize_session`, `stint_lap` runs 1..n in every stint, no null ids, and
+     re-running R gives zero differing rows.
+   - Next: gold.
 
 | # | phase | exit check |
 |---|---|---|
@@ -388,7 +441,7 @@ Each phase has an exit check. Don't start the next one until it passes.
 | 2 | **Replay.** Run the dispatcher against a past weekend by faking the clock, session by session, with baseline models and a real publish step. | A full round directory that passes `python -m src.schema check`, produced without manual steps. |
 | 3 | **Backfill + models.** Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness (see Research swarm). | A swarm-proposed change beats the production model on the backtest **and** on the untouched holdout season, and goes live through owner approval. |
-| 4 | **Front end** (parallel from the start). Choose framework and host, build against `docs/examples/v1/`, then point at real output. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
+| 4 | **Front end** (parallel from the start). Lovable design → copy into `web/`, build against `docs/examples/v1/`, deploy to GitHub Pages, then point at real output. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
 | 5 | **Go live.** Enable the schedule for the current season. | One real weekend published end to end with no manual step. |
 
 ### Phase 0 results
@@ -445,6 +498,5 @@ static architecture rules out.
 
 ## Open questions
 
-- Front-end framework and host.
 - Data source for the Pirelli tyre allocation (not in FastF1).
 - Research swarm sandbox runtime: GitHub Actions matrix, containers or local worktrees.

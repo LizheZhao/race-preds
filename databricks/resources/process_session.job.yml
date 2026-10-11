@@ -22,3 +22,8 @@ resources:
             notebook_path: ../notebooks/bronze_session.py
             base_parameters:
               session_dir: "{{tasks.ingest.values.session_dir}}"
+        - task_key: silver
+          depends_on:
+            - task_key: bronze
+          notebook_task:
+            notebook_path: ../notebooks/silver_session.py
