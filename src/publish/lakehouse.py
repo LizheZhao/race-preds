@@ -1,0 +1,77 @@
+"""
+the lakehouse as seen from outside Databricks: SQL warehouse reads of gold, silver and
+the state table, with the credentials in .env (DATABRICKS_HOST / TOKEN / HTTP_PATH)
+
+every read takes the sessions usable at a stage explicitly, so publish cannot see a
+session the replay clock has not reached
+"""
+import os
+from collections.abc import Iterable
+from functools import cache
+
+import pandas as pd
+from databricks import sql
+from dotenv import load_dotenv
+
+from src.config import ROOT
+from src.sessions import SESSION_IDS
+
+
+@cache
+def _connection():
+    load_dotenv(ROOT / ".env")
+    return sql.connect(server_hostname=os.environ["DATABRICKS_HOST"].removeprefix("https://"),
+                       http_path=os.environ["DATABRICKS_HTTP_PATH"],
+                       access_token=os.environ["DATABRICKS_TOKEN"])
+
+
+def query(statement: str, **params) -> pd.DataFrame:
+    with _connection().cursor() as cur:
+        cur.execute(statement, params)
+        return pd.DataFrame(cur.fetchall(), columns=[c[0] for c in cur.description])
+
+
+def _in(session_ids: Iterable[str]) -> str:
+    """SQL IN list of session ids; only known ids get into the statement"""
+    ids = list(session_ids)
+    unknown = set(ids) - set(SESSION_IDS.values())
+    if unknown:
+        raise ValueError(f"unknown session ids {sorted(unknown)}")
+    return "(" + ", ".join(f"'{i}'" for i in ids) + ")" if ids else "(NULL)"
+
+
+def session_rows(season: int, rnd: int, session_ids: Iterable[str]) -> pd.DataFrame:
+    """gold.session rows (weather, track status counts) of the given sessions"""
+    return query(f"""SELECT * FROM race_preds.gold.session
+                     WHERE season = :season AND round = :rnd AND session_id IN {_in(session_ids)}""",
+                 season=season, rnd=rnd)
+
+
+def race_history(season: int, rnd: int) -> pd.DataFrame:
+    """gold.session rows of every race before this one, any circuit"""
+    return query("""SELECT * FROM race_preds.gold.session
+                    WHERE session_id = 'R' AND (season < :season OR (season = :season AND round < :rnd))""",
+                 season=season, rnd=rnd)
+
+
+def results(season: int, rnd: int, session_id: str) -> pd.DataFrame:
+    """silver.results of one session (empty if it is not in the lakehouse)"""
+    return query(f"""SELECT * FROM race_preds.silver.results
+                     WHERE season = :season AND round = :rnd AND session_id IN {_in([session_id])}""",
+                 season=season, rnd=rnd)
+
+
+def race_stints(season: int, rnd: int) -> pd.DataFrame:
+    """first and last lap of every stint each driver ran in the race"""
+    return query("""SELECT driver, driver_id, stint, first(compound) AS compound,
+                           min(lap_number) AS start_lap, max(lap_number) AS end_lap
+                    FROM race_preds.silver.laps
+                    WHERE season = :season AND round = :rnd AND session_id = 'R' AND stint IS NOT NULL
+                    GROUP BY driver, driver_id, stint ORDER BY driver, stint""",
+                 season=season, rnd=rnd)
+
+
+def processed(season: int, rnd: int) -> pd.DataFrame:
+    """ops.processed_sessions rows of one round (empty before the first job ever ran)"""
+    return query("""SELECT * FROM race_preds.ops.processed_sessions
+                    WHERE season = :season AND round = :rnd""", season=season, rnd=rnd)

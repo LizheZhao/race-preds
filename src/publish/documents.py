@@ -1,0 +1,307 @@
+"""
+one schema document per section, for one round at one stage
+
+a Context fixes the round, the stage and the clock. Lakehouse reads are limited to the
+sessions usable at the stage, and reference data stops at the previous round, so a replay
+of a past weekend publishes what could have been known at that moment
+"""
+from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
+
+import pandas as pd
+
+from src import schema
+from src.models import baselines
+from src.publish import lakehouse as lh
+from src.publish import reference as ref
+from src.sessions import get_session_stage, get_sessions
+
+BASELINE_VERSION = "baseline-1"
+FORECAST_WINDOW = pd.Timedelta(hours=2)  # a session's forecast is the mean over its first two hours
+
+
+@dataclass(frozen=True)
+class Context:
+    season: int
+    round: int
+    stage: str
+    now: datetime  # the (replay) clock, UTC
+    run_id: str
+    sessions: list[dict] = field(default_factory=list)
+
+    @classmethod
+    def at(cls, season: int, rnd: int, stage: str, now: datetime, run_id: str) -> "Context":
+        return cls(season, rnd, stage, now, run_id, get_sessions(season, rnd))
+
+    @property
+    def usable(self) -> list[str]:
+        """sessions whose data the pipeline has at this stage"""
+        return get_session_stage(self.season, self.round, self.stage)
+
+    @property
+    def event_format(self) -> str:
+        return ref.event(self.season, self.round)["EventFormat"]
+
+    def meta(self, artifact: str, stage: str | None = None) -> schema.Meta:
+        return schema.Meta(artifact=artifact, season=self.season, round=self.round, stage=stage or self.stage,
+                           generated_at=self.now, run_id=self.run_id)
+
+    def model(self, name: str, features: list[str]) -> schema.ModelInfo:
+        previous = ref.event(self.season, self.round - 1) if self.round > 1 else None
+        trained_through = previous["EventDate"].date() if previous is not None else date(self.season - 1, 12, 31)
+        return schema.ModelInfo(name=name, version=BASELINE_VERSION, trained_through=trained_through,
+                                features=features, calibrated=False)
+
+
+def utc(ts) -> datetime:
+    ts = pd.Timestamp(ts)
+    return (ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")).to_pydatetime()
+
+
+def _num(value) -> float | None:
+    return None if pd.isna(value) else float(value)
+
+
+def entries(ctx: Context) -> pd.DataFrame:
+    """the field as known at the stage: the latest session run this weekend except FP1 (rookies
+    stand in there), before that the previous round's race"""
+    names = {s["session_id"]: s["session_name"] for s in ctx.sessions}
+    run = [sid for sid in ctx.usable if sid != "FP1"]
+    return ref.entry_list(ctx.season, ctx.round, names[run[-1]] if run else None)
+
+
+def _ids(ctx: Context, frame: pd.DataFrame) -> pd.DataFrame:
+    """fill driver_id from the field by driver code: silver has no Ergast ids while a weekend is in progress"""
+    roster = entries(ctx)
+    return frame.assign(driver_id=frame["driver_id"].fillna(frame["driver"].map(dict(zip(roster["code"], roster["driver_id"])))))
+
+
+def _results(ctx: Context, session_id: str) -> pd.DataFrame:
+    return _ids(ctx, lh.results(ctx.season, ctx.round, session_id))
+
+
+# ---------------------------------------------------------------- event
+
+
+def event(ctx: Context) -> schema.EventDoc:
+    ev, row = ref.event(ctx.season, ctx.round), ref.circuit_row(ctx.season, ctx.round)
+    geometry = ref.circuit_geometry(ctx.season, ctx.round, row["circuitId"])
+    roster = entries(ctx)
+    drivers_st, teams_st = ref.standings(ctx.season, ctx.round - 1)
+
+    team_rank = {t: i for i, t in enumerate(teams_st["constructorId"])} if len(teams_st) else {}
+    teams = roster.drop_duplicates("team_id").sort_values("team_id", key=lambda s: s.map(lambda t: team_rank.get(t, 99)))
+    color = lambda c: f"#{c}" if isinstance(c, str) and len(c) == 6 else "#808080"
+
+    def status(s: dict) -> str:
+        if s["session_id"] in ctx.usable:
+            return "completed"
+        return "live" if utc(s["session_dt_utc"]) <= ctx.now else "upcoming"
+
+    winners = ref.past_winners(row["circuitId"], ctx.season)
+    return schema.EventDoc(
+        meta=ctx.meta("event"), name=ev["EventName"], official_name=ev["OfficialEventName"], format=ev["EventFormat"],
+        circuit=schema.Circuit(
+            id=row["circuitId"], name=row["circuitName"], locality=row["locality"], country=row["country"],
+            lat=float(row["lat"]), lon=float(row["long"]), length_km=geometry["length_km"],
+            race_laps=ref.race_laps(row["circuitId"], ctx.season, geometry["length_km"]),
+            outline=[tuple(p) for p in geometry["outline"]],
+            corners=[schema.Corner(**c) for c in geometry["corners"]],
+            past_winners=[schema.PastWinner(season=int(w.season), driver_name=w.driver_name, team_name=w.team_name)
+                          for w in winners.head(5).itertuples()]),
+        sessions=[schema.Session(id=s["session_id"], name=s["session_name"], start_utc=utc(s["session_dt_utc"]),
+                                 status=status(s)) for s in ctx.sessions],
+        teams=[schema.Team(id=t.team_id, name=t.team_name, color=color(t.team_color)) for t in teams.itertuples()],
+        drivers=[schema.Driver(id=d.driver_id, code=d.code, number=int(d.number), first_name=d.first_name,
+                               last_name=d.last_name, team_id=d.team_id, headshot_url=d.headshot_url)
+                 for d in roster.itertuples()],
+        standings=schema.Standings(
+            after_round=ctx.round - 1 if ctx.round > 1 else None,
+            drivers=[schema.DriverStanding(driver_id=r.driverId, position=int(r.position), points=float(r.points),
+                                           wins=int(r.wins)) for r in drivers_st.itertuples()],
+            teams=[schema.TeamStanding(team_id=r.constructorId, position=int(r.position), points=float(r.points),
+                                       wins=int(r.wins)) for r in teams_st.itertuples()]))
+
+
+def race_laps(ctx: Context) -> int:
+    row = ref.circuit_row(ctx.season, ctx.round)
+    geometry = ref.circuit_geometry(ctx.season, ctx.round, row["circuitId"])
+    return ref.race_laps(row["circuitId"], ctx.season, geometry["length_km"])
+
+
+# ---------------------------------------------------------------- weather
+
+
+def weather(ctx: Context) -> schema.WeatherDoc:
+    row = ref.circuit_row(ctx.season, ctx.round)
+    starts = [pd.Timestamp(utc(s["session_dt_utc"])) for s in ctx.sessions]
+    first, race_start = starts[0] - pd.Timedelta(hours=1), starts[-1]
+    hourly = ref.hourly_weather(float(row["lat"]), float(row["long"]), first.date(), race_start.date())
+    hourly = hourly[(hourly["time_utc"] >= first) & (hourly["time_utc"] <= race_start + pd.Timedelta(hours=3))]
+    observed = lh.session_rows(ctx.season, ctx.round, ctx.usable).set_index("session_id") if ctx.usable else pd.DataFrame()
+
+    sessions = []
+    for s, start in zip(ctx.sessions, starts):
+        entry = {"session_id": s["session_id"], "start_utc": start.to_pydatetime()}
+        if s["session_id"] in observed.index:
+            o = observed.loc[s["session_id"]]
+            entry["observed"] = schema.ObservedWeather(
+                air_temp_c_mean=float(o["air_temp_mean"]), track_temp_c_max=float(o["track_temp_max"]),
+                humidity_mean=float(o["humidity_mean"]) / 100, wind_speed_ms_mean=float(o["wind_speed_mean"]),
+                rain_share=float(o["rain_frac"]))
+        else:
+            w = hourly[(hourly["time_utc"] >= start.floor("h")) & (hourly["time_utc"] < start + FORECAST_WINDOW)]
+            if len(w):
+                entry["forecast"] = schema.SessionForecast(
+                    air_temp_c=float(w["temperature_2m"].mean()),
+                    p_rain=float(w["precipitation_probability"].mean()) / 100,
+                    wind_speed_ms=float(w["wind_speed_10m"].mean()))
+        sessions.append(schema.SessionWeather(**entry))
+
+    return schema.WeatherDoc(
+        meta=ctx.meta("weather"), source="open-meteo", issued_at=None, sessions=sessions,
+        hourly=[schema.HourlyForecast(
+            time_utc=r.time_utc.to_pydatetime(), air_temp_c=float(r.temperature_2m),
+            p_rain=float(r.precipitation_probability) / 100, rain_mm=float(r.precipitation),
+            wind_speed_ms=float(r.wind_speed_10m), wind_dir_deg=float(r.wind_direction_10m) % 360,
+            humidity=float(r.relative_humidity_2m) / 100) for r in hourly.itertuples()])
+
+
+# ---------------------------------------------------------------- results
+
+
+def _race_rows(res: pd.DataFrame) -> list[schema.RaceRow]:
+    rows = []
+    for r in res.sort_values("position", na_position="last").itertuples():
+        classified = str(r.classified_position)
+        rows.append(schema.RaceRow(
+            driver_id=r.driver_id, grid=int(r.grid_position) if _num(r.grid_position) else None,
+            position=int(classified) if classified.isdigit() else None, classified_as=classified,
+            status=r.status, points=_num(r.points) or 0.0, laps=int(_num(r.laps) or 0)))
+    return rows
+
+
+def _strategies(stints: pd.DataFrame) -> list[schema.DriverStrategy]:
+    """what each driver ran; a driver with an unknown compound or a gap in the laps is left out"""
+    out = []
+    for driver_id, g in stints.groupby("driver_id"):
+        g = g.sort_values("stint")
+        contiguous = g["start_lap"].iloc[0] == 1 and (g["start_lap"].iloc[1:].to_numpy() == g["end_lap"].iloc[:-1].to_numpy() + 1).all()
+        if not contiguous or not g["compound"].isin(schema.Compound.__args__).all():
+            continue
+        out.append(schema.DriverStrategy(driver_id=driver_id, stints=[
+            schema.Stint(compound=s.compound, start_lap=int(s.start_lap), end_lap=int(s.end_lap)) for s in g.itertuples()]))
+    return out
+
+
+def results(ctx: Context) -> schema.ResultsDoc | None:
+    """actual outcomes of the sessions run so far; None before the first results session"""
+    parts = {}
+    if "Q" in ctx.usable:
+        q = _results(ctx, "Q").sort_values("position")
+        parts["qualifying"] = [schema.QualiRow(driver_id=r.driver_id, position=int(r.position), q1_s=_num(r.q1_s),
+                                               q2_s=_num(r.q2_s), q3_s=_num(r.q3_s)) for r in q.itertuples()]
+    if "S" in ctx.usable:
+        parts["sprint"] = _race_rows(_results(ctx, "S"))
+    if "R" in ctx.usable:
+        parts["race"] = _race_rows(_results(ctx, "R"))
+        r = lh.session_rows(ctx.season, ctx.round, ["R"]).iloc[0]
+        parts["race_incidents"] = schema.IncidentCounts(safety_cars=int(r["sc_n"]), vscs=int(r["vsc_n"]), red_flags=int(r["red_n"]))
+        parts["race_strategies"] = _strategies(_ids(ctx, lh.race_stints(ctx.season, ctx.round)))
+    return schema.ResultsDoc(meta=ctx.meta("results"), **parts) if parts else None
+
+
+# ---------------------------------------------------------------- facts
+
+
+def facts(ctx: Context) -> schema.FactsDoc:
+    roster = entries(ctx)
+    entered = set(roster["driver_id"])
+    name = dict(zip(roster["driver_id"], roster["first_name"] + " " + roster["last_name"]))
+    out = []
+
+    drivers_st, _ = ref.standings(ctx.season, ctx.round - 1)
+    if len(drivers_st) >= 2:
+        lead, second = drivers_st.iloc[0], drivers_st.iloc[1]
+        lead_name = name.get(lead["driverId"], f"{lead['givenName']} {lead['familyName']}")
+        out.append(schema.Fact(
+            id="championship-leader", category="driver",
+            headline=f"{lead_name} leads the championship by {lead['points'] - second['points']:.0f} points",
+            body=f"{lead['points']:.0f} points and {int(lead['wins'])} wins after round {ctx.round - 1}.",
+            driver_ids=[d for d in (lead["driverId"], second["driverId"]) if d in entered],
+            source=f"ergast {ctx.season} driver standings after round {ctx.round - 1}"))
+
+    row = ref.circuit_row(ctx.season, ctx.round)
+    winners = ref.past_winners(row["circuitId"], ctx.season)
+    if len(winners):
+        last = winners.iloc[0]
+        out.append(schema.Fact(
+            id="last-winner-here", category="history",
+            headline=f"{last['driver_name']} won the last race here, in {int(last['season'])}",
+            body=f"{len(winners)} earlier races at {row['circuitName']}.",
+            source=f"ergast circuit {row['circuitId']} race winners"))
+    else:
+        out.append(schema.Fact(id="circuit-debut", category="history",
+                               headline=f"{row['circuitName']} hosts its first Formula 1 race",
+                               source=f"ergast circuit {row['circuitId']}"))
+
+    if "Q" in ctx.usable:
+        q = _results(ctx, "Q").sort_values("position")
+        pole = q.iloc[0]
+        out.append(schema.Fact(
+            id="pole-position", category="weekend",
+            headline=f"{name.get(pole['driver_id'], pole['driver'])} takes pole",
+            body=f"{pole['q3_s']:.3f} s in Q3." if _num(pole["q3_s"]) else None,
+            driver_ids=[pole["driver_id"]] if pole["driver_id"] in entered else [],
+            source=f"fastf1 {ctx.season} R{ctx.round} qualifying"))
+    return schema.FactsDoc(meta=ctx.meta("facts"), facts=out)
+
+
+# ---------------------------------------------------------------- predictions
+
+
+def _quali_order(ctx: Context) -> list[str]:
+    roster = entries(ctx)
+    return baselines.quali_order(roster["driver_id"].tolist(), dict(zip(roster["driver_id"], roster["team_id"])),
+                                 ref.results_before(ctx.season, ctx.round, "qualifying"))
+
+
+def qualifying(ctx: Context) -> schema.QualifyingDoc:
+    return schema.QualifyingDoc(
+        meta=ctx.meta("qualifying"), model=ctx.model("quali-season-average", ["season_mean_quali_position"]),
+        drivers=baselines.qualifying(_quali_order(ctx)))
+
+
+def finishing_order(ctx: Context) -> schema.FinishingOrderDoc:
+    """by grid once qualifying has run (entrants missing from it go to the back), else by predicted qualifying"""
+    p_dnf = baselines.dnf_rate(ref.results_before(ctx.season, ctx.round, "race"))
+    order, grid = _quali_order(ctx), None
+    if "Q" in ctx.usable:
+        q = _results(ctx, "Q").dropna(subset=["position", "driver_id"])
+        grid = dict(zip(q["driver_id"], q["position"].astype(int)))
+        order = sorted(order, key=lambda d: grid.get(d, len(order) + 1))
+    features = ["qualifying_position" if grid else "season_mean_quali_position", "season_dnf_rate"]
+    return schema.FinishingOrderDoc(meta=ctx.meta("finishing_order"), model=ctx.model("grid-order", features),
+                                    drivers=baselines.finishing_order(order, p_dnf, grid))
+
+
+def race_incidents(ctx: Context) -> schema.RaceIncidentsDoc:
+    rates = baselines.race_incidents(lh.race_history(ctx.season, ctx.round), race_laps(ctx))
+    rates.pop("races_used")
+    return schema.RaceIncidentsDoc(meta=ctx.meta("race_incidents"),
+                                   model=ctx.model("league-incident-rates", ["lakehouse_race_history", "prior"]),
+                                   **rates)
+
+
+def strategy(ctx: Context) -> schema.StrategyDoc:
+    laps = race_laps(ctx)
+    plan = baselines.strategy(laps)
+    return schema.StrategyDoc(
+        meta=ctx.meta("strategy"), model=ctx.model("tyre-prior-stint-plan", ["compound_pace_prior", "degradation_prior"]),
+        race_laps=laps, pit_loss_s=plan["pit_loss_s"], compounds_available=None,
+        options=[{k: v for k, v in o.items() if k != "time"} for o in plan["options"]],
+        degradation=plan["degradation"])
+
+
+SNAPSHOTS = {"finishing_order": finishing_order, "qualifying": qualifying,
+             "race_incidents": race_incidents, "strategy": strategy}

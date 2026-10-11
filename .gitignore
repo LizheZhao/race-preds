@@ -12,7 +12,7 @@ demo/baku_outputs/
 *.zip
 
 # Model artifacts and generated dashboard payloads
-models/
+/models/
 outputs/
 
 # Notebook checkpoints

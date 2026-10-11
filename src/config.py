@@ -16,6 +16,10 @@ RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 MODEL_DIR = ROOT / "models"
 OUTPUT_DIR = ROOT / "outputs"
+# published v1 tree (index.json, <season>/<round>/...); web/ copies it with `npm run data`
+SITE_DIR = OUTPUT_DIR / "site" / "v1"
+# circuit geometry (outline, corners, lap length), reference data built once per circuit
+CIRCUIT_DIR = PROCESSED_DIR / "circuits"
 
 # Season the dashboard currently reports on.
 SEASON = 2025

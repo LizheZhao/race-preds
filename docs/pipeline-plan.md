@@ -189,9 +189,10 @@ reads it to decide what still needs doing. `not_available` is ingest's
   Ergast publishes the round (after the race), and never for sprint qualifying. Silver
   takes them from any session of the same round, so on a weekend in progress they are
   null (checked: 2026 R17 FP1 and SQ had 22 empty ids on race day). `driver`, the
-  three-letter code, is always set. Phase 2 (live replay) needs a season reference table
-  from Jolpica (`drivers` and `constructors` for the season, plus the latest
-  driver → constructor pairing) to fill them before the race.
+  three-letter code, is always set. Publish does not depend on them: it takes the field
+  from FastF1 and fills missing ids by driver code and team name from the previous round
+  and the season's Ergast driver list, then maps silver rows by code (Phase 2, checked on
+  2026 R17 sprint qualifying, whose 22 FastF1 ids were empty).
 - **Fuel correction.** `lap_time_fuel_corr_s = lap_time_s - 0.03 s/kg × fuel_kg`, with the
   start fuel burned linearly to zero over the session's laps. Start fuel is 110 kg to
   2025 and **70 kg from 2026, an approximation**: the 2026 rules limit fuel energy, not
@@ -362,6 +363,44 @@ under `databricks/`.
 What publishes when is already specified in `docs/artifact-schema.md` (Stages and the
 weekend lifecycle). The dispatcher just maps a finished FastF1 session to its stage.
 
+### Fallback when Databricks is unavailable
+
+**Decided: Databricks stays.** The data would fit on a GitHub runner. Databricks is kept
+on purpose for the Spark / Delta / Unity Catalog / MLflow work, which is the point of the
+project. Free Edition has no SLA and can stop compute for the day (see Known
+constraints), so the race-weekend path must not depend on it alone.
+
+**Runner path.** When the Databricks job can't run, the dispatcher scores the session on
+the GitHub runner with the same `src/` code:
+
+1. FastF1 → `SessionTables`
+2. the pandas functions (`laps`, `summaries`, `long_runs`, `features`)
+3. score with the production model
+4. publish → deploy
+
+This works because the exploration modules are platform-agnostic. Spark-only steps have
+no part in it.
+
+- **Trigger:** the job fails to start (quota, expired token, API error), fails, or runs
+  past a timeout (30 min). The dispatcher falls back for that session and says so in the
+  run summary and the failure email.
+- **What the runner needs without Databricks**, mirrored to GitHub Release assets on
+  every successful run:
+  - the production model, exported from MLflow when a version is approved
+  - a Parquet snapshot of the gold/feature history the features read (form, circuit
+    history), refreshed after Monday training
+  - the full published tree (`published/v1/`), so a deploy still contains every
+    earlier snapshot
+- **Reconcile.** The runner can't write `ops.processed_sessions` while Databricks is
+  down. It records the session in a fallback log in the release, and the next healthy
+  dispatcher run re-processes it on Databricks. That run is idempotent and overwrites
+  the fallback documents, so Delta stays complete.
+- **Not covered:** Monday training and backfills are Databricks-only. If they can't run,
+  the previous model version stays in production.
+- **Cost of the fallback:** silver is Spark-native, so the runner path uses the pandas
+  equivalents (`laps.py` filters, the exploration modules). The two can drift, so a
+  parity check guards them (Phase 2b).
+
 ### Known constraints
 
 - GitHub cron can run 5–20 min late. Irrelevant here.
@@ -371,7 +410,9 @@ weekend lifecycle). The dispatcher just maps a finished FastF1 session to its st
 - One SQL warehouse (2X-Small). Cold start measured at 26.7 s for the first query,
   2 s to connect. This is the number behind "the browser never talks to Databricks".
 - Over-quota serverless usage stops compute for the rest of the day, in extreme cases
-  the month. Data and settings survive. The quota itself is not published.
+  the month. Data and settings survive. The quota itself is not published. The
+  race-weekend path falls back to the GitHub runner (see Fallback when Databricks is
+  unavailable).
 - Personal access tokens expire. Note the expiry date when creating the one in GitHub
   Actions secrets; an expired token makes the dispatcher fail silently until the
   failure email arrives.
@@ -385,6 +426,56 @@ weekend lifecycle). The dispatcher just maps a finished FastF1 session to its st
 
 The Databricks host and token live in GitHub Actions secrets and in a local `.env`
 (gitignored). The same token never goes into front-end code or the published JSON.
+
+### Phase 2 notes
+
+What exists, in `src/`:
+
+- `dispatch/dispatcher.py`: `stage_at(now)` (Thursday build 20 h before FP1, then each
+  session 2 h after its start, races 3 h) and `dispatch(now)`: every session of that stage
+  missing from gold in `ops.processed_sessions` is run through the `process_session` job
+  (`dispatch/jobs.py`, Databricks SDK, waits up to 30 min, reads the outcome back from the
+  state table), then the stage is published. An ingest `not_available` publishes the
+  previous stage and leaves the session for the next run.
+- `dispatch/replay.py`: the same dispatcher over a fake clock, one call per stage.
+- `publish/`: `lakehouse.py` (SQL warehouse reads, limited to the sessions usable at the
+  stage), `reference.py` (FastF1 field, Ergast standings and history, Open-Meteo, circuit
+  geometry), `documents.py` (one builder per section), `site.py` (manifest, index,
+  stale / error fallback, staging copy checked with `check_round` before it replaces the
+  published round).
+- `models/baselines.py`: the four baselines of Part 2, pure functions. For now they are
+  scored inside publish, on the machine running the dispatcher; scoring moves into a
+  Databricks task with predictions tables when the MLflow models replace them (Phase 3).
+
+Exit check: `python -m src.dispatch.replay 2026 15` cleared the round, triggered the job
+for all five Baku sessions (none were in the lakehouse), and published six stages; the
+round passes `python -m src.schema check` and the state table has 20 `succeeded` rows.
+2026 R16 replays as well (no jobs, already processed). A forced model failure keeps the
+last snapshot as `stale`, and a section that never succeeded publishes `error`; both pass
+the check.
+
+Decisions and known gaps:
+
+- **The field** is the latest session run this weekend except FP1 (rookies stand in
+  there), before that the previous round's race. The first replay stopped at Q because
+  R14 → R15 swapped Tsunoda for Hadjar and the check rejected an unknown driver id. A
+  `pre_weekend` or FP1 snapshot can still name last round's driver; a season opener has
+  no previous round and fails.
+- **Race laps** are the most common winner's lap count of the last three races at the
+  circuit; only a new circuit falls back to 305 km over the lap length measured by
+  telemetry, which reads a little short (Baku 52 instead of 51).
+- **Circuit geometry** is reference data, built once from any FastF1 session at the
+  circuit with telemetry (this event first, then three seasons back) and cached in
+  `data/processed/circuits/<id>.json`. It is the only telemetry load in the pipeline.
+- **Weather** for a past date comes from Open-Meteo's historical-forecast API, which
+  archives the forecast, so a replay does not see the observed weather. `issued_at` is
+  left empty.
+- **Race strategies** leave out a driver with a stint FastF1 has no compound for (4 of 22
+  on 2026 R16) rather than inventing one.
+- **Not done in Phase 2:** writing the tree to the Volume's `published/v1/`, the deploy,
+  and the scheduled GitHub Actions workflow that calls `dispatch` with the real clock
+  and picks the round. Publish writes to a local `v1` tree (`outputs/site/v1`), which
+  `web/` reads with `npm run data -- ../outputs/site/v1`.
 
 ## Proposed layout
 
@@ -449,15 +540,17 @@ Each phase has an exit check. Don't start the next one until it passes.
      column. A full re-run of R left the R rows of all twelve bronze, silver and gold
      tables identical (`pulled_at` excluded). All 20 session × stage rows in the state
      table are `succeeded`.
+5. ~~Phase 2, replay.~~ Done 2026-10-11, see Phase 2 notes below.
 
 | # | phase | exit check |
 |---|---|---|
 | 0 | **Platform spike.** Connect to the workspace locally, create catalog/schema/volume, upload one Parquet file. In a Databricks notebook, try a FastF1 `session.load()`. Read a table back locally with the SQL connector. Trigger a job from outside with a token. | **Passed 2026-10-08.** Answers below. |
 | 1 | **Lakehouse, one race.** Ingest one historical race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | **Passed 2026-10-11** on 2026 R16, all five sessions. |
-| 2 | **Replay.** Run the dispatcher against a past weekend by faking the clock, session by session, with baseline models and a real publish step. | A full round directory that passes `python -m src.schema check`, produced without manual steps. |
+| 2 | **Replay.** Run the dispatcher against a past weekend by faking the clock, session by session, with baseline models and a real publish step. | **Passed 2026-10-11** on 2026 R15 (`python -m src.dispatch.replay 2026 15`). |
+| 2b | **Fallback path.** The runner path from Automation, with the model, gold snapshot and published tree mirrored to Release assets. | A replayed weekend with Databricks unreachable (invalid token) publishes a valid round on the runner alone. On a normal replay, runner-path features and predictions match the Databricks path within a small tolerance. |
 | 3 | **Backfill + models.** Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness (see Research swarm). | A swarm-proposed change beats the production model on the backtest **and** on the untouched holdout season, and goes live through owner approval. |
-| 4 | **Front end** (parallel from the start). Lovable design → copy into `web/`, build against `docs/examples/v1/`, deploy to GitHub Pages, then point at real output. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
+| 4 | **Front end** (parallel from the start). Lovable design → copy into `web/`, build against `docs/examples/v1/`, deploy to GitHub Pages, then point at real output. **Status:** live at https://lizhezhao.github.io/race-preds/ with the example round (`.github/workflows/pages.yml`); real output pending Phase 2. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
 | 5 | **Go live.** Enable the schedule for the current season. | One real weekend published end to end with no manual step. |
 
 ### Phase 0 results

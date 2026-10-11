@@ -23,6 +23,12 @@ such as this file and `docs/*.md` is fine when asked.
 3. **Dashboard**: a publish step turns the predictions into static JSON that validates
    against `src/schema.py`. A static front end only reads that JSON.
 
+Databricks is kept on purpose (the Spark / Delta / MLflow showcase), but the race-weekend
+path must not depend on it alone: if a Databricks job can't run, the dispatcher scores the
+session on the GitHub runner with the same platform-agnostic `src/` code (see "Fallback when
+Databricks is unavailable" in `docs/pipeline-plan.md`). Keep scoring and publish code
+runnable without Spark.
+
 The browser never talks to Databricks, and there is no application server. A GitHub
 Actions dispatcher runs everything on a schedule: it reads the FastF1 event schedule and
 a state table and processes each finished session. **No Streamlit.** The owner uses it
@@ -37,7 +43,9 @@ runner; the runner only triggers jobs and publishes. Results and remaining const
 are in `docs/pipeline-plan.md` (Phase 0 results, Known constraints). Phase 1, the
 lakehouse for one race, passed its exit check on 2026 R16: the `process_session` job runs
 ingest → bronze → silver → gold for one session and records each task in
-`ops.processed_sessions`. Next is Phase 2 (replay) in that plan.
+`ops.processed_sessions`. Phase 2, the replay, passed on 2026 R15: the dispatcher runs
+missing sessions through that job, scores baselines and publishes a validated `v1` tree
+to `outputs/site/v1`. Next is Phase 3 (backfill and real models) in that plan.
 
 `databricks/` holds the Asset Bundle (`databricks.yml`, `resources/*.yml`, notebooks in
 Databricks source format). Local Databricks access reads `DATABRICKS_HOST`,
@@ -69,6 +77,13 @@ Artifact schema:
 python -m src.schema check docs/examples/v1/2025/16   # cross-file validation of a round dir
 python -m src.schema export docs/schema               # after any edit to src/schema.py
 python docs/examples/make_examples.py                 # after any edit to src/schema.py
+```
+
+Replay a past weekend through the whole pipeline (needs `.env` and the deployed bundle):
+
+```bash
+python -m src.dispatch.replay 2026 15                 # into outputs/site/v1, round cleared first
+python -m src.schema check outputs/site/v1/2026/15
 ```
 
 After changing `src/schema.py`, run the last two and then `check`, then regenerate the
@@ -155,6 +170,15 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   bronze tables into `race_preds.gold.*`. Needs FastF1 installed (imports `src.sessions`).
 - `etl/ops.py`: `track(spark, …, stage)` wraps a job task and upserts its status into
   `race_preds.ops.processed_sessions`.
+- `dispatch/` (pipeline): `dispatcher.dispatch(season, round, now, site, run_id)` brings
+  the lakehouse up to the stage the clock has reached (Databricks SDK, `jobs.py`) and
+  publishes it; `replay.py` runs it over a fake clock.
+- `publish/` (pipeline): `site.publish(Context, site)` builds every section
+  (`documents.py`), falls back to `stale` / `error` per section, and replaces the round
+  only after `schema.check_round` passes. Reads go through `lakehouse.py` (SQL warehouse)
+  and `reference.py` (FastF1, Ergast, Open-Meteo, cached circuit geometry).
+- `models/baselines.py`: the four baseline predictions, pure functions. Scored inside
+  publish until the MLflow models replace them.
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).
