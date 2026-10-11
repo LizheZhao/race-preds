@@ -1,0 +1,89 @@
+# Build web/ and deploy it to GitHub Pages together with a published v1 data tree.
+#
+# For now the data is the synthetic example round in docs/examples/v1. Once publish
+# writes real output, the dispatcher downloads the Volume's published/v1 into a folder and
+# runs this same build with that folder (the `data_dir` input), so one deploy is always
+# front end + the full data tree (docs/pipeline-plan.md, Part 3).
+#
+# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+name: Deploy dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "docs/examples/**"
+      - "docs/schema/**"
+      - "src/schema.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+    inputs:
+      data_dir:
+        description: "v1 data folder to publish, relative to the repo root"
+        default: "docs/examples/v1"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a newer run waits instead of cancelling one mid-deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  DATA_DIR: ${{ inputs.data_dir || 'docs/examples/v1' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Publish is the only exit: nothing deploys unless every round passes the schema.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate data against src/schema.py
+        run: |
+          pip install "pydantic>=2.9,<3"
+          python -c "import sys; from pathlib import Path; from src.schema import DOCUMENTS; DOCUMENTS['index'].model_validate_json(Path(sys.argv[1]).read_text()); print('index.json: OK')" "$DATA_DIR/index.json"
+          for manifest in "$DATA_DIR"/*/*/manifest.json; do
+            python -m src.schema check "$(dirname "$manifest")"
+          done
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install, test, build
+        working-directory: web
+        env:
+          # e.g. "/race-preds" from the repo's Pages URL; Vite needs the trailing slash
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+        run: |
+          npm ci
+          npm test
+          npm run data -- "$GITHUB_WORKSPACE/$DATA_DIR"
+          npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
