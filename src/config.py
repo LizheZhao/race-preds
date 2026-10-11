@@ -25,12 +25,21 @@ SEASON = 2025
 FIRST_TIMING_SEASON = 2018
 
 
-def enable_cache(verbose: bool = True) -> Path:
-    """Create the local dirs and point FastF1 at the on-disk cache."""
-    for directory in (CACHE_DIR, RAW_DIR, PROCESSED_DIR, MODEL_DIR, OUTPUT_DIR):
-        directory.mkdir(parents=True, exist_ok=True)
+def enable_cache(verbose: bool = True, cache_dir: Path | str | None = None) -> Path:
+    """
+    point FastF1 at an on-disk cache
 
-    fastf1.Cache.enable_cache(str(CACHE_DIR))
+    locally: create the repo's data/models/outputs dirs and use data/fastf1_cache
+    in a Databricks job: pass a Volume path, the job's local disk is wiped after each run
+    """
+    if cache_dir is None:
+        for directory in (CACHE_DIR, RAW_DIR, PROCESSED_DIR, MODEL_DIR, OUTPUT_DIR):
+            directory.mkdir(parents=True, exist_ok=True)
+        cache_dir = CACHE_DIR
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    fastf1.Cache.enable_cache(str(cache_dir))
     if verbose:
-        print(f"FastF1 {fastf1.__version__} | cache -> {CACHE_DIR.relative_to(ROOT)}")
-    return CACHE_DIR
+        print(f"FastF1 {fastf1.__version__} | cache -> {cache_dir}")
+    return cache_dir

@@ -66,8 +66,12 @@ Two conditions on this decision:
   so the allow-list can change. `src/ingest/` stays plain Python + FastF1 with no
   Databricks imports, so it can fall back to the GitHub Actions runner (pull, write
   Parquet, `fs cp` to the Volume) without touching the tables.
-- Serverless local disk is ephemeral. Point `fastf1.Cache.enable_cache()` at a Volume
-  path (e.g. `/Volumes/race_preds/raw/fastf1_cache`) or every run re-downloads.
+- **The FastF1 cache cannot live on a Volume.** Its HTTP cache is SQLite, which needs
+  random writes and file locks that the Volume FUSE mount does not provide: with the
+  cache on a Volume the SQLite file is never created and FastF1 fails with "Failed to
+  load any schedule data" (tested 2026-10-08). The job uses the serverless local temp
+  disk instead, so every run downloads its session again. That costs seconds per
+  session, and each session is ingested about once, so it is not worth working around.
 
 Parquet written for Spark needs two conversions, found in Phase 0: pandas
 `datetime64[ns]` columns must be coerced to microseconds (`coerce_timestamps="us"`), and
@@ -81,7 +85,7 @@ with reader settings. Without telemetry, FastF1 leaves `LapStartDate` entirely n
 
 | layer | contents | notes |
 |---|---|---|
-| raw (Volume) | Parquet per session as FastF1 returns it: laps, results, weather, track status, race control messages. Jolpica results and standings. Open-Meteo forecasts. | Path keyed by season / round / session. Overwritten on re-ingest. |
+| raw (Volume) | `SessionTables` per session: `laps`, `results`, `weather`, `track_status`, `session_status`, `race_control` Parquet plus `meta.json`, at `/Volumes/race_preds/raw/fastf1/<season>/<round>/<session_id>/`. Later: Jolpica results and standings, Open-Meteo forecasts. | Written by `src/ingest/fastf1_session.py`. Overwritten on re-ingest; `meta.json` is written last, so a directory without it is an interrupted pull. |
 | bronze | The raw files loaded into Delta, one table per source entity, plus ingest metadata (source, pulled_at, FastF1 version). | Append/merge by session key. Schema evolution on. |
 | silver | Cleaned and conformed: typed columns, Ergast ids as join keys, lap flags (in-lap, out-lap, SC/VSC/red flag via `TrackStatus` contains), stint number and tyre age per lap, fuel-corrected lap time. | Window functions per driver-session live here. |
 | gold | Analysis grain tables: driver × session pace summaries, driver × race × stint degradation, circuit incident history, rolling driver/team form. | This is what the models read. |
@@ -358,7 +362,13 @@ Each phase has an exit check. Don't start the next one until it passes.
 2. ~~Phase 0.~~ Done 2026-10-08, see Phase 0 results below.
 3. ~~Refactor the exploration modules to take tables instead of a `Session`.~~ Done
    2026-10-08.
-4. Phase 1, with ingest as a job task (see Where ingest runs).
+4. Phase 1, on 2026 R16 (Bahrain, conventional, 22 cars). Step 1, ingest, is done
+   (2026-10-08): `src/ingest/fastf1_session.py` writes the raw layer, the bundle job
+   `ingest_session` (parameters season / round / session_id) runs it on serverless in
+   about 30 s, and the SQL warehouse reads all six tables with the expected types
+   (durations `double`, `Deleted` `boolean`, UTC timestamps `timestamp_ntz`). A re-pull
+   writes byte-identical Parquet. A session that has not run, or does not exist in that
+   weekend, raises `SessionNotAvailable` and writes nothing. Next: bronze.
 
 | # | phase | exit check |
 |---|---|---|

@@ -125,6 +125,11 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   to `applyInPandas`.
 - `laps.py`: `not_deleted`, `clean_laps`, `quick_laps`, plain replacements for FastF1's
   `Laps.pick_*` filters (the future silver lap flags).
+- `ingest/fastf1_session.py` (pipeline, not exploration): `ingest_session()` writes one
+  session's `SessionTables` as Parquet + `meta.json` under a root (`data/raw` locally,
+  `/Volumes/race_preds/raw/fastf1` in the `ingest_session` bundle job);
+  `read_session()` reads it back without FastF1. No Databricks imports. In a job, keep
+  the FastF1 cache on local temp disk: SQLite does not work on a Volume.
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).

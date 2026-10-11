@@ -7,6 +7,13 @@ bundle:
 include:
   - resources/*.yml
 
+# deploy the repo's src/ next to the bundle, so job notebooks can import it;
+# both land under ${workspace.file_path} (databricks/ and src/), gitignored files are skipped
+sync:
+  paths:
+    - .
+    - ../src
+
 # Variable declarations. These variables are assigned in the dev/prod targets below.
 variables:
   catalog:

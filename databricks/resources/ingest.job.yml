@@ -1,0 +1,17 @@
+resources:
+  jobs:
+    ingest_session:
+      name: ingest_session
+      parameters:
+        - name: season
+          default: "2026"
+        - name: round
+          default: "16"
+        - name: session_id
+          default: "R"
+        - name: repo_root
+          default: ${workspace.file_path}
+      tasks:
+        - task_key: ingest
+          notebook_task:
+            notebook_path: ../notebooks/ingest_session.py
