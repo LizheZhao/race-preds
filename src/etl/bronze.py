@@ -2,6 +2,7 @@
 bronze layer: one ingested session's Parquet loaded into Delta, one table per entity
 
     race_preds.bronze.{laps,results,weather,track_status,session_status,race_control}
+    race_preds.bronze.sessions   one row per session from meta.json (name, format, start)
 
 every row gets the session key (season, round, session_id) and the ingest metadata
 (pulled_at, fastf1_version) from meta.json. A session is replaced as a whole with
@@ -43,4 +44,17 @@ def load_session(spark: SparkSession, session_dir: str) -> dict[str, int]:
            .option("mergeSchema", "true")
            .saveAsTable(table))
         counts[path.stem] = spark.table(table).where(where).count()
+
+    # the session itself: what summarize_session needs besides the six tables
+    sessions = spark.createDataFrame(
+        [(key["season"], key["round"], key["session_id"], meta["session"], meta["event_format"],
+          meta["date"], meta["pulled_at"], meta["fastf1_version"])],
+        "season INT, round INT, session_id STRING, session STRING, event_format STRING, "
+        "date STRING, pulled_at STRING, fastf1_version STRING",
+    ).withColumns({"date": F.col("date").cast("timestamp_ntz"),  # scheduled start, UTC
+                   "pulled_at": F.col("pulled_at").cast("timestamp")})
+    (sessions.write.format("delta").mode("overwrite")
+       .option("replaceWhere", where)
+       .saveAsTable(f"{SCHEMA}.sessions"))
+    counts["sessions"] = spark.table(f"{SCHEMA}.sessions").where(where).count()
     return counts

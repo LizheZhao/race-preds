@@ -4,6 +4,7 @@ import sys
 
 sys.path.insert(0, dbutils.widgets.get("repo_root"))
 
+from src.etl.ops import track
 from src.etl.silver import load_session
 
 season = int(dbutils.widgets.get("season"))
@@ -12,5 +13,6 @@ session_id = dbutils.widgets.get("session_id")
 
 # COMMAND ----------
 
-counts = load_session(spark, season, rnd, session_id)
+with track(spark, season, rnd, session_id, "silver"):
+    counts = load_session(spark, season, rnd, session_id)
 print(f"{season} R{rnd} {session_id}: {counts}")

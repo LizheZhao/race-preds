@@ -34,9 +34,10 @@ together with the published JSON (see Part 3 of `docs/pipeline-plan.md`).
 Free Edition platform spike) are done. Phase 0 showed serverless can reach FastF1 /
 Jolpica / Open-Meteo, so **ingest runs inside a Databricks job**, not on the GitHub
 runner; the runner only triggers jobs and publishes. Results and remaining constraints
-are in `docs/pipeline-plan.md` (Phase 0 results, Known constraints). The exploration
-modules already take tables (`SessionTables`). Next is Phase 1 in that plan, the
-lakehouse for one race.
+are in `docs/pipeline-plan.md` (Phase 0 results, Known constraints). Phase 1, the
+lakehouse for one race, passed its exit check on 2026 R16: the `process_session` job runs
+ingest → bronze → silver → gold for one session and records each task in
+`ops.processed_sessions`. Next is Phase 2 (replay) in that plan.
 
 `databricks/` holds the Asset Bundle (`databricks.yml`, `resources/*.yml`, notebooks in
 Databricks source format). Local Databricks access reads `DATABRICKS_HOST`,
@@ -70,8 +71,18 @@ python -m src.schema export docs/schema               # after any edit to src/sc
 python docs/examples/make_examples.py                 # after any edit to src/schema.py
 ```
 
-After changing `src/schema.py`, run the last two and then `check`. Otherwise the JSON
-Schema and examples the front end depends on go stale.
+After changing `src/schema.py`, run the last two and then `check`, then regenerate the
+front-end types (`cd web && npm run gen:types`). Otherwise the JSON Schema, examples and
+TypeScript types the front end depends on go stale.
+
+Front end (`web/`, Node + npm):
+
+```bash
+cd web && npm ci
+npm run dev          # copies docs/examples/v1 into public/data, serves at /race-preds/
+npm test             # vitest: data loading against docs/examples/v1
+npm run build        # tsc + static build into dist/ for GitHub Pages
+```
 
 No lint/test tooling exists. This is notebook-driven exploratory work, not a packaged
 application; don't add a test runner unless asked.
@@ -139,15 +150,31 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   rebuilds `race_preds.silver.laps` / `results` for one session from bronze. Its
   `is_clean` / `is_quick` flags must keep selecting the same laps as `src/laps.py`;
   change both together. Ergast ids are null while a weekend is in progress (see the plan).
+- `etl/gold.py` (pipeline): `load_session(spark, season, round, session_id)` runs
+  `summarize_session` (on the driver) and `long_runs` (`applyInPandas`) on one session's
+  bronze tables into `race_preds.gold.*`. Needs FastF1 installed (imports `src.sessions`).
+- `etl/ops.py`: `track(spark, …, stage)` wraps a job task and upserts its status into
+  `race_preds.ops.processed_sessions`.
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).
 - `summaries.py`: `summarize_session()` returns a per-driver and a per-session table for
   any session type. Its track status counts are the `race_incidents` label definition.
+  Gold stores its output in Delta, so each column must keep one type in every session:
+  counts are filled with 0, never NaN.
 - `timeline.py`: `session_timeline()` returns one row per minute.
 - `long_runs.py`: `long_runs()` returns one row per clean stint, with median pace and
-  degradation slope.
+  degradation slope; `stint_runs(laps)` is the same on a laps table alone, which gold
+  runs through `applyInPandas`.
 - `features.py`: `weekend_features()` joins per-session features side by side for a stage.
+
+### `web/`
+The dashboard: a static React SPA (Vite, Tailwind, shadcn/ui, Recharts, TanStack Query),
+designed once in Lovable and maintained here with no Lovable sync. `web/AGENTS.md` has the
+conventions. All fetching is in `web/src/data/api.ts` (base path `/race-preds/`,
+cache-busting queries for GitHub Pages' fixed 10-minute cache). Document types are
+generated from `docs/schema` into `web/src/data/generated/`; never hand-write them.
+`web/public/data` is gitignored and filled by `npm run data [folder]`.
 
 ### `demo/`
 A borrowed educational notebook (XGBoost pre-qualifying winner model for Baku, features

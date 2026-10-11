@@ -88,7 +88,7 @@ with reader settings. Without telemetry, FastF1 leaves `LapStartDate` entirely n
 | raw (Volume) | `SessionTables` per session: `laps`, `results`, `weather`, `track_status`, `session_status`, `race_control` Parquet plus `meta.json`, at `/Volumes/race_preds/raw/fastf1/<season>/<round>/<session_id>/`. Later: Jolpica results and standings, Open-Meteo forecasts. | Written by `src/ingest/fastf1_session.py`. Overwritten on re-ingest; `meta.json` is written last, so a directory without it is an interrupted pull. |
 | bronze | `race_preds.bronze.<table>`, one Delta table per raw Parquet file, each row prefixed with `season`, `round`, `session_id` and suffixed with `pulled_at`, `fastf1_version` from `meta.json`. | Written by `src/etl/bronze.py`. A session is replaced as a whole (`overwrite` + `replaceWhere` on the session key), not merged: bronze rows have no natural key (weather, duplicate race control messages). Unpartitioned. `mergeSchema` on. |
 | silver | `race_preds.silver.laps` (one row per driver lap) and `race_preds.silver.results` (one row per entrant). snake_case, durations `_s`, Ergast `driver_id` / `constructor_id`. Lap flags `is_green`, `has_yellow` / `has_sc` / `has_vsc` / `has_red` (status string *contains*), `is_in_lap`, `is_out_lap`, `is_deleted`, `is_clean` and `is_quick` (the exact sets `src/laps.py` and `summarize_session` use), `stint_lap`, `fuel_kg` and `lap_time_fuel_corr_s` (R and S only). | Written by `src/etl/silver.py`, Spark-native, window functions per session and per driver stint. A session is replaced as a whole, like bronze. |
-| gold | Analysis grain tables: driver × session pace summaries, driver × race × stint degradation, circuit incident history, rolling driver/team form. | This is what the models read. |
+| gold | `race_preds.gold.driver_session` (`summarize_session` by_driver), `gold.session` (session_row, the `race_incidents` labels), `gold.stints` (`long_runs`). Later: circuit incident history, rolling driver/team form. | Written by `src/etl/gold.py`. This is what the models read. The pandas functions run unchanged and read **bronze**, since they are written against FastF1's column names; silver is the conformed layer for Spark-native work. `long_runs` needs only laps, so it runs as `groupBy(session).applyInPandas`. `summarize_session` needs six tables at once, which applyInPandas cannot hand to one call, so gold collects one session's tables (a few hundred KB) to the driver. Ids from `silver.results`. |
 
 Telemetry stays out until the lap-level pipeline is working end to end. It is the
 expensive load, and none of the four models needs it at first.
@@ -175,9 +175,13 @@ How they run on Spark:
 
 ### State table
 
-`ops.processed_sessions` records, per (season, round, session): the ingest, ETL, scoring
-and publish status, timestamps, and the last error. The dispatcher (below) reads it to
-decide what still needs doing.
+`race_preds.ops.processed_sessions` has one row per (season, round, session_id, stage),
+with `status` (`succeeded`, `failed`, `not_available`), `updated_at` and the `error` of a
+failed run. Stages so far: `ingest`, `bronze`, `silver`, `gold`; scoring and publish add
+theirs. Long format, so a new stage needs no schema change and each job task upserts its
+own row with a `MERGE` (`src/etl/ops.py`, `track()` wraps a task). The dispatcher (below)
+reads it to decide what still needs doing. `not_available` is ingest's
+`SessionNotAvailable`: the session has not run yet, retry later.
 
 ### Silver assumptions to revisit
 
@@ -432,12 +436,24 @@ Each phase has an exit check. Don't start the next one until it passes.
      exactly the laps of `src/laps.py`, per-driver `clean_lap_median` from silver equals
      `summarize_session`, `stint_lap` runs 1..n in every stint, no null ids, and
      re-running R gives zero differing rows.
-   - Next: gold.
+   - **Gold and the state table, done 2026-10-11.** `src/etl/gold.py`, fourth task;
+     `src/etl/ops.py` records every task in `ops.processed_sessions`. A full session
+     (ingest → bronze → silver → gold) takes about 2–4 min. Bronze gained a `sessions`
+     table (name, format, scheduled start from `meta.json`), which `summarize_session`
+     needs. Two type fixes came out of it: `summarize_session` now fills
+     `clean_laps` with 0 like the other counts (it was float whenever one driver had no
+     clean lap, int otherwise, and Delta refuses to merge the two), and `long_runs`
+     returns typed columns even when empty.
+   - **Exit check passed 2026-10-11.** All five Bahrain sessions processed. Every gold
+     table equals the pandas functions run locally on the same session, column by
+     column. A full re-run of R left the R rows of all twelve bronze, silver and gold
+     tables identical (`pulled_at` excluded). All 20 session × stage rows in the state
+     table are `succeeded`.
 
 | # | phase | exit check |
 |---|---|---|
 | 0 | **Platform spike.** Connect to the workspace locally, create catalog/schema/volume, upload one Parquet file. In a Databricks notebook, try a FastF1 `session.load()`. Read a table back locally with the SQL connector. Trigger a job from outside with a token. | **Passed 2026-10-08.** Answers below. |
-| 1 | **Lakehouse, one race.** Ingest one historical race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | Gold tables for that race. Re-running produces identical tables. |
+| 1 | **Lakehouse, one race.** Ingest one historical race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | **Passed 2026-10-11** on 2026 R16, all five sessions. |
 | 2 | **Replay.** Run the dispatcher against a past weekend by faking the clock, session by session, with baseline models and a real publish step. | A full round directory that passes `python -m src.schema check`, produced without manual steps. |
 | 3 | **Backfill + models.** Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness (see Research swarm). | A swarm-proposed change beats the production model on the backtest **and** on the untouched holdout season, and goes live through owner approval. |

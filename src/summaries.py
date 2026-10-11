@@ -172,7 +172,8 @@ def summarize_session(session) -> tuple[pd.DataFrame, pd.DataFrame]:
     by_driver = ids.join(by_driver, how="outer").rename_axis("Driver").reset_index()
 
     # counts are 0, not missing, for drivers with no laps or no messages
-    count_cols = [c for c in by_driver.columns if c.startswith("laps_") or c.endswith("_n")]
+    # (also keeps every count an integer in every session, which the gold Delta table needs)
+    count_cols = [c for c in by_driver.columns if c.startswith("laps_") or c.endswith("_n") or c == "clean_laps"]
     by_driver[count_cols] = by_driver[count_cols].fillna(0).astype(int)
     by_driver = by_driver.assign(**keys)[list(keys) + [c for c in by_driver.columns]]
 

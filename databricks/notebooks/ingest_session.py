@@ -13,7 +13,8 @@ session_id = dbutils.widgets.get("session_id")
 sys.path.insert(0, dbutils.widgets.get("repo_root"))
 
 from src.config import enable_cache
-from src.ingest.fastf1_session import ingest_session
+from src.etl.ops import track
+from src.ingest.fastf1_session import SessionNotAvailable, ingest_session
 
 RAW_ROOT = "/Volumes/race_preds/raw/fastf1"
 # FastF1's HTTP cache is SQLite, which cannot run on a Volume (no random writes / locks);
@@ -24,7 +25,8 @@ CACHE_DIR = f"{tempfile.gettempdir()}/fastf1_cache"
 
 # Pull one session into the raw Volume (overwrites a previous pull)
 enable_cache(cache_dir=CACHE_DIR)
-out = ingest_session(season, rnd, session_id, RAW_ROOT)
+with track(spark, season, rnd, session_id, "ingest", not_available=(SessionNotAvailable,)):
+    out = ingest_session(season, rnd, session_id, RAW_ROOT)
 print(f"{out}: {sorted(p.name for p in out.iterdir())}")
 
 # the bronze task reads this directory
