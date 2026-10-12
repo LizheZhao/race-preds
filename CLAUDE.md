@@ -45,7 +45,9 @@ lakehouse for one race, passed its exit check on 2026 R16: the `process_session`
 ingest → bronze → silver → gold for one session and records each task in
 `ops.processed_sessions`. Phase 2, the replay, passed on 2026 R15: the dispatcher runs
 missing sessions through that job, scores baselines and publishes a validated `v1` tree
-to `outputs/site/v1`. Next is Phase 3 (backfill and real models) in that plan.
+to `outputs/site/v1`. **Next is going live with the baselines before 2026-10-22**
+(the scheduled dispatcher workflow), then Phase 2b and Phase 3; see "Status and next
+steps" at the top of the plan.
 
 `databricks/` holds the Asset Bundle (`databricks.yml`, `resources/*.yml`, notebooks in
 Databricks source format). Local Databricks access reads `DATABRICKS_HOST`,
@@ -119,9 +121,11 @@ first season with usable FastF1 timing coverage). Add new shared paths here rath
 hardcoding them in notebooks.
 
 ### `docs/pipeline-plan.md`
-The build plan: data flow, lakehouse layers, the `ops.processed_sessions` state table,
-the dispatcher, the proposed `src/` layout and phases with exit checks. Read it before
-proposing any pipeline or infrastructure work, and keep it current when decisions change.
+The living build plan. It opens with the current status and next steps and a dated list
+of decisions, then the design of each part (lakehouse, models, dashboard, automation),
+the layout and the phases with exit checks, and ends with the records of finished
+phases. Read it before proposing any pipeline or infrastructure work. Keep the status and
+the decisions list current when something lands.
 
 ### `src/schema.py` + `docs/artifact-schema.md`
 The contract between the pipeline and the front end. Pydantic models for ten document
