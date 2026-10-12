@@ -84,7 +84,13 @@ Replay a past weekend through the whole pipeline (needs `.env` and the deployed 
 ```bash
 python -m src.dispatch.replay 2026 15                 # into outputs/site/v1, round cleared first
 python -m src.schema check outputs/site/v1/2026/15
+scripts/site_release.sh upload outputs/site/v1        # check + release the tree (needs gh, authenticated)
+gh workflow run pages.yml                             # deploy it to GitHub Pages
 ```
+
+The published tree is the asset of the GitHub Release `published`, not a Volume folder;
+`scripts/site_release.sh download <dir>` fetches it, and the Pages workflow deploys it
+(the example round only while no release exists).
 
 After changing `src/schema.py`, run the last two and then `check`, then regenerate the
 front-end types (`cd web && npm run gen:types`). Otherwise the JSON Schema, examples and

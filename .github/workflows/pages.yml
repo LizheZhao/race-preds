@@ -1,9 +1,10 @@
 # Build web/ and deploy it to GitHub Pages together with a published v1 data tree.
 #
-# For now the data is the synthetic example round in docs/examples/v1. Once publish
-# writes real output, the dispatcher downloads the Volume's published/v1 into a folder and
-# runs this same build with that folder (the `data_dir` input), so one deploy is always
-# front end + the full data tree (docs/pipeline-plan.md, Part 3).
+# The data is the published tree from the "published" GitHub Release
+# (scripts/site_release.sh), so one deploy is always front end + every published round,
+# and deploying needs no Databricks. Before the first publish it falls back to the
+# synthetic example round in docs/examples/v1. A publish run uploads the tree and then
+# starts this workflow (`gh workflow run pages.yml`).
 #
 # One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
 name: Deploy dashboard
@@ -17,11 +18,15 @@ on:
       - "docs/schema/**"
       - "src/schema.py"
       - ".github/workflows/pages.yml"
+      - "scripts/check_site.sh"
+      - "scripts/site_release.sh"
   workflow_dispatch:
     inputs:
-      data_dir:
-        description: "v1 data folder to publish, relative to the repo root"
-        default: "docs/examples/v1"
+      data_source:
+        description: "published = the release asset (examples if there is none yet), examples = docs/examples/v1"
+        type: choice
+        options: [published, examples]
+        default: published
 
 permissions:
   contents: read
@@ -34,13 +39,22 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DATA_DIR: ${{ inputs.data_dir || 'docs/examples/v1' }}
+  DATA_SOURCE: ${{ inputs.data_source || 'published' }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Fetch the published data tree
+        run: |
+          if [ "$DATA_SOURCE" = published ] && scripts/site_release.sh download _site/v1; then
+            echo "DATA_DIR=_site/v1" >> "$GITHUB_ENV"
+          else
+            echo "deploying the example round"
+            echo "DATA_DIR=docs/examples/v1" >> "$GITHUB_ENV"
+          fi
 
       # Publish is the only exit: nothing deploys unless every round passes the schema.
       - uses: actions/setup-python@v5
@@ -49,10 +63,7 @@ jobs:
       - name: Validate data against src/schema.py
         run: |
           pip install "pydantic>=2.9,<3"
-          python -c "import sys; from pathlib import Path; from src.schema import DOCUMENTS; DOCUMENTS['index'].model_validate_json(Path(sys.argv[1]).read_text()); print('index.json: OK')" "$DATA_DIR/index.json"
-          for manifest in "$DATA_DIR"/*/*/manifest.json; do
-            python -m src.schema check "$(dirname "$manifest")"
-          done
+          scripts/check_site.sh "$DATA_DIR"
 
       - id: pages
         uses: actions/configure-pages@v5

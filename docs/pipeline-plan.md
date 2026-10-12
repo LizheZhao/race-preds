@@ -309,10 +309,13 @@ proceed in parallel with Parts 1–2.
   published tree into `dist/data/v1/`, and deploys the result. Front end and data share
   one origin (no CORS), and every deploy is a consistent snapshot. A bad publish is
   rolled back by redeploying the previous run.
-- **Source of truth for published JSON** is a folder on a Unity Catalog Volume
-  (`published/v1/`), written by publish. Each Pages deploy replaces the whole site, so
-  the deploy job downloads the entire tree, including earlier stage snapshots, not just
-  the new files.
+- **Source of truth for published JSON** is the asset `published-v1.tar.gz` of the GitHub
+  Release tagged `published` (decided 2026-10-11, replacing a Volume folder): one
+  tarball of the whole v1 tree, replaced by every publish (`scripts/site_release.sh
+  upload`, which runs `scripts/check_site.sh` first). Each Pages deploy replaces the whole
+  site, so the deploy job downloads the entire tree, including earlier stage snapshots.
+  A Release keeps both the deploy and a publish on the runner free of Databricks, which
+  is what the fallback path needs; the repo is public, so downloading needs no token.
 
 GitHub Pages specifics to handle:
 
@@ -348,8 +351,9 @@ off-weekend). Each run:
 1. Reads the season schedule from FastF1 (session start times, weekend format).
 2. Compares finished sessions against `ops.processed_sessions`.
 3. For each finished, unprocessed session: trigger the Databricks ingest + ETL + scoring
-   job and wait → publish (schema-validated JSON to the Volume's `published/v1/`) →
-   deploy (download `published/v1/`, build `web/`, deploy to GitHub Pages).
+   job and wait → publish (download the released tree, add the stage, check it, upload it
+   with `scripts/site_release.sh`) → deploy (`gh workflow run pages.yml`, which
+   downloads the tree, builds `web/` and deploys to GitHub Pages).
 4. If FastF1 data is not available yet (usually 30–60 min after a session ends), leaves
    the session pending for the next run.
 5. Refreshes the weather forecast every few hours regardless of sessions.
@@ -389,8 +393,9 @@ no part in it.
   - the production model, exported from MLflow when a version is approved
   - a Parquet snapshot of the gold/feature history the features read (form, circuit
     history), refreshed after Monday training
-  - the full published tree (`published/v1/`), so a deploy still contains every
-    earlier snapshot
+  - the full published tree (`published-v1.tar.gz`, release `published`), so a deploy
+    still contains every earlier snapshot. This is also the normal path, not only the
+    fallback (see Part 3)
 - **Reconcile.** The runner can't write `ops.processed_sessions` while Databricks is
   down. It records the session in a fallback log in the release, and the next healthy
   dispatcher run re-processes it on Databricks. That run is idempotent and overwrites
@@ -472,10 +477,10 @@ Decisions and known gaps:
   left empty.
 - **Race strategies** leave out a driver with a stint FastF1 has no compound for (4 of 22
   on 2026 R16) rather than inventing one.
-- **Not done in Phase 2:** writing the tree to the Volume's `published/v1/`, the deploy,
-  and the scheduled GitHub Actions workflow that calls `dispatch` with the real clock
-  and picks the round. Publish writes to a local `v1` tree (`outputs/site/v1`), which
-  `web/` reads with `npm run data -- ../outputs/site/v1`.
+- **Not done in Phase 2:** the scheduled GitHub Actions workflow that calls `dispatch`
+  with the real clock and picks the round. Publish writes to a local `v1` tree
+  (`outputs/site/v1`); `scripts/site_release.sh upload outputs/site/v1` releases it and
+  the Pages workflow deploys it (Phase 2b, step 1).
 
 ## Proposed layout
 
@@ -547,10 +552,10 @@ Each phase has an exit check. Don't start the next one until it passes.
 | 0 | **Platform spike.** Connect to the workspace locally, create catalog/schema/volume, upload one Parquet file. In a Databricks notebook, try a FastF1 `session.load()`. Read a table back locally with the SQL connector. Trigger a job from outside with a token. | **Passed 2026-10-08.** Answers below. |
 | 1 | **Lakehouse, one race.** Ingest one historical race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | **Passed 2026-10-11** on 2026 R16, all five sessions. |
 | 2 | **Replay.** Run the dispatcher against a past weekend by faking the clock, session by session, with baseline models and a real publish step. | **Passed 2026-10-11** on 2026 R15 (`python -m src.dispatch.replay 2026 15`). |
-| 2b | **Fallback path.** The runner path from Automation, with the model, gold snapshot and published tree mirrored to Release assets. | A replayed weekend with Databricks unreachable (invalid token) publishes a valid round on the runner alone. On a normal replay, runner-path features and predictions match the Databricks path within a small tolerance. |
+| 2b | **Fallback path.** The runner path from Automation, with the model, gold snapshot and published tree mirrored to Release assets. **Step 1 done 2026-10-11:** the published tree lives in the `published` release and Pages deploys it (examples until the first upload). Next: runner-side `SessionTables` reads instead of the SQL warehouse, the gold history snapshot, the parity check. | A replayed weekend with Databricks unreachable (invalid token) publishes a valid round on the runner alone. On a normal replay, runner-path features and predictions match the Databricks path within a small tolerance. |
 | 3 | **Backfill + models.** Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness (see Research swarm). | A swarm-proposed change beats the production model on the backtest **and** on the untouched holdout season, and goes live through owner approval. |
-| 4 | **Front end** (parallel from the start). Lovable design → copy into `web/`, build against `docs/examples/v1/`, deploy to GitHub Pages, then point at real output. **Status:** live at https://lizhezhao.github.io/race-preds/ with the example round (`.github/workflows/pages.yml`); real output pending Phase 2. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
+| 4 | **Front end** (parallel from the start). Lovable design → copy into `web/`, build against `docs/examples/v1/`, deploy to GitHub Pages, then point at real output. **Status:** live at https://lizhezhao.github.io/race-preds/ with the example round (`.github/workflows/pages.yml`); real output once the first tree is uploaded to the `published` release. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
 | 5 | **Go live.** Enable the schedule for the current season. | One real weekend published end to end with no manual step. |
 
 ### Phase 0 results
