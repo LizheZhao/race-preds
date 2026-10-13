@@ -17,18 +17,18 @@ The repo has three parts:
 
 ## Status and next steps
 
-As of 2026-10-12.
+As of 2026-10-13.
 
 | # | phase | status |
 |---|---|---|
 | 0 | Platform spike | **Done** 2026-10-08 (Phase 0 results) |
 | 1 | Lakehouse for one race | **Done** 2026-10-11 on 2026 R16 (Phase 1 record) |
 | 2 | Replay | **Done** 2026-10-11 on 2026 R15 (Phase 2 record) |
-| 2b | Fallback path | Step 1 done: the published tree lives in a GitHub Release and Pages deploys from it. Rest open |
-| 3 | Backfill + models | Not started. Deliberately after go-live |
+| 2b | Fallback path | **Narrowed** 2026-10-13: release-hosted tree done; runner-side ingest deferred (runners can't reach F1 live timing). The rest folds into Phase 3 |
+| 3 | Backfill + models | **Next.** Plan written 2026-10-13 (Phase 3 plan) |
 | 3b | Research swarm (optional) | Not started |
-| 4 | Front end | Live with the example round; switches to real output on the first upload |
-| 5 | Go live | **In progress**, due 2026-10-22 21:30 UTC |
+| 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result |
+| 5 | Go live | Built and dry-run in CI 2026-10-13; first real publish 2026-10-22 21:30 UTC |
 
 **Order for the rest of 2026: go live first, models after** (decided 2026-10-12). Six
 rounds are left (R18 Austin, FP1 2026-10-23, through R23 Abu Dhabi on 2026-12-06).
@@ -40,18 +40,19 @@ model scores, as designed.
 
 1. **Go live with baselines before 2026-10-22 21:30 UTC**, the R18 `pre_weekend` build:
    - ~~build `src/dispatch/run.py` and `.github/workflows/dispatch.yml`~~ built 2026-10-12
-     (Automation → Dispatcher); merge to `main`, where scheduled runs fire
+     (Automation → Dispatcher), on `main` since 2026-10-13
    - ~~add the Databricks secrets and record the PAT's expiry date~~ done 2026-10-13;
      `PROCESS_SESSION_JOB_ID` stays unset while the dev job is the only one
-   - run the dry run, steps 1–3 (Automation → Dry run before going live)
+   - ~~dry run steps 1–2~~ done 2026-10-13 in CI (R17, and R18's Thursday build);
+     step 3, a quiet scheduled run, comes Thursday 2026-10-15
    - let the Thursday R18 build be the first real publish
-2. **Phase 2b, the rest of it, between race weekends**: runner-side `SessionTables` reads
-   instead of the SQL warehouse, the gold history snapshot, the parity check. Until then
-   a failed Databricks run leaves the last deploy up, and `stale` covers single sections.
-3. **Phase 3** with the remaining rounds and the off-season, including the Monday
-   champion check with shadow scoring. Grading the baselines starts with the first live
-   round, so the 2026 rounds become the first real record of predictions against
-   outcomes.
+2. **Phase 3** between race weekends (Tuesday and Wednesday only), in the order of the
+   Phase 3 plan: backfill, feature table, evaluation harness, then `finishing_order`.
+   Grading the baselines starts with the first live round, so the 2026 rounds become the
+   first real record of predictions against outcomes.
+3. **Phase 2b stays narrowed** (Decisions, 2026-10-13). Its two cheap parts ride along
+   with Phase 3: champions exported to a Release asset, and scoring that runs without
+   Spark.
 4. **Before the off-season** (after 2026-12-06):
    - keep the schedule from being disabled (60 days without commits)
    - re-run the `sessions` check against the 2027 schedule before the season
@@ -61,6 +62,17 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
+- **Phase 2b is narrowed; a Databricks failure is handled by retry, not by a runner
+  pipeline** (2026-10-13). GitHub-hosted runners get 403 from F1 live timing, so the
+  runner can't ingest a session. When a Databricks job fails, the dispatcher publishes the
+  last complete stage, the run fails and GitHub emails the owner. The next scheduled run
+  30 minutes later retries, since every step is idempotent. The owner steps in only when
+  failures repeat (expired token, daily quota). Runner-side ingest is deferred; the
+  options are in Automation → Fallback.
+- **Model scoring stays in publish, without Spark** (2026-10-13). Each champion is
+  exported from MLflow to a Release asset, and publish scores it with pandas and numpy,
+  like the baselines today. A Monte Carlo over 22 drivers is milliseconds. Spark's work in
+  Phase 3 is the backfill, the feature table and the backtest grid. (Phase 3 plan)
 - **Model selection is automatic** (2026-10-12). Each Monday the candidate that predicted
   the latest rounds best becomes `champion`, with gates and a margin. No manual approval.
   The owner's gate is merging model code. (Part 2 → Weekly model check)
@@ -302,9 +314,10 @@ baseline so the full chain runs (`src/models/baselines.py`, live now), then gets
 | `race_incidents` | circuit historical SC/VSC/red flag rates | rates adjusted for weather and circuit features |
 | `strategy` | most common historical strategy at the circuit | tyre degradation model (hierarchical, with an era effect for 2026) + pit loss → simulated race time per strategy |
 
-- **Where scoring runs.** For now the baselines are scored inside publish, on the
-  machine running the dispatcher. When the MLflow models replace them (Phase 3), scoring
-  moves into a Databricks task that writes predictions tables.
+- **Where scoring runs.** Inside publish, on the machine running the dispatcher, for the
+  baselines now and for the MLflow champions later. Publish loads each champion from a
+  Release asset, so scoring needs neither Spark nor a live Databricks connection
+  (Decisions, 2026-10-13).
 - **Training cadence.** Training runs weekly (Monday). Each run logs to MLflow and
   registers a version.
 - **Which version is live.** Scoring loads the version with the MLflow alias `champion`,
@@ -388,10 +401,10 @@ run one model many times:
 
 | section | per refresh | parallelism |
 |---|---|---|
-| `finishing_order` | Monte Carlo over thousands of simulated races, to fill `position_probs` and `p_dnf` | Spark, sharded by simulation batch (`mapInPandas`) |
+| `finishing_order` | Monte Carlo over thousands of simulated races, to fill `position_probs` and `p_dnf` | none needed: numpy in publish, milliseconds for 22 drivers (Decisions, 2026-10-13) |
 | `strategy` | candidate strategies (compound sequence × pit laps) × SC scenarios × drivers, plus any precomputed what-if grid | Spark, sharded by driver or strategy |
 
-Both run in minutes on Free Edition. Running *many different models* happens offline:
+Strategy is the one that may need Spark. Running *many different models* happens offline:
 backtests over seasons × stages × model versions, hyperparameter search and feature
 experiments. That is where the research swarm (Phase 3b) works.
 
@@ -694,11 +707,140 @@ at the top of this document.
 | 0 | **Platform spike.** Connect to the workspace locally, create catalog/schema/volume, upload one Parquet file, run a FastF1 `session.load()` in a Databricks notebook, read a table back with the SQL connector, trigger a job from outside with a token. | Written answers on network, external triggers and quotas. **Passed 2026-10-08.** |
 | 1 | **Lakehouse, one race.** Ingest one race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | Gold tables for that race; re-running produces identical tables. **Passed 2026-10-11** on 2026 R16. |
 | 2 | **Replay.** Run the dispatcher against a past weekend on a fake clock, session by session, with baseline models and a real publish step. | A full round directory that passes `python -m src.schema check`, with no manual steps. **Passed 2026-10-11** on 2026 R15. |
-| 2b | **Fallback path.** The runner path, with the champions, gold snapshot and published tree mirrored to Release assets. | A replayed weekend with Databricks unreachable (invalid token) publishes a valid round on the runner alone. On a normal replay, runner-path features and predictions match the Databricks path within a small tolerance. |
-| 3 | **Backfill + models.** Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. Add the Monday champion check with shadow scoring. | Each model beats its baseline on the backtest. Calibration decided per model. |
+| 2b | **Fallback path**, narrowed 2026-10-13. The published tree lives in a Release (done). Champions are exported to Release assets and scored without Spark (done inside Phase 3). Runner-side ingest is deferred. | A Databricks job failure leaves the site on the last complete stage and emails the owner; the next run recovers. Checked by the CI dry runs of 2026-10-13. |
+| 3 | **Backfill + models** (Phase 3 plan). Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. Add the Monday champion check with shadow scoring. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness. | A swarm-proposed change beats the champion on the backtest **and** on the untouched holdout season, and, once the owner merges it, is picked by the Monday check. |
 | 4 | **Front end** (parallel from the start). Lovable design → `web/`, built against `docs/examples/v1/`, deployed to GitHub Pages, then pointed at real output. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
 | 5 | **Go live.** Enable the schedule for the current season. | One real weekend published end to end with no manual step. |
+
+### Phase 3 plan
+
+Written 2026-10-13. The goal is the Phase 3 exit check: each model beats its baseline on
+the backtest, calibration decided per model. Sections are replaced one at a time,
+`finishing_order` first: it is the headline card, and the dashboard already grades it
+against the result (vs Result).
+
+**Calendar rule.** Databricks work for Phase 3 (backfill, training, backtests) runs on
+Tuesday and Wednesday only. Thursday to Monday belongs to the dispatcher, and an
+over-quota day would stop the live weekend.
+
+Each step ends in its own check. Don't start the next step until it passes.
+
+#### Step 1: backfill the lakehouse, 2018 → 2026 R17
+
+- **Scope.** Every session in `get_sessions()` for 2018–2025 and 2026 R1–R17, about
+  900 sessions. 2026 R15–R17 are already in. Live rounds from R18 on fill themselves.
+- **Storage: all on Databricks, the same path as a live session.** Raw `SessionTables`
+  Parquet goes to the Volume (`/Volumes/race_preds/raw/fastf1/<season>/<round>/<session>/`),
+  then bronze → silver → gold Delta tables in the `race_preds` catalog. Nothing is
+  written locally or to GitHub. The FastF1 cache stays on the job's local temp disk
+  (SQLite does not work on a Volume), so one job run per round also shares that cache
+  across the round's sessions. Size: a session is a few hundred KB of Parquet, so the
+  whole backfill is a few hundred MB.
+- **Order: newest first.** 2026, then 2025, 2024 and back. Each finished season is
+  usable for training at once, and the recent seasons matter most under the 2026 rules.
+- **One job run per round, not per session.** A `backfill_round` job loops over the
+  round's sessions inside one serverless task, so each round pays one cold start instead
+  of five. It records each session in `ops.processed_sessions` exactly like
+  `process_session`, so the dispatcher's "missing from gold" logic covers it. Runs are
+  sequential (5 concurrent tasks is the account limit).
+- **Measure before scaling.** Time one round first, then size a Tuesday batch so it stays
+  well inside the daily quota. Record the timing here.
+- **Jolpica results.** `get_results(years, kind)` for race, sprint and qualifying,
+  2018 → now, into `bronze.ergast_results`. The form and DNF features read it, and it
+  gives the grid for 2021–22 sprint weekends.
+- **Known gaps.** Sessions that fail to load are marked skipped (2020 R13 has no
+  FP2/FP3). 2021 Belgium labels as 0 SC (Race incident labels).
+- **Check:** every scheduled session has a terminal state in `ops.processed_sessions`
+  (`succeeded` or skipped); per-season row counts of `gold.driver_session` and
+  `gold.session` look right; re-running one backfilled round gives identical tables.
+
+#### Step 2: the feature table
+
+- **`gold.features`, one row per driver × round × stage.** A row only uses sessions
+  allowed at its stage (`get_session_stage`) and rounds before its own. Built with Spark
+  from gold and `bronze.ergast_results`; the per-session part reuses
+  `weekend_features()` through `applyInPandas`.
+- **Feature groups:**
+  - session pace: the `FEATURE_COLS` of each session available at the stage
+  - form: rolling finish and qualifying position over recent races, weighted to the
+    latest, with the 2026 rounds weighted up (new regulations)
+  - team: team-mate gap, team form
+  - grid: the Ergast grid once the stage is past Q (never the Q position)
+  - reliability: driver and team DNF rate
+  - context: circuit history, `event_format`, practice sessions before Q, era flag
+- **Labels on the same rows:** finishing position, classified or not, qualifying
+  position.
+- **Leakage test (the one test that must never be skipped).** For a sample of rows,
+  rebuild the features from only the sessions allowed at the stage and only earlier
+  rounds, and assert they equal the stored row.
+- **Check:** the table covers every backfilled round × stage, and the leakage test
+  passes.
+
+#### Step 3: the evaluation harness (frozen once written)
+
+- **Splits:**
+  - season-split backtest: test seasons 2022, 2023, 2024, each trained on every
+    earlier season
+  - 2026 walk-forward: R6–R17, each round trained through the round before. This is
+    the closest replay of live use, and it is where the 2026 rule change shows.
+  - holdout: 2025, scored once per model just before it becomes a candidate, and never
+    used to choose features or settings
+- **Metrics,** fixed now, the same as the Monday check (Part 2): ranked probability
+  score and log loss on `position_probs` for finishing order and qualifying; Brier score
+  for race incidents; top-1 / top-2 hit for strategy. The readable numbers the dashboard
+  shows (winner, podium and top-10 hits, mean rank error) are reported alongside but
+  never select a model.
+- **Pure pandas** (`src/models/evaluate.py`), reading a Parquet snapshot of
+  `gold.features`. The same code runs locally, on Databricks and in a research-swarm
+  sandbox (Phase 3b). On Databricks the backtest grid (model × split × stage) runs
+  through `applyInPandas`.
+- **Baselines first.** The harness scores the four baselines and logs them to MLflow.
+  Those scores are the bar.
+- **Check:** baseline scores for every section × stage × split in MLflow; the harness
+  and splits are then read-only.
+
+#### Step 4: `finishing_order` model
+
+- **Shape:** a strength score per driver, a DNF probability per driver, then a Monte
+  Carlo that turns both into `position_probs` and `p_dnf`.
+  - strength: a regularised model of finishing position on the step 2 features (start
+    linear, try gradient boosting only if the backtest says so)
+  - DNF: logistic on reliability and circuit
+  - simulation: sample retirements, then a Plackett–Luce order from the strengths. Its
+    temperature is fitted on the backtest and is the calibration knob.
+- **Check:** better ranked probability score than both baselines (grid order after Q,
+  qualifying-based order before) on the season-split backtest and the 2026 walk-forward,
+  at every stage.
+
+#### Step 5: MLflow, champion export, scoring in publish
+
+- Register `race_preds.models.finishing_order` in Unity Catalog, alias `champion`.
+- On every alias change, export the champion to a Release asset (`models-v1`). Publish
+  loads it from there and scores without Spark (Decisions, 2026-10-13). This is the part
+  of Phase 2b that survives.
+- `model.calibrated` turns `true` only after the backtest reliability curve supports it.
+- **Check:** a replay of 2026 R17 publishes the champion's `finishing_order` with no
+  manual step, and its `model` block names the registered version.
+
+#### Step 6: the Monday check
+
+- A `train.yml` workflow on Monday (after the race window closes) triggers a Databricks
+  `train_models` job: grade the last round, compare on the rolling window, retrain,
+  select (Part 2 → Weekly model check).
+- Shadow scoring: publish scores every candidate and writes the non-champions to
+  `ops.predictions_shadow` through the SQL warehouse.
+- **Check:** one Monday run grades a round, logs the scores and leaves the alias where
+  the rule says.
+
+#### Step 7: the other sections
+
+`qualifying` next (it shares the strength model), then `race_incidents` (a rate model,
+cheap), then `strategy` (the degradation model, the hardest). Each goes through steps 4–5
+with its own baseline as the bar.
+
+**Target.** Steps 1–3 before R20; a `finishing_order` champion live for R21 or R22. The
+off-season covers step 7.
 
 ## Phase records
 
