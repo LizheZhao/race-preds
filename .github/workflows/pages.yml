@@ -3,8 +3,9 @@
 # The data is the published tree from the "published" GitHub Release
 # (scripts/site_release.sh), so one deploy is always front end + every published round,
 # and deploying needs no Databricks. Before the first publish it falls back to the
-# synthetic example round in docs/examples/v1. A publish run uploads the tree and then
-# starts this workflow (`gh workflow run pages.yml`).
+# synthetic example round in docs/examples/v1. The dispatcher (dispatch.yml) calls this
+# workflow with the tree it just published as an Actions artifact, so the deploy can't
+# race the release upload.
 #
 # One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
 name: Deploy dashboard
@@ -27,6 +28,12 @@ on:
         type: choice
         options: [published, examples]
         default: published
+  workflow_call:
+    inputs:
+      artifact:
+        description: "Actions artifact of this run holding the v1 tree to deploy"
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -47,9 +54,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download this run's data tree
+        if: inputs.artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: _site/v1
+
       - name: Fetch the published data tree
+        env:
+          ARTIFACT: ${{ inputs.artifact }}
         run: |
-          if [ "$DATA_SOURCE" = published ] && scripts/site_release.sh download _site/v1; then
+          if [ -n "$ARTIFACT" ]; then
+            echo "DATA_DIR=_site/v1" >> "$GITHUB_ENV"
+          elif [ "$DATA_SOURCE" = published ] && scripts/site_release.sh download _site/v1; then
             echo "DATA_DIR=_site/v1" >> "$GITHUB_ENV"
           else
             echo "deploying the example round"

@@ -3,16 +3,17 @@ the dispatcher: given a round and a clock, bring the lakehouse up to date and pu
 
     stage_at(now)      the stage the clock has reached (None before the Thursday build)
     dispatch(now)      process every session of that stage not yet in gold, then publish it
+    process(now)       the same without publishing, for a caller that publishes only on change
 
-the scheduled GitHub Actions run calls it with the real clock; a replay calls it with a
-fake one, stage by stage. Picking the round from the clock is left to that workflow
+the scheduled run (run.py) calls process() with the real clock and picks the round; a
+replay calls dispatch() with a fake clock, stage by stage
 """
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
-from src import schema
 from src.dispatch import jobs
 from src.publish.documents import Context, utc
 from src.publish.site import publish
@@ -44,24 +45,52 @@ def stage_at(season: int, rnd: int, now: datetime) -> str | None:
     return stage
 
 
-def dispatch(season: int, rnd: int, now: datetime, site: Path, run_id: str) -> str | None:
-    """returns the stage published, or None when the clock is before the weekend"""
+@dataclass(frozen=True)
+class Progress:
+    """what one dispatcher run brought the lakehouse up to, before anything is published"""
+    stage: str  # the last stage whose sessions are all in gold
+    processed: tuple[str, ...] = ()  # sessions this run took to gold
+    error: Exception | None = None  # a session job that failed; publish `stage`, then raise it
+
+
+def process(season: int, rnd: int, now: datetime) -> Progress | None:
+    """run every session of the stage the clock has reached that is not in gold yet; None before the weekend"""
     stage = stage_at(season, rnd, now)
     if stage is None:
         return None
 
     done = jobs.processed_sessions(season, rnd)
     order = ["pre_weekend", *[s["session_id"] for s in get_sessions(season, rnd)]]
+    processed = []
     for sid in get_session_stage(season, rnd, stage):
         if sid in done:
             continue
         print(f"  processing {season} R{rnd} {sid} on Databricks")
-        if jobs.run_session(season, rnd, sid) == "not_available":
+        try:
+            outcome = jobs.run_session(season, rnd, sid)
+        except Exception as e:
+            print(f"  {sid} failed, publishing stage {order[order.index(sid) - 1]}: {e}")
+            return Progress(order[order.index(sid) - 1], tuple(processed), e)
+        if outcome == "not_available":
             stage = order[order.index(sid) - 1]  # publish what is there; the next run retries
             print(f"  {sid} has no data yet, publishing stage {stage}")
             break
+        processed.append(sid)
+    return Progress(stage, tuple(processed))
 
+
+def publish_stage(season: int, rnd: int, stage: str, now: datetime, site: Path, run_id: str) -> None:
     sections = publish(Context.at(season, rnd, stage, now, run_id), site)
     print(f"  published {season} R{rnd} at {stage}: "
           + ", ".join(f"{k} {v.status}" for k, v in sections.items()))
-    return stage
+
+
+def dispatch(season: int, rnd: int, now: datetime, site: Path, run_id: str) -> str | None:
+    """process and always publish; returns the stage published, or None when the clock is before the weekend"""
+    progress = process(season, rnd, now)
+    if progress is None:
+        return None
+    publish_stage(season, rnd, progress.stage, now, site, run_id)
+    if progress.error:
+        raise progress.error
+    return progress.stage

@@ -1,0 +1,116 @@
+# The race-weekend dispatcher (docs/pipeline-plan.md, Automation → Dispatcher).
+#
+# Every 30 minutes Thursday to Monday (UTC) it finds the round whose weekend window holds
+# the clock, runs any missing session through the Databricks process_session job, and
+# publishes when the stage advanced, a session was processed or the weather is due
+# (src/dispatch/run.py). A changed tree is uploaded to the "published" release and
+# deployed through pages.yml. Outside every window a run exits in about a minute.
+#
+# Scheduled runs only fire from the default branch.
+# Secrets: DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_HTTP_PATH.
+# Variable: PROCESS_SESSION_JOB_ID, the job deployed with the bundle's production target.
+name: Dispatch
+
+on:
+  schedule:
+    # Thursday to Monday covers every venue: Las Vegas Thursday local is Friday UTC, and
+    # Sunday races in the Americas are ready on Monday UTC.
+    - cron: "*/30 * * * 4,5,6,0,1"
+  workflow_dispatch:
+    inputs:
+      now:
+        description: "Clock override, ISO UTC (e.g. 2026-10-11T16:00Z); empty = now"
+        type: string
+        default: ""
+      round:
+        description: "Round override; empty = the round whose window holds the clock"
+        type: string
+        default: ""
+      dry_run:
+        description: "Publish and validate on the runner only: no release upload, no deploy"
+        type: boolean
+        default: false
+
+# A session job can take 30 minutes; runs queue and never overlap.
+concurrency:
+  group: dispatch
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    outputs:
+      deploy: ${{ steps.artifact.outcome == 'success' }}
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+      PROCESS_SESSION_JOB_ID: ${{ vars.PROCESS_SESSION_JOB_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.txt
+      - run: uv pip install --system -r requirements.txt
+
+      # Caches are immutable per key, so each run saves under its own key and restores the
+      # newest by prefix. Circuit geometry costs one telemetry load per circuit.
+      - uses: actions/cache@v4
+        with:
+          path: data/fastf1_cache
+          key: fastf1-${{ github.run_id }}
+          restore-keys: fastf1-
+      - uses: actions/cache@v4
+        with:
+          path: data/processed/circuits
+          key: circuits-${{ github.run_id }}
+          restore-keys: circuits-
+
+      - name: Fetch the published tree
+        run: scripts/site_release.sh download outputs/site/v1 || mkdir -p outputs/site/v1
+
+      - id: run
+        name: Dispatch
+        env:
+          NOW: ${{ inputs.now }}
+          ROUND: ${{ inputs.round }}
+        run: python -m src.dispatch.run --site outputs/site/v1 ${NOW:+--now "$NOW"} ${ROUND:+--round "$ROUND"}
+
+      # A failed session job still publishes the last complete stage before the run fails,
+      # so these steps run on failure too, whenever something was published.
+      - id: upload
+        name: Upload to the release
+        if: ${{ !cancelled() && steps.run.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+        run: scripts/site_release.sh upload outputs/site/v1
+
+      - id: artifact
+        if: ${{ !cancelled() && steps.upload.outcome == 'success' && !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-v1
+          path: outputs/site/v1
+          retention-days: 7
+
+  deploy:
+    needs: dispatch
+    if: ${{ !cancelled() && needs.dispatch.outputs.deploy == 'true' }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      artifact: site-v1

@@ -39,8 +39,8 @@ model scores, as designed.
 **Next up**, in order:
 
 1. **Go live with baselines before 2026-10-22 21:30 UTC**, the R18 `pre_weekend` build:
-   - build `src/dispatch/run.py` and `.github/workflows/dispatch.yml` (Automation →
-     Dispatcher)
+   - ~~build `src/dispatch/run.py` and `.github/workflows/dispatch.yml`~~ built 2026-10-12
+     (Automation → Dispatcher); merge to `main`, where scheduled runs fire
    - add the Databricks secrets and variable, and record the PAT's expiry date
    - run the dry run, steps 1–3 (Automation → Dry run before going live)
    - let the Thursday R18 build be the first real publish
@@ -508,7 +508,10 @@ What publishes when is specified in `docs/artifact-schema.md` (Stages and the we
 lifecycle). Jobs and notebooks are defined as code in the Asset Bundle under
 `databricks/`.
 
-**To build (Next up 1): `src/dispatch/run.py`, a CLI around `dispatch()`.**
+**Built 2026-10-12: `src/dispatch/run.py`, a CLI around `process()`.** `dispatch()` is
+split into `process()` (sessions to gold, returns a `Progress`) and `publish_stage()`, so
+the decision to publish comes before anything is rewritten. `replay.py` still calls
+`dispatch()`, which does both.
 
 - **`current_round(season, now)`** returns the round whose window contains `now`.
   - The window runs from `pre_weekend_at` to the race's `ready_at` + 24 h. The extra day
@@ -527,12 +530,11 @@ lifecycle). Jobs and notebooks are defined as code in the Asset Bundle under
 - **Arguments:** `--now <ISO>` and `--round <n>` override the clock for dry runs.
   `--site <v1 dir>` is where the tree lives. It writes `changed=true|false` and the stage
   to `$GITHUB_OUTPUT`.
-- **A failed Databricks job** currently raises before anything is published. That leaves
-  the last deploy up and fails the run, so the email goes out. Until Phase 2b, publish
-  the last complete stage before failing, so sections whose inputs changed can mark
-  themselves `stale`.
+- **A failed Databricks job** publishes the last complete stage (if that is a change),
+  then fails the run, so the email goes out. The upload and deploy steps run on failure
+  too, whenever something was published.
 
-**To build (Next up 1): `.github/workflows/dispatch.yml`.**
+**Built 2026-10-12: `.github/workflows/dispatch.yml`.**
 
 - **Triggers:**
   - `schedule: "*/30 * * * 4,5,6,0,1"` (UTC). Thursday through Monday covers every
@@ -580,8 +582,13 @@ Later, Monday training gets its own scheduled workflow (Phase 3).
 1. Run `workflow_dispatch` with `round=17`, `now=2026-10-11T16:00Z` (R17 race ready
    + 1 h) and `dry_run=true`. Every session is already processed or gets processed,
    the round publishes into the runner's tree, and the check passes, with no upload.
-2. Run the same without `dry_run`. R17 is uploaded and deployed, and the live site shows
-   a real round instead of the example.
+2. Seed the live site with a full R17. Jumping straight to stage R leaves the race
+   predictions `error` ("No prediction was published before the session"), because no
+   earlier snapshot exists. So build it stage by stage locally, then release it:
+   `python -m src.dispatch.replay 2026 17`, `scripts/site_release.sh upload
+   outputs/site/v1`, `gh workflow run pages.yml`. A `workflow_dispatch` run without
+   `dry_run` at `now=2026-10-11T19:05Z` then exercises upload and deploy from the
+   workflow (it republishes for the weather).
 3. A scheduled run on a quiet day exits with `changed=false` in under ~2 min.
 4. Thursday 2026-10-22 21:30 UTC (FP1 − 20 h) brings the first real `pre_weekend` build
    of R18. The R18 race is ready at 2026-10-25 23:00 UTC, and the window closes 24 h
