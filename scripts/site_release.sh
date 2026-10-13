@@ -36,7 +36,7 @@ case "$command" in
     tar -czf "$tmp/$asset" -C "$site" .
     if [[ "${DRY_RUN:-}" == 1 ]]; then
       echo "dry run: would upload $(du -h "$tmp/$asset" | cut -f1) to $repo@$tag/$asset"
-      tar -tzf "$tmp/$asset" | head -5
+      tar -tzf "$tmp/$asset" | sed -n 1,5p  # sed reads to the end; head would break the pipe under pipefail
       rm -rf "$tmp"
       exit 0
     fi
