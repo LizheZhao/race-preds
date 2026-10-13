@@ -1,9 +1,17 @@
 import { useState } from "react";
-import type { FinishingOrderDoc } from "@/data/types";
+import type { FinishingOrderDoc, RaceRow } from "@/data/types";
 import { cn } from "@/lib/utils";
+import { BumpChart, type BumpColumn } from "./Bump";
+import { actualOrder, predictedOrder, scorecard } from "./compare";
 import { Heatmap } from "./Heatmap";
 import { pct, probNoun, useRace } from "./context";
-import { useTip } from "./Tip";
+
+type Mode = "heat" | "trend" | "result";
+const MODE_LABEL: Record<Mode, string> = {
+  heat: "Positions",
+  trend: "Trend",
+  result: "vs Result",
+};
 
 function sortKey(e: number | null) {
   return e ?? Number.POSITIVE_INFINITY;
@@ -11,16 +19,22 @@ function sortKey(e: number | null) {
 
 export function FinishingOrderView({
   doc,
-  prev,
-  prevLabel,
-  nowLabel,
+  stageLabel,
+  trend,
+  result,
 }: {
   doc: FinishingOrderDoc;
-  prev?: FinishingOrderDoc | undefined;
-  prevLabel?: string | undefined;
-  nowLabel?: string | undefined;
+  /** The stage this prediction was made at. */
+  stageLabel: string;
+  /** Every snapshot up to this one, in weekend order. */
+  trend: { label: string; doc: FinishingOrderDoc }[];
+  /** The race classification, once the race has run. */
+  result?: RaceRow[] | undefined;
 }) {
-  const [mode, setMode] = useState<"heat" | "movers">("heat");
+  const modes: Mode[] = result
+    ? ["result", "heat", "trend"]
+    : ["heat", "trend"];
+  const [mode, setMode] = useState<Mode>(modes[0]!);
   const { drivers } = useRace();
   const noun = probNoun(doc.model.calibrated);
   const rows = [...doc.drivers].sort(
@@ -28,9 +42,10 @@ export function FinishingOrderView({
       sortKey(a.expected_position_if_classified) -
       sortKey(b.expected_position_if_classified),
   );
-  const leader = rows[0];
   const favourite = [...doc.drivers].sort((a, b) => b.p_win - a.p_win)[0];
   const hasGrid = rows.some((r) => r.grid_position != null);
+  const code = (id: string | undefined) =>
+    id ? (drivers.get(id)?.code ?? id) : "—";
 
   return (
     <div className="space-y-5">
@@ -39,7 +54,7 @@ export function FinishingOrderView({
           <div>
             <p className="label-caps mb-1">Win {noun} · favourite</p>
             <p className="font-display text-4xl font-semibold leading-none tnum">
-              {drivers.get(favourite.driver_id)?.code ?? favourite.driver_id}{" "}
+              {code(favourite.driver_id)}{" "}
               <span className="text-primary">{pct(favourite.p_win)}</span>
             </p>
           </div>
@@ -49,11 +64,11 @@ export function FinishingOrderView({
           role="group"
           aria-label="View"
         >
-          {(["heat", "movers"] as const).map((m) => (
+          {modes.map((m) => (
             <button
               key={m}
               type="button"
-              disabled={m === "movers" && !prev}
+              disabled={m === "trend" && trend.length < 2}
               onClick={() => setMode(m)}
               className={cn(
                 "rounded-[3px] px-3 py-1 font-display font-semibold uppercase tracking-wider transition-colors disabled:opacity-30",
@@ -62,13 +77,35 @@ export function FinishingOrderView({
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {m === "heat" ? "Positions" : "Movers"}
+              {MODE_LABEL[m]}
             </button>
           ))}
         </div>
       </div>
 
-      {mode === "heat" || !prev ? (
+      {mode === "result" && result ? (
+        <div key="result" className="stage-fade">
+          <VsResult
+            doc={doc}
+            result={result}
+            stageLabel={stageLabel}
+            code={code}
+          />
+        </div>
+      ) : mode === "trend" && trend.length >= 2 ? (
+        <div key="trend" className="stage-fade">
+          <BumpChart
+            columns={trend.map((t) => ({
+              label: t.label,
+              order: predictedOrder(t.doc),
+            }))}
+          />
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Predicted finishing rank after each session. The biggest movers
+            between the first and last snapshot are drawn bold.
+          </p>
+        </div>
+      ) : (
         <div key="heat" className="stage-fade">
           <Heatmap
             noun={noun}
@@ -92,21 +129,107 @@ export function FinishingOrderView({
             extraHeader={hasGrid ? "Grid→" : undefined}
           />
           <p className="mt-3 text-[11px] text-muted-foreground">
-            Rows sorted by expected finishing position if classified
-            {leader ? "" : ""}. Click a driver to highlight them across the
-            page.
+            Prediction made after {stageLabel}. Rows sorted by expected
+            finishing position if classified. Click a driver to highlight them
+            across the page.
           </p>
         </div>
-      ) : (
-        <div key="movers" className="stage-fade">
-          <Movers
-            doc={doc}
-            prev={prev}
-            prevLabel={prevLabel ?? "Previous"}
-            nowLabel={nowLabel ?? "Now"}
-          />
-        </div>
       )}
+    </div>
+  );
+}
+
+function VsResult({
+  doc,
+  result,
+  stageLabel,
+  code,
+}: {
+  doc: FinishingOrderDoc;
+  result: RaceRow[];
+  stageLabel: string;
+  code: (id: string | undefined) => string;
+}) {
+  const card = scorecard(doc, result);
+  const actual = actualOrder(result);
+  const status = new Map(result.map((r) => [r.driver_id, r.classified_as]));
+  const columns: BumpColumn[] = [
+    { label: `Predicted (${stageLabel})`, order: predictedOrder(doc) },
+    {
+      label: "Result",
+      order: actual.order,
+      out: actual.out,
+      outLabel: (id) =>
+        status.get(id) === "R" ? "DNF" : (status.get(id) ?? "out"),
+    },
+  ];
+  const n = Math.min(10, result.length);
+  return (
+    <div className="space-y-5">
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Stat
+          label="Winner"
+          value={`${code(card.winner)}`}
+          note={
+            card.favourite === card.winner
+              ? "favourite won"
+              : `favourite ${code(card.favourite)}`
+          }
+          hit={card.favourite === card.winner}
+        />
+        <Stat
+          label="Podium"
+          value={`${card.podiumHits}/3`}
+          note="drivers in the predicted top 3"
+        />
+        <Stat
+          label={`Top ${n}`}
+          value={`${card.top10Hits}/${n}`}
+          note={`drivers in the predicted top ${n}`}
+        />
+        <Stat
+          label="Rank error"
+          value={card.meanError == null ? "—" : card.meanError.toFixed(1)}
+          note="mean places off, finishers"
+        />
+      </dl>
+      <BumpChart columns={columns} />
+      <p className="text-[11px] text-muted-foreground">
+        Last prediction before the race (after {stageLabel}) against the
+        classification. Dashed lines end in a retirement.
+      </p>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  note,
+  hit,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  hit?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="label-caps mb-1">{label}</dt>
+      <dd className="font-display text-2xl font-semibold leading-none tnum">
+        {value}
+        {hit != null && (
+          <span
+            className={cn(
+              "ml-2 text-sm",
+              hit ? "text-foreground" : "text-primary",
+            )}
+          >
+            {hit ? "✓" : "✗"}
+          </span>
+        )}
+      </dd>
+      <dd className="mt-1 text-[11px] text-muted-foreground">{note}</dd>
     </div>
   );
 }
@@ -133,131 +256,5 @@ function GridDelta({ grid, exp }: { grid: number | null; exp: number | null }) {
         {Math.abs(d).toFixed(1)}
       </span>
     </span>
-  );
-}
-
-function Movers({
-  doc,
-  prev,
-  prevLabel,
-  nowLabel,
-}: {
-  doc: FinishingOrderDoc;
-  prev: FinishingOrderDoc;
-  prevLabel: string;
-  nowLabel: string;
-}) {
-  const { drivers, colorOf, highlight, toggleHighlight } = useRace();
-  const tip = useTip();
-  const prevMap = new Map(
-    prev.drivers.map((d) => [d.driver_id, d.expected_position_if_classified]),
-  );
-  const items = doc.drivers
-    .map((d) => ({
-      id: d.driver_id,
-      a: prevMap.get(d.driver_id) ?? null,
-      b: d.expected_position_if_classified,
-    }))
-    .filter(
-      (x): x is { id: string; a: number; b: number } =>
-        x.a != null && x.b != null,
-    );
-  const n = Math.max(doc.drivers.length, prev.drivers.length);
-  const H = 22 * n + 30,
-    W = 520,
-    L = 90,
-    Rr = W - 90;
-  const y = (p: number) => 20 + ((p - 1) / Math.max(1, n - 1)) * (H - 40);
-  const deltas = items.map((i) => Math.abs(i.a - i.b));
-  const big =
-    [...deltas].sort((a, b) => b - a)[Math.min(4, deltas.length - 1)] ?? 0;
-
-  return (
-    <div className="-mx-1 overflow-x-auto">
-      {tip.node}
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="min-w-[480px] w-full max-w-3xl"
-        style={{ height: "auto" }}
-      >
-        <text
-          x={L}
-          y={10}
-          textAnchor="middle"
-          className="font-display"
-          fontSize={10}
-          fill="var(--muted-foreground)"
-        >
-          {prevLabel}
-        </text>
-        <text
-          x={Rr}
-          y={10}
-          textAnchor="middle"
-          className="font-display"
-          fontSize={10}
-          fill="var(--muted-foreground)"
-        >
-          {nowLabel}
-        </text>
-        <line x1={L} x2={L} y1={16} y2={H - 14} stroke="var(--border)" />
-        <line x1={Rr} x2={Rr} y1={16} y2={H - 14} stroke="var(--border)" />
-        {items.map((i) => {
-          const code = drivers.get(i.id)?.code ?? i.id;
-          const d = i.a - i.b;
-          const strong = Math.abs(d) >= big && Math.abs(d) > 0.3;
-          const dim = highlight ? highlight !== i.id : !strong;
-          return (
-            <g
-              key={i.id}
-              onClick={() => toggleHighlight(i.id)}
-              className="cursor-pointer"
-              onPointerEnter={tip.show(
-                <>
-                  {code}: {i.a.toFixed(1)} → {i.b.toFixed(1)} (
-                  {d > 0 ? "+" : ""}
-                  {d.toFixed(1)} places)
-                </>,
-              )}
-              onPointerLeave={tip.hide}
-              opacity={dim ? 0.25 : 1}
-            >
-              <line
-                x1={L}
-                y1={y(i.a)}
-                x2={Rr}
-                y2={y(i.b)}
-                stroke={colorOf(i.id)}
-                strokeWidth={strong || highlight === i.id ? 2.5 : 1.25}
-              />
-              <circle cx={L} cy={y(i.a)} r={3} fill={colorOf(i.id)} />
-              <circle cx={Rr} cy={y(i.b)} r={3} fill={colorOf(i.id)} />
-              <text
-                x={L - 8}
-                y={y(i.a)}
-                dy="0.35em"
-                textAnchor="end"
-                fontSize={10}
-                fill="var(--foreground)"
-                className="font-display tnum"
-              >
-                {code} {i.a.toFixed(1)}
-              </text>
-              <text
-                x={Rr + 8}
-                y={y(i.b)}
-                dy="0.35em"
-                fontSize={10}
-                fill="var(--foreground)"
-                className="font-display tnum"
-              >
-                {i.b.toFixed(1)} {code}
-                {strong ? ` ${d > 0 ? "▲" : "▼"}${Math.abs(d).toFixed(1)}` : ""}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
   );
 }

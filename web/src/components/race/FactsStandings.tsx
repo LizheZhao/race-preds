@@ -6,39 +6,37 @@ import { useRace } from "./context";
 export function FactsView({ doc }: { doc: FactsDoc }) {
   const { colorOf, highlight } = useRace();
   return (
-    <div className="-mx-1 overflow-x-auto px-1 pb-1">
-      <ul className="flex gap-3">
-        {doc.facts.map((f) => {
-          const ids = f.driver_ids ?? [];
-          const on = highlight != null && ids.includes(highlight);
-          const dim = highlight != null && !on;
-          return (
-            <li
-              key={f.id}
-              className={cn(
-                "w-72 shrink-0 rounded-sm border border-border bg-background/40 p-4 transition-opacity duration-200",
-                dim && "opacity-35",
-                on && "bg-foreground/5",
-              )}
-              style={
-                ids.length
-                  ? { borderLeft: `3px solid ${colorOf(ids[0]!)}` }
-                  : undefined
-              }
-            >
-              <span className="label-caps">{f.category}</span>
-              <h3 className="mt-2 text-base font-semibold leading-snug">
-                {f.headline}
-              </h3>
-              {f.body && (
-                <p className="mt-1.5 text-sm text-muted-foreground">{f.body}</p>
-              )}
-              <p className="mt-3 text-[10px] text-subtle">{f.source}</p>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {doc.facts.map((f) => {
+        const ids = f.driver_ids ?? [];
+        const on = highlight != null && ids.includes(highlight);
+        const dim = highlight != null && !on;
+        return (
+          <li
+            key={f.id}
+            className={cn(
+              "rounded-sm border border-border bg-background/40 p-4 transition-opacity duration-200",
+              dim && "opacity-35",
+              on && "bg-foreground/5",
+            )}
+            style={
+              ids.length
+                ? { borderLeft: `3px solid ${colorOf(ids[0]!)}` }
+                : undefined
+            }
+          >
+            <span className="label-caps">{f.category}</span>
+            <h3 className="mt-2 text-base font-semibold leading-snug">
+              {f.headline}
+            </h3>
+            {f.body && (
+              <p className="mt-1.5 text-sm text-muted-foreground">{f.body}</p>
+            )}
+            <p className="mt-3 text-[10px] text-subtle">{f.source}</p>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

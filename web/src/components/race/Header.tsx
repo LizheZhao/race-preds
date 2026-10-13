@@ -7,7 +7,7 @@ export const STAGE_ORDER: Record<RaceManifest["format"], Stage[]> = {
   conventional: ["pre_weekend", "FP1", "FP2", "FP3", "Q", "R"],
   sprint_qualifying: ["pre_weekend", "FP1", "SQ", "S", "Q", "R"],
 };
-const STAGE_LABEL: Record<Stage, string> = {
+export const STAGE_LABEL: Record<Stage, string> = {
   pre_weekend: "Pre",
   FP1: "FP1",
   FP2: "FP2",
@@ -49,6 +49,8 @@ export function Header({
   const current = manifest.meta.stage ?? "pre_weekend";
   const stages = STAGE_ORDER[manifest.format];
   const curIdx = stages.indexOf(current);
+  // The race stage is only reached once the race has a result, so it is never "now".
+  const final = current === "R";
   const race = event?.sessions.find((s) => s.id === "R");
 
   const raceStart = new Date(manifest.race_start_utc).getTime();
@@ -138,7 +140,7 @@ export function Header({
                       {STAGE_LABEL[s]}
                       {s === current && (
                         <span className="rounded-sm bg-primary px-1 text-[9px] text-primary-foreground">
-                          NOW
+                          {final ? "FINAL" : "NOW"}
                         </span>
                       )}
                     </span>
@@ -151,7 +153,9 @@ export function Header({
         <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
           <span>
             {selected === current
-              ? "Showing latest predictions"
+              ? final
+                ? "Race finished · last pre-race predictions against the result"
+                : "Showing latest predictions"
               : `Viewing ${STAGE_LABEL[selected]} snapshot — `}
             {selected !== current && (
               <button
