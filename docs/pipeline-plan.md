@@ -547,11 +547,9 @@ the decision to publish comes before anything is rewritten. `replay.py` still ca
 - **`dispatch` job steps:**
   1. Check out, then set up Python 3.12 with `uv` (`uv pip install --system -r
      requirements.txt`, cached).
-  2. `actions/cache` restores two caches:
-     - `data/fastf1_cache`, keyed per season. Live timing loads are what makes publish
-       slow.
-     - `data/processed/circuits`, the circuit geometry. Its one telemetry load per
-       circuit must not repeat every run.
+  2. `actions/cache` restores `data/fastf1_cache`. Circuit geometry is committed in
+     `reference/circuits/` instead, because the runner can't load telemetry (Known
+     constraints).
   3. `scripts/site_release.sh download outputs/site/v1`, or start empty before the first
      publish.
   4. `python -m src.dispatch.run --site outputs/site/v1`, with the secrets as env.
@@ -599,6 +597,12 @@ Later, Monday training gets its own scheduled workflow (Phase 3).
 Free Edition has no SLA and can stop compute for the day (see Known constraints), so
 the race-weekend path must not depend on Databricks alone.
 
+**This path does not work as written** (found 2026-10-13): `livetiming.formula1.com`
+answers 403 to GitHub-hosted runners, so step 1 can't load FastF1 there. Locally and on
+Databricks serverless it works. Phase 2b has to get session data onto the runner another
+way, for example a self-hosted runner, or Databricks mirroring the raw `SessionTables`
+Parquet to a Release asset after each ingest (useless when Databricks itself is down).
+
 **Runner path.** When the Databricks job can't run, the dispatcher scores the session on
 the GitHub runner with the same `src/` code:
 
@@ -632,6 +636,11 @@ is involved.
 ### Known constraints
 
 - GitHub cron can run 5–20 min late. That doesn't matter here.
+- **GitHub-hosted runners can't reach F1 live timing** (`livetiming.formula1.com`
+  answers 403; measured 2026-10-13). Jolpica and Open-Meteo work. So nothing on the
+  runner may load FastF1 timing or telemetry: circuit geometry is committed, session
+  data comes from the lakehouse. Open-Meteo's historical-forecast host also returned a
+  504 once; only replays and the day after a race use it, and weather then goes `stale`.
 - Free Edition allows **5 concurrent job tasks** per account. The dispatcher processes
   one session at a time, and a backfill must not fan out into parallel job runs. Spark's
   own parallelism inside a task (`mapInPandas`, `applyInPandas`) is unaffected.
@@ -639,7 +648,8 @@ is involved.
   2 s to connect.
 - Over-quota serverless usage stops compute for the rest of the day, in extreme cases
   the month. Data and settings survive. The quota itself is not published. The
-  race-weekend path falls back to the runner.
+  race-weekend path is meant to fall back to the runner (see Fallback, which doesn't
+  work as written yet).
 - Personal access tokens expire. An expired token makes every dispatcher run fail until
   you notice the failure emails, so record the expiry date (Dispatcher → Secrets).
 - Scheduled workflows in a public repo are disabled after 60 days without commits. Keep
@@ -794,8 +804,10 @@ Decisions and known gaps:
   circuit. Only a new circuit falls back to 305 km over the lap length measured by
   telemetry, which reads a little short (Baku 52 instead of 51).
 - **Circuit geometry** is reference data. It is built once from any FastF1 session at the
-  circuit with telemetry (this event first, then three seasons back) and cached in
-  `data/processed/circuits/<id>.json`. It is the only telemetry load in the pipeline.
+  circuit with telemetry (this event first, then three seasons back) and committed as
+  `reference/circuits/<id>.json`, because the GitHub runner gets 403 from F1 live timing.
+  Every 2026 circuit is there (R18–R23 from their 2025 sessions); a new circuit has to be
+  built locally and committed before its Thursday build.
 - **Weather** for a past date comes from Open-Meteo's historical-forecast API, which
   archives the forecast, so a replay does not see the observed weather. `issued_at` is
   left empty.

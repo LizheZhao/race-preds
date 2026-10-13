@@ -256,6 +256,7 @@ train/test-by-season split and of exporting a model + metadata bundle for a fron
 - Databricks host and token live in a local `.env` and in GitHub Actions secrets, never
   in code, notebooks, the front end or published JSON.
 - `data/`, `models/` and `outputs/` are gitignored in full — re-download or regenerate
-  rather than committing. Same for `demo/baku_cache/` and `demo/baku_outputs/`.
+  rather than committing. The exception is `reference/circuits/`, committed circuit
+  geometry: GitHub runners get 403 from F1 live timing, so publish there can't build it. Same for `demo/baku_cache/` and `demo/baku_outputs/`.
 - Notebook style: short `#` comments above logical blocks, f-strings for output,
   double-quoted strings, one concise markdown header per section.

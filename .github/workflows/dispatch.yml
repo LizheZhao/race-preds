@@ -64,17 +64,12 @@ jobs:
       - run: uv pip install --system -r requirements.txt
 
       # Caches are immutable per key, so each run saves under its own key and restores the
-      # newest by prefix. Circuit geometry costs one telemetry load per circuit.
+      # newest by prefix.
       - uses: actions/cache@v4
         with:
           path: data/fastf1_cache
           key: fastf1-${{ github.run_id }}
           restore-keys: fastf1-
-      - uses: actions/cache@v4
-        with:
-          path: data/processed/circuits
-          key: circuits-${{ github.run_id }}
-          restore-keys: circuits-
 
       - name: Fetch the published tree
         run: scripts/site_release.sh download outputs/site/v1 || mkdir -p outputs/site/v1
