@@ -41,7 +41,8 @@ model scores, as designed.
 1. **Go live with baselines before 2026-10-22 21:30 UTC**, the R18 `pre_weekend` build:
    - ~~build `src/dispatch/run.py` and `.github/workflows/dispatch.yml`~~ built 2026-10-12
      (Automation → Dispatcher); merge to `main`, where scheduled runs fire
-   - add the Databricks secrets and variable, and record the PAT's expiry date
+   - ~~add the Databricks secrets and record the PAT's expiry date~~ done 2026-10-13;
+     `PROCESS_SESSION_JOB_ID` stays unset while the dev job is the only one
    - run the dry run, steps 1–3 (Automation → Dry run before going live)
    - let the Thursday R18 build be the first real publish
 2. **Phase 2b, the rest of it, between race weekends**: runner-side `SessionTables` reads
@@ -571,7 +572,9 @@ the decision to publish comes before anything is rewritten. `replay.py` still ca
     finds whichever copy exists.
   - The same values live in the local `.env` (gitignored). The token never goes into
     front-end code or the published JSON.
-  - PAT expiry date: *record it here when the token is created.*
+  - PAT expiry date: **2027-10-08 02:43 UTC** (token `f1-pred`, created 2026-10-08).
+    Replace it before the 2027 season ends: create a new token, then
+    `gh secret set DATABRICKS_TOKEN` and update `.env`.
 
 Later, Monday training gets its own scheduled workflow (Phase 3).
 
