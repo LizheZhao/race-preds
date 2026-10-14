@@ -189,6 +189,15 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   and `reference.py` (FastF1, Ergast, Open-Meteo, cached circuit geometry).
 - `models/baselines.py`: the four baseline predictions, pure functions. Scored inside
   publish until the MLflow models replace them.
+- `etl/features.py` (pipeline, Spark): `gold.features`, one row per season × round × stage
+  × driver, and `leakage_check()`, run by the `build_features` job. Inputs split into
+  known-in-advance (schedule, entries, grid) and observed; never let a feature read
+  observed data from after its stage.
+- `models/evaluate.py`: the frozen evaluation harness (splits, RPS / log loss, runner,
+  MLflow logging) over a Parquet snapshot of `gold.features`. `models/candidates.py`
+  holds every candidate behind its `fit` / `predict` interface, baselines included.
+- `dispatch/backfill.py`: runs the `backfill_round` job round by round; Tuesday and
+  Wednesday only.
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).

@@ -21,6 +21,8 @@ SITE_DIR = OUTPUT_DIR / "site" / "v1"
 # circuit geometry (outline, corners, lap length), reference data built once per circuit.
 # Committed: the F1 live timing host refuses GitHub runners, so publish there can't build it
 CIRCUIT_DIR = ROOT / "reference" / "circuits"
+# Parquet snapshot of race_preds.gold.features, what the evaluation harness reads
+FEATURES_SNAPSHOT = PROCESSED_DIR / "features.parquet"
 
 # Season the dashboard currently reports on.
 SEASON = 2025

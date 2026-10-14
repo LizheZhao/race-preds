@@ -11,6 +11,7 @@ fastf1>=3.8,<4
 # Modeling
 scikit-learn>=1.6,<2
 xgboost>=3.0,<4
+mlflow-skinny>=3.1,<4  # experiment tracking against the Databricks workspace
 
 # Plotting / notebooks
 matplotlib>=3.9

@@ -822,6 +822,22 @@ Each step ends in its own check. Don't start the next step until it passes.
   Those scores are the bar.
 - **Check:** baseline scores for every section × stage × split in MLflow; the harness
   and splits are then read-only.
+- **Built 2026-10-14** (`src/models/evaluate.py`, candidates in `src/models/candidates.py`).
+  - Scope: finishing order and qualifying, the two position-distribution sections.
+    `race_incidents` and `strategy` have other labels and get their harness with their
+    models in step 7.
+  - Finishing order is scored over n + 1 categories, the last one "not classified".
+    Qualifying is scored only at stages before Q has run (decided per stage, not per
+    driver).
+  - The 2026 walk-forward runs from R6 to the latest played round, so it grows through
+    the season; every run scores all candidates on the same folds.
+  - The baselines read their history (this season's mean qualifying position and DNF
+    rate) from the labels of earlier rounds, exactly as publish computes them.
+  - MLflow experiment `/Users/<you>/race_preds/backtest`: one run per model × section ×
+    split, metrics `<stage>.<metric>`.
+  - First baseline numbers, 2026 walk-forward (12 rounds): finishing order RPS 0.147
+    before Q and 0.142 after it; qualifying RPS 0.096 before practice. The season split
+    has no data until 2022–2024 are backfilled.
 
 #### Step 4: `finishing_order` model
 
