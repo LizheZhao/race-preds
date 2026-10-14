@@ -851,6 +851,21 @@ Each step ends in its own check. Don't start the next step until it passes.
 - **Check:** better ranked probability score than both baselines (grid order after Q,
   qualifying-based order before) on the season-split backtest and the 2026 walk-forward,
   at every stage.
+- **First version 2026-10-14** (`src/models/finishing.py`, candidate `strength-pl`):
+  ridge on 12 features with missing-value indicators, logistic DNF on driver and team DNF
+  rates (no circuit yet), Plackett–Luce Monte Carlo (4,000 draws, fixed seed) with the
+  temperature fitted on out-of-fold strengths grouped by round.
+  - 2026 walk-forward, 12 rounds: RPS 0.132 vs 0.146 before Q and 0.128 vs 0.142 after
+    Q; log loss 2.70 vs 3.26. It passes the walk-forward half of the check at every
+    stage. The season-split half waits for the 2022–2024 backfill.
+  - Most of that gain is calibration, not ordering: the baseline puts half its mass on
+    one position. The model's order is worse than the baseline's: mean rank error 3.19
+    vs 2.99 before Q and 2.97 vs 2.69 after it, winner hit 33% vs 67% after Q.
+  - Fitting separate models for stages with and without a known grid restores the
+    post-Q order (rank error 2.67, winner hit 75%) but scores RPS 0.131 vs 0.128 after Q.
+    Twelve rounds can't separate the two, and tuning on them would overfit the
+    walk-forward, so the simpler single model stays. Retest both on the season split
+    first, then the pre-Q ordering (the weakest part).
 
 #### Step 5: MLflow, champion export, scoring in publish
 
