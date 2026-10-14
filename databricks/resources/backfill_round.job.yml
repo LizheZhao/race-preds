@@ -1,0 +1,22 @@
+resources:
+  jobs:
+    backfill_round:
+      name: backfill_round
+      # one round per run, run one at a time: Free Edition allows 5 concurrent tasks, and the
+      # live dispatcher needs its share (docs/pipeline-plan.md, Phase 3 plan step 1)
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      parameters:
+        - name: season
+          default: "2026"
+        - name: round
+          default: "14"
+        - name: redo
+          default: "false"
+        - name: repo_root
+          default: ${workspace.file_path}
+      tasks:
+        - task_key: backfill
+          notebook_task:
+            notebook_path: ../notebooks/backfill_round.py

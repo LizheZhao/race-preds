@@ -744,8 +744,15 @@ Each step ends in its own check. Don't start the next step until it passes.
   of five. It records each session in `ops.processed_sessions` exactly like
   `process_session`, so the dispatcher's "missing from gold" logic covers it. Runs are
   sequential (5 concurrent tasks is the account limit).
-- **Measure before scaling.** Time one round first, then size a Tuesday batch so it stays
-  well inside the daily quota. Record the timing here.
+- **Measured 2026-10-13 on 2026 R14** (conventional, five sessions): 7.6 min per round,
+  3 s of cluster setup, the rest is work; a re-run that skips finished sessions takes
+  0.5 min. About 186 rounds remain (2018–2025 and 2026 R1–R13), so ~24 h of serial job
+  time. One season (~22 rounds, ~2.8 h) per Tuesday or Wednesday finishes in four weeks,
+  before R20. Start with 2026 R1–R13 (~1.6 h) and watch the usage page before sizing up.
+- **Driver:** `python -m src.dispatch.backfill <season> <rounds>` (e.g. `2025 1-24`)
+  starts `backfill_round` one round at a time, newest first, and prints each round's
+  time and final states. It refuses to start Thursday to Monday (UTC) unless
+  `--anyday` is given.
 - **Jolpica results.** `get_results(years, kind)` for race, sprint and qualifying,
   2018 → now, into `bronze.ergast_results`. The form and DNF features read it, and it
   gives the grid for 2021–22 sprint weekends.
