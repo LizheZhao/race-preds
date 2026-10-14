@@ -1,0 +1,14 @@
+resources:
+  jobs:
+    build_features:
+      name: build_features
+      max_concurrent_runs: 1
+      parameters:
+        - name: leakage_samples
+          default: "12"
+        - name: repo_root
+          default: ${workspace.file_path}
+      tasks:
+        - task_key: features
+          notebook_task:
+            notebook_path: ../notebooks/build_features.py

@@ -749,6 +749,9 @@ Each step ends in its own check. Don't start the next step until it passes.
   0.5 min. About 186 rounds remain (2018–2025 and 2026 R1–R13), so ~24 h of serial job
   time. One season (~22 rounds, ~2.8 h) per Tuesday or Wednesday finishes in four weeks,
   before R20. Start with 2026 R1–R13 (~1.6 h) and watch the usage page before sizing up.
+- **Progress.** 2026 R1–R17 complete 2026-10-14: 85 sessions in gold, 22 drivers each.
+  R1–R13 took 68 min, 5.3 min per round on average (warm runs are faster than the
+  first). Next: 2025 on Tuesday 2026-10-20.
 - **Driver:** `python -m src.dispatch.backfill <season> <rounds>` (e.g. `2025 1-24`)
   starts `backfill_round` one round at a time, newest first, and prints each round's
   time and final states. It refuses to start Thursday to Monday (UTC) unless
@@ -783,6 +786,19 @@ Each step ends in its own check. Don't start the next step until it passes.
   rounds, and assert they equal the stored row.
 - **Check:** the table covers every backfilled round × stage, and the leakage test
   passes.
+- **Built 2026-10-14** (`src/etl/features.py`, job `build_features`). Notes from building it:
+  - Form, grid, DNF and labels come from `silver.results`, which already has every
+    session's classification, grid and Ergast ids. `bronze.ergast_results` isn't needed.
+  - Inputs are split into *known in advance* (schedule, entry list, starting grid) and
+    *observed* (`gold.driver_session`, `silver.results`). The leakage test keeps the first
+    whole and cuts the second at the stage. The grid sits in the first group: it is
+    published before the race, though the lakehouse reads it from the race result.
+  - The stage order comes from `bronze.sessions` dates; there is no Spark copy of
+    `get_session_stage`.
+  - Circuit history is left out for now: the lakehouse has no circuit id yet.
+  - The job rebuilds the whole table and then checks 12 sampled stages (7.8 min, most
+    of it the rebuilds). On 2026 alone: 17 rounds, 7 stages, 1,870 rows; the check
+    passed. Re-run it after each backfill batch.
 
 #### Step 3: the evaluation harness (frozen once written)
 
