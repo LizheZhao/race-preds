@@ -50,6 +50,7 @@ def _pl_loglik(temperature: float, groups: list[np.ndarray]) -> float:
 
 class StrengthPL:
     name, section = "strength-pl", "finishing_order"
+    features = STRENGTH_FEATURES + DNF_FEATURES
 
     def fit(self, train: pd.DataFrame) -> None:
         done = train[train["y_classified"].notna()]

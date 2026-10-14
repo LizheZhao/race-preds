@@ -71,6 +71,13 @@ def race_stints(season: int, rnd: int) -> pd.DataFrame:
                  season=season, rnd=rnd)
 
 
+def features(season: int, rnd: int, stage: str) -> pd.DataFrame:
+    """gold.features rows of one round at one stage: what a champion model scores"""
+    return query("""SELECT * FROM race_preds.gold.features
+                    WHERE season = :season AND round = :rnd AND stage = :stage""",
+                 season=season, rnd=rnd, stage=stage)
+
+
 def processed(season: int, rnd: int) -> pd.DataFrame:
     """ops.processed_sessions rows of one round (empty before the first job ever ran)"""
     return query("""SELECT * FROM race_preds.ops.processed_sessions

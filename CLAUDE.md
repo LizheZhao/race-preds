@@ -198,6 +198,12 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   holds every candidate behind its `fit` / `predict` interface, baselines included.
 - `dispatch/backfill.py`: runs the `backfill_round` job round by round; Tuesday and
   Wednesday only.
+- `models/finishing.py`: the `strength-pl` finishing-order model (ridge strength, logistic
+  DNF, Plackett–Luce Monte Carlo). `models/registry.py`: train → MLflow / Unity Catalog
+  (`race_preds.models.<section>`) → export a bundle (`model.joblib` + `meta.json`) →
+  the `models` release, which publish loads. Publish never imports MLflow
+  (`models/pyfunc.py` holds the MLflow wrapper) and only uses a bundle trained before
+  the round it publishes.
 - `results.py`: `get_season_results(year, kind)` / `get_results(years, kind)` for race,
   sprint, qualifying (Ergast, via the generic pager `collect_pages`) and sprint
   qualifying (FastF1, which Ergast lacks).

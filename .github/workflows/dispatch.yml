@@ -74,6 +74,10 @@ jobs:
       - name: Fetch the published tree
         run: scripts/site_release.sh download outputs/site/v1 || mkdir -p outputs/site/v1
 
+      # Champion bundles from the "models" release; without one, publish scores the baselines
+      - name: Fetch the champion models
+        run: python -m src.models.registry download
+
       - id: run
         name: Dispatch
         env:

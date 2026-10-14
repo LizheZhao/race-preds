@@ -876,6 +876,39 @@ Each step ends in its own check. Don't start the next step until it passes.
 - `model.calibrated` turns `true` only after the backtest reliability curve supports it.
 - **Check:** a replay of 2026 R17 publishes the champion's `finishing_order` with no
   manual step, and its `model` block names the registered version.
+- **Built 2026-10-14, check passed** (`src/models/registry.py`, `src/models/pyfunc.py`).
+  - A bundle is a directory: `model.joblib` (the fitted candidate) and `meta.json` (name,
+    version, `trained_through`, features, backtest metrics in the schema's `Metric`
+    shape). `registry train` fits, backtests, logs a pyfunc model to the MLflow
+    experiment `race_preds/models` and registers it as `race_preds.models.<section>`;
+    `--before SEASON ROUND` trains on earlier rounds only. `registry export` writes one
+    version's bundle to `models/`; `--upload` releases every bundle as the `models`
+    release asset. The dispatcher runs `registry download` before publish.
+  - Publish uses a bundle only when its `trained_through` is before the round being
+    published. A replay never scores a round with a model that saw its result.
+  - Without a bundle, or without `gold.features` rows for the stage, publish scores the
+    baseline as before. No `models` release exists yet, so the live site is unchanged.
+  - Version 1 is trained through R17 (2026-10-11). Version 2 is trained before R17 and
+    passed the check: every R17 stage published `strength-pl v2` and `check_round` held.
+    Its probabilities are flat (pole sitter 11.7% to win, behind P2), the ordering
+    weakness from step 4. No `champion` alias is set.
+
+#### Step 5b: features for the live round (before any champion goes live)
+
+A replay finds its `gold.features` rows because the round is already in the lakehouse. A
+live round isn't, so today a champion would fall back to the baseline on every stage.
+Three gaps:
+
+- **Schedule.** `bronze.sessions` only has sessions that were ingested, so a round has no
+  stages before its FP1 is processed. The feature build needs the upcoming round's
+  schedule from `get_sessions`.
+- **Entry list.** `entries()` takes the race's or qualifying's starters, which don't
+  exist yet. Use what publish's `entries()` uses: the latest session except FP1, before
+  that the previous round's race.
+- **Freshness.** The dispatcher has to run `build_features` (without the leakage check,
+  which runs on Tuesdays) after each processed session and before publish.
+- **Check:** a dispatch dry run of a round in progress publishes the champion at
+  `pre_weekend` and at a practice stage.
 
 #### Step 6: the Monday check
 

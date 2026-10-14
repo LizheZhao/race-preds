@@ -11,7 +11,7 @@ from datetime import date, datetime, timezone
 import pandas as pd
 
 from src import schema
-from src.models import baselines
+from src.models import baselines, registry
 from src.publish import lakehouse as lh
 from src.publish import reference as ref
 from src.sessions import get_session_stage, get_sessions
@@ -272,8 +272,41 @@ def qualifying(ctx: Context) -> schema.QualifyingDoc:
         drivers=baselines.qualifying(_quali_order(ctx)))
 
 
+def _champion(ctx: Context, section: str) -> tuple[registry.Bundle, pd.DataFrame] | None:
+    """the released champion and its gold.features rows for this stage, or None: no bundle, a
+    bundle trained on this round's own result (a replay), or no feature rows yet"""
+    bundle = registry.load(section)
+    if bundle is None or date.fromisoformat(bundle.meta["trained_through"]) >= ref.event(ctx.season, ctx.round)["EventDate"].date():
+        return None
+    rows = lh.features(ctx.season, ctx.round, ctx.stage)
+    if rows.empty:
+        print(f"  {section}: champion {bundle.meta['version']} has no gold.features rows at {ctx.stage}, using the baseline")
+        return None
+    return bundle, rows
+
+
+def _model_info(meta: dict) -> schema.ModelInfo:
+    return schema.ModelInfo(name=meta["name"], version=meta["version"], trained_through=meta["trained_through"],
+                            features=meta["features"], calibrated=meta["calibrated"],
+                            backtest=[schema.Metric(**m) for m in meta["backtest"]])
+
+
+def _scored_finishing_order(ctx: Context, bundle: registry.Bundle, rows: pd.DataFrame) -> schema.FinishingOrderDoc:
+    pred = bundle.model.predict(rows, rows.iloc[:0])
+    n = len(pred)
+    grid = rows.set_index("driver_id")["grid_position"]
+    drivers = [schema.DriverFinishPrediction(driver_id=r.driver_id, position_probs=list(r.probs[:n]), p_dnf=float(r.probs[n]),
+                                             grid_position=None if pd.isna(grid.get(r.driver_id)) else int(grid[r.driver_id]))
+               for r in pred.itertuples()]
+    drivers.sort(key=lambda d: d.expected_position_if_classified or n + 1)
+    return schema.FinishingOrderDoc(meta=ctx.meta("finishing_order"), model=_model_info(bundle.meta), drivers=drivers)
+
+
 def finishing_order(ctx: Context) -> schema.FinishingOrderDoc:
-    """by grid once qualifying has run (entrants missing from it go to the back), else by predicted qualifying"""
+    """the released champion when there is one for this stage; otherwise the baseline: by grid
+    once qualifying has run (entrants missing from it go to the back), else by predicted qualifying"""
+    if champion := _champion(ctx, "finishing_order"):
+        return _scored_finishing_order(ctx, *champion)
     p_dnf = baselines.dnf_rate(ref.results_before(ctx.season, ctx.round, "race"))
     order, grid = _quali_order(ctx), None
     if "Q" in ctx.usable:
