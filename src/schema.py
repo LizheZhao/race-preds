@@ -270,12 +270,41 @@ class Corner(Strict):
     letter: str = ""
     x: Fraction
     y: Fraction
+    name: str | None = None  # curated (reference/stories), only for corners with an established name
+    name_origin: str | None = None
 
 
 class PastWinner(Strict):
     season: int
     driver_name: str  # names, not ids: past drivers are not in this event's entry list
     team_name: str
+
+
+class CircuitMoment(Strict):
+    season: int
+    headline: str
+    body: str | None = None
+    source: str
+
+
+class CircuitStory(Strict):
+    """curated in reference/stories/<circuit_id>.json; every claim carries its source"""
+    designer: str | None = None
+    moments: list[CircuitMoment] = []  # oldest first
+
+
+class SpeedMark(Strict):
+    speed_kph: float = Field(gt=0)
+    driver_code: str  # a record holder may not be in this event's entry list
+    season: int
+    session_id: SessionId
+
+
+class SpeedTrap(Strict):
+    """fastest speed-trap reading (FastF1 SpeedST) this weekend so far, and at this circuit before it"""
+    weekend: SpeedMark | None = None
+    record: SpeedMark | None = None
+    record_since: int | None = None  # first season the record covers: the lakehouse's history, not the circuit's
 
 
 class Circuit(Strict):
@@ -292,6 +321,8 @@ class Circuit(Strict):
     outline: list[tuple[Fraction, Fraction]] = Field(min_length=3)
     corners: list[Corner]
     past_winners: list[PastWinner] = []  # newest first
+    story: CircuitStory | None = None
+    speed_trap: SpeedTrap | None = None
 
 
 class DriverStanding(Strict):

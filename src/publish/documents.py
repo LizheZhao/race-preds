@@ -13,6 +13,7 @@ from typing import NamedTuple
 import pandas as pd
 
 from src import schema
+from src.config import FIRST_TIMING_SEASON
 from src.models import baselines, registry
 from src.publish import lakehouse as lh
 from src.publish import reference as ref
@@ -101,6 +102,8 @@ def event(ctx: Context) -> schema.EventDoc:
         return "live" if utc(s["session_dt_utc"]) <= ctx.now else "upcoming"
 
     winners = ref.past_winners(row["circuitId"], ctx.season)
+    story = ref.circuit_story(row["circuitId"]) or {}
+    named = {c["number"]: c for c in story.get("corners", [])}
     return schema.EventDoc(
         meta=ctx.meta("event"), name=ev["EventName"], official_name=ev["OfficialEventName"], format=ev["EventFormat"],
         circuit=schema.Circuit(
@@ -108,9 +111,15 @@ def event(ctx: Context) -> schema.EventDoc:
             lat=float(row["lat"]), lon=float(row["long"]), length_km=geometry["length_km"],
             race_laps=ref.race_laps(row["circuitId"], ctx.season, geometry["length_km"]),
             outline=[tuple(p) for p in geometry["outline"]],
-            corners=[schema.Corner(**c) for c in geometry["corners"]],
+            corners=[schema.Corner(**c, name=named.get(c["number"], {}).get("name"),
+                                   name_origin=named.get(c["number"], {}).get("origin")) for c in geometry["corners"]],
             past_winners=[schema.PastWinner(season=int(w.season), driver_name=w.driver_name, team_name=w.team_name)
-                          for w in winners.head(5).itertuples()]),
+                          for w in winners.head(5).itertuples()],
+            story=schema.CircuitStory(designer=story.get("designer"),  # only what was history before this season
+                                      moments=sorted((m for m in story.get("moments", []) if m["season"] < ctx.season),
+                                                     key=lambda m: m["season"]))
+            if story else None,
+            speed_trap=_speed_trap(ctx, row["circuitId"])),
         sessions=[schema.Session(id=s["session_id"], name=s["session_name"], start_utc=utc(s["session_dt_utc"]),
                                  status=status(s)) for s in ctx.sessions],
         teams=[schema.Team(id=t.team_id, name=t.team_name, color=color(t.team_color)) for t in teams.itertuples()],
@@ -123,6 +132,24 @@ def event(ctx: Context) -> schema.EventDoc:
                                            wins=int(r.wins)) for r in drivers_st.itertuples()],
             teams=[schema.TeamStanding(team_id=r.constructorId, position=int(r.position), points=float(r.points),
                                        wins=int(r.wins)) for r in teams_st.itertuples()]))
+
+
+def _speed_mark(rows: pd.DataFrame) -> schema.SpeedMark | None:
+    if rows.empty:
+        return None
+    r = rows.iloc[0]
+    return schema.SpeedMark(speed_kph=float(r["speed_st_kph"]), driver_code=r["driver"], season=int(r["season"]),
+                            session_id=r["session_id"])
+
+
+def _speed_trap(ctx: Context, circuit_id: str) -> schema.SpeedTrap:
+    """this weekend's sessions so far, and every earlier race weekend here the lakehouse holds"""
+    earlier = [(s, r) for s, r in ref.rounds_at(circuit_id, range(FIRST_TIMING_SEASON, ctx.season + 1))
+               if (s, r) < (ctx.season, ctx.round)]
+    record = lh.top_speed(earlier)
+    return schema.SpeedTrap(weekend=_speed_mark(lh.top_speed([(ctx.season, ctx.round)], ctx.usable)),
+                            record=_speed_mark(record),
+                            record_since=None if record.empty else int(record.iloc[0]["first_season"]))
 
 
 def race_laps(ctx: Context) -> int:
@@ -245,12 +272,13 @@ def facts(ctx: Context) -> schema.FactsDoc:
     row = ref.circuit_row(ctx.season, ctx.round)
     winners = ref.past_winners(row["circuitId"], ctx.season)
     if len(winners):
-        last = winners.iloc[0]
+        last, source = winners.iloc[0], f"ergast circuit {row['circuitId']} race winners"
         out.append(schema.Fact(
             id="last-winner-here", category="history",
             headline=f"{last['driver_name']} won the last race here, in {int(last['season'])}",
-            body=f"{len(winners)} earlier races at {row['circuitName']}.",
-            source=f"ergast circuit {row['circuitId']} race winners"))
+            body=f"{len(winners)} earlier races at {row['circuitName']} since {int(winners['season'].min())}.",
+            source=source))
+        out += _circuit_facts(winners, source)
     else:
         out.append(schema.Fact(id="circuit-debut", category="history",
                                headline=f"{row['circuitName']} hosts its first Formula 1 race",
@@ -266,6 +294,28 @@ def facts(ctx: Context) -> schema.FactsDoc:
             driver_ids=[pole["driver_id"]] if pole["driver_id"] in entered else [],
             source=f"fastf1 {ctx.season} R{ctx.round} qualifying"))
     return schema.FactsDoc(meta=ctx.meta("facts"), facts=out)
+
+
+def _circuit_facts(winners: pd.DataFrame, source: str) -> list[schema.Fact]:
+    """who wins here, and how often from pole; only when there is a pattern worth a card"""
+    out = []
+    for col, what in (("driver_name", "driver"), ("team_name", "team")):
+        wins = winners[col].value_counts()
+        top = wins[wins == wins.iloc[0]]
+        if wins.iloc[0] >= 2:
+            names = " and ".join(top.index)
+            out.append(schema.Fact(
+                id=f"most-wins-{what}", category="history",
+                headline=f"{names} {'has' if len(top) == 1 else 'have'} won here {wins.iloc[0]} times"
+                         f"{'' if len(top) == 1 else ' each'}",
+                body=f"The most of any {what} in {len(winners)} races.", source=source))
+    grid = pd.to_numeric(winners["grid"], errors="coerce")
+    if grid.notna().sum() >= 3:
+        out.append(schema.Fact(
+            id="pole-conversion", category="circuit",
+            headline=f"Pole has won {int((grid == 1).sum())} of {int(grid.notna().sum())} races here",
+            body=f"Winners started on average from P{grid.mean():.1f}.", source=source))
+    return out
 
 
 # ---------------------------------------------------------------- predictions
@@ -369,12 +419,22 @@ def sprint(ctx: Context) -> schema.SprintDoc:
                             drivers=baselines.finishing_order(order, baselines.dnf_rate(history), grid))
 
 
+def _circuit_history(ctx: Context, races: pd.DataFrame) -> list[schema.CircuitIncidentHistory]:
+    """the earlier races in the lakehouse held at this round's circuit, newest first"""
+    here = set(ref.rounds_at(ref.circuit_row(ctx.season, ctx.round)["circuitId"], races["season"].unique()))
+    rows = races[[(s, r) in here for s, r in zip(races["season"], races["round"])]]
+    return [schema.CircuitIncidentHistory(season=int(r.season), safety_cars=int(r.sc_n), vscs=int(r.vsc_n),
+                                          red_flags=int(r.red_n))
+            for r in rows.sort_values(["season", "round"], ascending=False).itertuples()]
+
+
 def race_incidents(ctx: Context) -> schema.RaceIncidentsDoc:
-    rates = baselines.race_incidents(lh.race_history(ctx.season, ctx.round), race_laps(ctx))
+    races = lh.race_history(ctx.season, ctx.round)
+    rates = baselines.race_incidents(races, race_laps(ctx))
     rates.pop("races_used")
     return schema.RaceIncidentsDoc(meta=ctx.meta("race_incidents"),
                                    model=ctx.model("league-incident-rates", ["lakehouse_race_history", "prior"]),
-                                   **rates)
+                                   circuit_history=_circuit_history(ctx, races), **rates)
 
 
 def strategy(ctx: Context) -> schema.StrategyDoc:
@@ -382,7 +442,7 @@ def strategy(ctx: Context) -> schema.StrategyDoc:
     plan = baselines.strategy(laps)
     return schema.StrategyDoc(
         meta=ctx.meta("strategy"), model=ctx.model("tyre-prior-stint-plan", ["compound_pace_prior", "degradation_prior"]),
-        race_laps=laps, pit_loss_s=plan["pit_loss_s"], compounds_available=None,
+        race_laps=laps, pit_loss_s=plan["pit_loss_s"], compounds_available=ref.tyre_allocation(ctx.season, ctx.round),
         options=[{k: v for k, v in o.items() if k != "time"} for o in plan["options"]],
         degradation=plan["degradation"])
 

@@ -108,6 +108,15 @@ clean green-flag race laps in lap order, for pace charts. `weather.sessions[].ob
 has `track_temp_c_min` next to the max; it is null when the track sensor gave no usable
 reading (FastF1 reports a dropped sensor as 0.0 °C).
 
+**Curated circuit knowledge lives in committed reference files, with its source.**
+`event.circuit.story` (designer, notable moments) and `corners[].name` / `name_origin` come
+from `reference/stories/<circuit_id>.json`; every moment carries a `source` URL, and a
+circuit without a file simply has no story. `strategy.compounds_available` (Pirelli's
+C-numbers) comes from `reference/tyres/<season>.json`, because FastF1 doesn't have it.
+`event.circuit.speed_trap` is measured, not curated: the fastest FastF1 `SpeedST` reading
+in this weekend's sessions so far and at this circuit before it (`silver.laps`), with
+`record_since`, the first season the lakehouse has for it.
+
 **Probabilities are fractions, and they carry a `calibrated` flag.** Every prediction
 document has `model.calibrated`. It becomes `true` only after the backtest shows the
 probabilities match observed frequencies (reliability curve). While it is `false`, the
