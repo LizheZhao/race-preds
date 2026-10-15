@@ -46,6 +46,10 @@ model scores, as designed.
    - ~~dry run steps 1–2~~ done 2026-10-13 in CI (R17, and R18's Thursday build);
      step 3, a quiet scheduled run, comes Thursday 2026-10-15
    - let the Thursday R18 build be the first real publish
+   - redeploy the bundle with the 2026-10-15 ingest fix (after `databricks auth login
+     --profile race-preds`; the CLI's refresh token expired that day). F1 has blocked the
+     live timing archive since 2026-10-15; if that lasts to 2026-10-23, every R18 session
+     run fails and emails instead of going quiet (Known constraints)
 2. **Phase 3** between race weekends (Tuesday and Wednesday only), in the order of the
    Phase 3 plan: backfill, feature table, evaluation harness, then `finishing_order`.
    Grading the baselines starts with the first live round, so the 2026 rounds become the
@@ -62,6 +66,9 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
+- **A refused live timing request fails ingest; only a missing file is `not_available`**
+  (2026-10-15). F1 blocked the archive with a 401 that FastF1 swallows, and ingest had
+  recorded it as "no data yet", which no alert covers. (Automation → Known constraints)
 - **Training data is the ground-effect era, 2022 on** (2026-10-15). 2026 replaced both
   the chassis rules (smaller cars, active aero instead of DRS) and the power unit (about
   half electric, no MGU-H), so data from before 2022, two rule sets back, is left out.
@@ -295,8 +302,9 @@ failed run.
 - Long format, so a new stage needs no schema change. Each job task upserts its own row
   with a `MERGE` (`src/etl/ops.py`; `track()` wraps a task).
 - The dispatcher reads it to decide what still needs doing.
-- `not_available` is ingest's `SessionNotAvailable`: the session has not run yet, so
-  retry later.
+- `not_available` is ingest's `SessionNotAvailable`: the archive says the session's files
+  are not there yet, so retry later. A refused or failed archive request is
+  `ArchiveRequestFailed` and recorded `failed` (Known constraints, live timing block).
 
 ### Silver assumptions to revisit
 
@@ -529,7 +537,8 @@ None of these calls Databricks at request time.
     `process_session` job (`jobs.py`, Databricks SDK, waits up to 30 min, reads the
     outcome back from the state table).
   - An ingest `not_available` publishes the previous stage and leaves the session for
-    the next run.
+    the next run. A blocked archive is `failed`, not `not_available`, so that run fails
+    and emails (Known constraints).
 - `replay.py` runs the same dispatcher over a fake clock, one call per stage.
 
 What publishes when is specified in `docs/artifact-schema.md` (Stages and the weekend
@@ -671,6 +680,34 @@ is involved.
   runner may load FastF1 timing or telemetry: circuit geometry is committed, session
   data comes from the lakehouse. Open-Meteo's historical-forecast host also returned a
   504 once; only replays and the day after a race use it, and weather then goes `stale`.
+- **F1 can block the live timing archive for everyone.** From about 15:08 UTC on
+  2026-10-15, every `livetiming.formula1.com/static/<year>/...` path answered 401 with an
+  empty body and `x-cache: FunctionGeneratedResponse from cloudfront`, for every season,
+  existing or not, from the Mac and from Databricks. The live feed
+  (`/signalr/negotiate`) did too. Jolpica and the FastF1 schedule kept working.
+  - FastF1's `Session.load()` logs "Failed to load ... data!" and carries on, so ingest
+    used to turn the block into `SessionNotAvailable`. 85 sessions of 2023 R1–R17 were
+    recorded `not_available` that way, `backfill_round` then skips them as finished, and
+    the dispatcher would have published the previous stage all weekend with no error.
+  - **Since 2026-10-15, ingest watches every request FastF1 makes during `load()`**
+    (`_watch_requests` in `src/ingest/fastf1_session.py`). An archive answer that is
+    neither the file (200) nor "no such file" (S3's 403 `AccessDenied` with
+    `Server: AmazonS3`, or a 404), or a request that raised, raises
+    `ArchiveRequestFailed` unless FastF1's mirror served the same file. That is recorded
+    `failed`: the dispatcher publishes the previous stage and fails the run, so the email
+    goes out, and the next backfill retries it. Only a missing file still gives
+    `SessionNotAvailable`. Checked locally on 2026-10-15: 2023 R1 FP1 and 2026 R17 R
+    raise `ArchiveRequestFailed` (401), a dead proxy raises it too (`ProxyError`), a path
+    S3 doesn't have gives `SessionNotAvailable`, and 2022 R1 still ingests.
+  - FastF1 falls back to its own mirror, `livetiming-mirror.fastf1.dev`, on any answer
+    ≥ 400. On 2026-10-15 it served 2021 and 2022 in full and nothing from 2023 on (404),
+    so 2022 ingests during a block and 2023–2026 don't.
+  - Not covered: a block that looks exactly like a missing object, S3's own 403
+    `AccessDenied` on every key, would still read as `not_available`.
+  - To check by hand, `curl -sI -A BestHTTP
+    https://livetiming.formula1.com/static/2024/2024-03-02_Bahrain_Grand_Prix/2024-03-02_Race/SessionInfo.jsonStream`.
+    200 is open; 401 is blocked. Sessions recorded `not_available` during a block need
+    `python -m src.dispatch.backfill <season> <rounds> --redo`.
 - Free Edition allows **5 concurrent job tasks** per account. The dispatcher processes
   one session at a time, and a backfill must not fan out into parallel job runs. Spark's
   own parallelism inside a task (`mapInPandas`, `applyInPandas`) is unaffected.

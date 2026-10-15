@@ -8,6 +8,8 @@ root is data/raw locally and a Volume path (/Volumes/race_preds/raw/fastf1) in a
 no Databricks imports here, so the same code runs on a laptop, a GitHub runner or serverless
 """
 import json
+from collections import Counter
+from contextlib import contextmanager
 from dataclasses import fields
 from pathlib import Path
 
@@ -15,7 +17,9 @@ import fastf1
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+import requests
 from fastf1.exceptions import DataNotLoadedError
+from fastf1.req import Cache
 
 from src.sessions import SessionTables, get_sessions
 
@@ -34,6 +38,61 @@ FIXED_TYPES = {
 
 class SessionNotAvailable(Exception):
     """the weekend has no such session, or FastF1 has no data for it yet; retry later"""
+
+
+class ArchiveRequestFailed(Exception):
+    """F1's live timing archive refused or failed a request: blocked, rate limited, down or unreachable"""
+
+
+# FastF1 reads every session file from the live timing archive, then from its own mirror
+# (livetiming-mirror.fastf1.dev) when the archive answers >= 400
+ARCHIVE = "https://livetiming.formula1.com/static/"
+
+
+@contextmanager
+def _watch_requests():
+    """
+    every request FastF1 makes inside the block, as (url, response or exception)
+    Session.load() logs and swallows failed requests, so this is the only place to see them
+    """
+    seen = []
+    get, original = Cache.requests_get, Cache.__dict__["requests_get"]
+
+    def watched(url, **kwargs):
+        try:
+            response = get(url, **kwargs)
+        except requests.RequestException as exc:
+            seen.append((url, exc))
+            raise
+        seen.append((url, response))
+        return response
+
+    Cache.requests_get = staticmethod(watched)
+    try:
+        yield seen
+    finally:
+        Cache.requests_get = original
+
+
+def _archive_failures(seen: list) -> Counter:
+    """
+    archive requests that neither got the file nor a "no such file", and that the mirror did
+    not serve either, counted by what went wrong
+    a file the archive does not have yet is S3's 403 AccessDenied (S3 says 403, not 404, for
+    a missing key); the 2026-10-15 block was a 401 from a CloudFront function
+    """
+    def missing(r):
+        return r.status_code == 404 or (r.status_code == 403 and r.headers.get("Server") == "AmazonS3")
+
+    def file(url):
+        return url.partition("/static/")[2]
+
+    served = {file(url) for url, r in seen if not isinstance(r, Exception) and r.ok}
+    return Counter(
+        type(r).__name__ if isinstance(r, Exception) else f"HTTP {r.status_code} ({r.headers.get('X-Cache')})"
+        for url, r in seen
+        if url.startswith(ARCHIVE) and file(url) not in served
+        and (isinstance(r, Exception) or not (r.ok or missing(r))))
 
 
 def session_dir(root: Path | str, season: int, rnd: int, session_id: str) -> Path:
@@ -55,14 +114,19 @@ def _write_parquet(df: pd.DataFrame, path: Path, fixed: dict[str, pa.DataType]) 
 def ingest_session(season: int, rnd: int, session_id: str, root: Path | str) -> Path:
     """
     load one session without telemetry and write it under root, overwriting a previous pull
-    raises SessionNotAvailable when there is nothing to write yet
+    raises SessionNotAvailable when there is nothing to write yet, and ArchiveRequestFailed
+    when F1 refused or failed a request, so a block is not mistaken for data still to come
     """
     names = {s["session_id"]: s["session_name"] for s in get_sessions(season, rnd)}
     if session_id not in names:
         raise SessionNotAvailable(f"{season} R{rnd} has no {session_id}, only {list(names)}")
 
     session = fastf1.get_session(season, rnd, names[session_id])
-    session.load(laps=True, telemetry=False, weather=True, messages=True)
+    with _watch_requests() as seen:
+        session.load(laps=True, telemetry=False, weather=True, messages=True)
+    if failures := _archive_failures(seen):
+        raise ArchiveRequestFailed(f"{season} R{rnd} {session_id}: live timing archive failed "
+                                   + ", ".join(f"{n} x {what}" for what, n in failures.items()))
     # FastF1 does not fail in load(); a session without data fails on first access
     try:
         tables = SessionTables.from_session(session)
