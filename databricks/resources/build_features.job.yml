@@ -6,6 +6,11 @@ resources:
       parameters:
         - name: leakage_samples
           default: "12"
+        # a round in progress, scheduled from FastF1; empty on the Tuesday rebuild
+        - name: live_season
+          default: ""
+        - name: live_round
+          default: ""
         - name: repo_root
           default: ${workspace.file_path}
       tasks:

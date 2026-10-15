@@ -10,10 +10,8 @@ Thursday to Monday (UTC) belongs to the live dispatcher: an over-quota day would
 race weekend, so the backfill refuses to start then unless --anyday is given
 """
 import argparse
-import os
 import time
 from datetime import datetime, timedelta, timezone
-from functools import cache
 
 from databricks.sdk.errors import OperationFailed
 
@@ -22,17 +20,6 @@ from src.dispatch import jobs
 JOB_NAME = "backfill_round"
 ROUND_TIMEOUT = timedelta(hours=2)
 BACKFILL_DAYS = {1, 2}  # Tuesday, Wednesday (Monday = 0)
-
-
-@cache
-def _job_id() -> int:
-    """BACKFILL_ROUND_JOB_ID if set, else the one job whose name ends in backfill_round"""
-    if os.environ.get("BACKFILL_ROUND_JOB_ID"):
-        return int(os.environ["BACKFILL_ROUND_JOB_ID"])
-    found = [j for j in jobs._client().jobs.list() if j.settings.name.endswith(JOB_NAME)]
-    if len(found) != 1:
-        raise LookupError(f"expected one {JOB_NAME} job, found {[j.settings.name for j in found]}; set BACKFILL_ROUND_JOB_ID")
-    return found[0].job_id
 
 
 def parse_rounds(spec: str) -> list[int]:
@@ -49,7 +36,7 @@ def backfill_round(season: int, rnd: int, redo: bool = False) -> tuple[bool, flo
     params = {"season": str(season), "round": str(rnd), "redo": str(redo).lower()}
     started = time.monotonic()
     try:
-        jobs._client().jobs.run_now(job_id=_job_id(), job_parameters=params).result(timeout=ROUND_TIMEOUT)
+        jobs._client().jobs.run_now(job_id=jobs._job_id(JOB_NAME), job_parameters=params).result(timeout=ROUND_TIMEOUT)
         ok = True
     except OperationFailed:
         ok = False  # the state table says which session failed and why

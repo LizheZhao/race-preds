@@ -24,14 +24,21 @@ def _client() -> WorkspaceClient:
 
 
 @cache
-def _job_id() -> int:
-    """PROCESS_SESSION_JOB_ID if set, else the one job whose name ends in process_session"""
-    if os.environ.get("PROCESS_SESSION_JOB_ID"):
-        return int(os.environ["PROCESS_SESSION_JOB_ID"])
-    jobs = [j for j in _client().jobs.list() if j.settings.name.endswith(JOB_NAME)]
+def _job_id(name: str = JOB_NAME) -> int:
+    """<NAME>_JOB_ID if set (e.g. PROCESS_SESSION_JOB_ID), else the one job whose name ends in `name`"""
+    env = f"{name.upper()}_JOB_ID"
+    if os.environ.get(env):
+        return int(os.environ[env])
+    jobs = [j for j in _client().jobs.list() if j.settings.name.endswith(name)]
     if len(jobs) != 1:
-        raise LookupError(f"expected one {JOB_NAME} job, found {[j.settings.name for j in jobs]}; set PROCESS_SESSION_JOB_ID")
+        raise LookupError(f"expected one {name} job, found {[j.settings.name for j in jobs]}; set {env}")
     return jobs[0].job_id
+
+
+def build_features(season: int, rnd: int) -> None:
+    """rebuild gold.features with a round in progress, no leakage check; raises on failure"""
+    params = {"live_season": str(season), "live_round": str(rnd), "leakage_samples": "0"}
+    _client().jobs.run_now(job_id=_job_id("build_features"), job_parameters=params).result(timeout=JOB_TIMEOUT)
 
 
 def statuses(season: int, rnd: int) -> dict[tuple[str, str], str]:

@@ -51,6 +51,11 @@ def load(section: str, root: Path = MODEL_DIR) -> Bundle | None:
     return read_bundle(path) if (path / "meta.json").exists() else None
 
 
+def released(root: Path = MODEL_DIR) -> list[str]:
+    """sections with a bundle under root"""
+    return sorted(p.parent.name for p in root.glob("*/meta.json"))
+
+
 def _sections():
     from src.models.candidates import GridOrder
     from src.models.finishing import StrengthPL

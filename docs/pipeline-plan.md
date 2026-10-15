@@ -909,6 +909,28 @@ Three gaps:
   which runs on Tuesdays) after each processed session and before publish.
 - **Check:** a dispatch dry run of a round in progress publishes the champion at
   `pre_weekend` and at a practice stage.
+- **Built 2026-10-14; the `pre_weekend` half of the check passed, the practice half waits
+  for R18 FP1 (2026-10-23).**
+  - `features.inputs(spark, schedule)`: the schedule of a round in progress replaces
+    bronze's rows for it; null Ergast ids in silver and gold are filled from the driver
+    code's most recent ids; the entry list is the latest session except FP1 (the race
+    once it has run, so complete rounds are unchanged), else the previous round's.
+  - `build_features` takes `live_season` / `live_round` (scheduled from FastF1 in the
+    notebook) and `leakage_samples` (0 skips the check). The leakage check samples
+    complete rounds only. With R18 live and 12 samples: 1,980 rows, check passed, 17 min.
+  - `run.py` calls `jobs.build_features` before publish when a champion bundle is present
+    and the reason to publish is more than the weather. A failure only logs: the
+    champion then falls back to the baseline for that stage. Without a champion there is
+    no extra Databricks run.
+  - `jobs._job_id(name)` now serves every job (`<NAME>_JOB_ID` overrides); `backfill.py`
+    uses it instead of its own copy.
+  - End to end on 2026-10-14: `run.py --round 18 --now 2026-10-22T22:00Z` with version 1
+    exported locally rebuilt the features and published `strength-pl v1` at
+    `pre_weekend`, every section `ready`.
+  - To finish the check after R18 FP1 is processed (FP1 starts 17:30 UTC on 2026-10-23,
+    the dispatcher processes it from 19:30 UTC):
+    export version 1 locally, run `run.py --round 18` into a scratch site, check that
+    `finishing_order/FP1.json` names `strength-pl`, then delete `models/finishing_order`.
 
 #### Step 6: the Monday check
 

@@ -12,43 +12,80 @@ inputs come in two kinds:
 a row at stage X of a round may read observed data only from that round's sessions up to
 and including X, and from earlier rounds. leakage_check() rebuilds sampled rows from
 exactly that data and compares them with the stored ones. Spark only
+
+a round in progress (docs/pipeline-plan.md, Phase 3 plan step 5b) differs in three ways,
+all handled in inputs(): its schedule comes from the caller (bronze only has the sessions
+already ingested), its silver and gold rows have no Ergast ids yet (filled from the driver
+code), and its entry list comes from the latest session run, else the previous round
 """
 from pyspark.sql import DataFrame, SparkSession, Window
 from pyspark.sql import functions as F
 
 TABLE = "race_preds.gold.features"
 KEYS = ["season", "round", "stage", "driver_id"]
+ROUND = ["season", "round"]
 
 PACE_SESSIONS = ["FP1", "FP2", "FP3", "SQ", "S", "Q"]
 PACE_COLS = ["best_lap_gap_pct", "team_gap_pct", "best_lap_rank", "laps_driven"]
 FORM_RACES = 5
 RELIABILITY_RACES = 10
 FIRST_ERA_SEASON = 2026  # new technical regulations
-ENTRY_SESSIONS = ["R", "Q"]  # the entry list is the race's starters, else qualifying's
 
 
-def inputs(spark: SparkSession) -> dict[str, DataFrame]:
+def inputs(spark: SparkSession, schedule: list[tuple] | None = None) -> dict[str, DataFrame]:
+    """schedule: (season, round, session_id, event_format, date) rows of a round in progress;
+    they replace whatever bronze has for that round"""
     sessions = spark.table("race_preds.bronze.sessions").select(
         F.col("season").cast("int"), F.col("round").cast("int"), "session_id", "event_format", "date")
+    if schedule:
+        live = spark.createDataFrame(schedule, "season int, round int, session_id string, event_format string, date timestamp_ntz")
+        sessions = sessions.join(live.select(*ROUND).distinct(), ROUND, "left_anti").unionByName(live)
     results = spark.table("race_preds.silver.results").select(
-        F.col("season").cast("int"), F.col("round").cast("int"), "session_id", "driver_id", "constructor_id",
+        F.col("season").cast("int"), F.col("round").cast("int"), "session_id", "driver", "driver_id", "constructor_id",
         "position", "classified_position", "grid_position")
-    driver_session = spark.table("race_preds.gold.driver_session").select(
-        F.col("season").cast("int"), F.col("round").cast("int"), "session_id", "driver_id", *PACE_COLS)
+    ids = _id_map(results)
+    results = _with_ids(results, ids)
+    driver_session = _with_ids(spark.table("race_preds.gold.driver_session").select(
+        F.col("season").cast("int"), F.col("round").cast("int"), "session_id", "driver", "driver_id", *PACE_COLS), ids)
     grid = results.where(F.col("session_id") == "R").select("season", "round", "driver_id", "grid_position")
-    return {"sessions": sessions, "entries": entries(results), "grid": grid, "results": results,
+    return {"sessions": sessions, "entries": entries(results, sessions), "grid": grid, "results": results,
             "driver_session": driver_session}
 
 
-def entries(results: DataFrame) -> DataFrame:
+def _id_map(results: DataFrame) -> DataFrame:
+    """driver code -> the Ergast ids it carried most recently"""
+    latest = Window.partitionBy("driver").orderBy(F.desc("season"), F.desc("round"))
+    return (results.where(F.col("driver_id").isNotNull())
+            .withColumn("n", F.row_number().over(latest)).where(F.col("n") == 1)
+            .select("driver", F.col("driver_id").alias("_driver_id"), F.col("constructor_id").alias("_constructor_id")))
+
+
+def _with_ids(df: DataFrame, ids: DataFrame) -> DataFrame:
+    """fill the ids silver leaves null while a weekend is in progress (Silver assumptions)"""
+    out = df.join(ids, "driver", "left").withColumn("driver_id", F.coalesce("driver_id", "_driver_id"))
+    if "constructor_id" in df.columns:
+        out = out.withColumn("constructor_id", F.coalesce("constructor_id", "_constructor_id"))
+    return out.drop("driver", "_driver_id", "_constructor_id")
+
+
+def entries(results: DataFrame, sessions: DataFrame) -> DataFrame:
     """season, round, driver_id, constructor_id: known before the weekend in reality (the
-    entry list); taken from the race starters when the race ran, else qualifying's, so FP1
-    stand-ins don't count as entrants"""
-    pref = F.array_position(F.array(*map(F.lit, ENTRY_SESSIONS)), F.col("session_id"))
-    picked = (results.where(F.col("session_id").isin(ENTRY_SESSIONS) & F.col("driver_id").isNotNull())
-              .withColumn("pref", pref)
-              .withColumn("best", F.min("pref").over(Window.partitionBy("season", "round"))))
-    return picked.where(F.col("pref") == F.col("best")).select("season", "round", "driver_id", "constructor_id").distinct()
+    entry list). The drivers of the round's latest session except FP1, where stand-ins run:
+    the race starters once the race has run. A round with no such session yet takes the
+    previous round's entries"""
+    run = (results.where((F.col("session_id") != "FP1") & F.col("driver_id").isNotNull())
+           .join(sessions.select(*ROUND, "session_id", "date"), ROUND + ["session_id"]))
+    latest = run.withColumn("last", F.max("date").over(Window.partitionBy(*ROUND))).where(F.col("date") == F.col("last"))
+    known = latest.select(*ROUND, "driver_id", "constructor_id").distinct()
+
+    rk = lambda df, name: df.withColumn(name, F.col("season") * 100 + F.col("round"))
+    have = rk(known.select(*ROUND).distinct(), "src_rk")
+    missing = rk(sessions.select(*ROUND).distinct().join(known.select(*ROUND).distinct(), ROUND, "left_anti"), "rk")
+    previous = (missing.join(have, have["src_rk"] < missing["rk"])
+                .groupBy(*[missing[c] for c in ROUND]).agg(F.max("src_rk").alias("src_rk")))
+    borrowed = (previous.join(rk(known, "src_rk").drop(*ROUND), "src_rk")
+                .select(*ROUND, "driver_id", "constructor_id"))
+    return known.unionByName(borrowed)
 
 
 def build(src: dict[str, DataFrame]) -> DataFrame:
@@ -144,9 +181,10 @@ def _labels(src) -> DataFrame:
                     F.col("quali").alias("y_quali"))
 
 
-def load(spark: SparkSession) -> int:
-    """rebuild the whole table; it is small (driver x stage x round since 2018)"""
-    df = build(inputs(spark))
+def load(spark: SparkSession, schedule: list[tuple] | None = None) -> int:
+    """rebuild the whole table; it is small (driver x stage x round since 2018). schedule:
+    the sessions of a round in progress, see inputs()"""
+    df = build(inputs(spark, schedule))
     df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(TABLE)
     return spark.table(TABLE).count()
 
@@ -168,7 +206,10 @@ def leakage_check(spark: SparkSession, samples: int = 12, seed: int = 7) -> list
     src = inputs(spark)
     stored = spark.table(TABLE)
     features = [c for c in stored.columns if not c.startswith("y_")]
-    keys = stored.select("season", "round", "stage").distinct().orderBy(F.rand(seed)).limit(samples).collect()
+    # complete rounds only: a round in progress was built from a schedule this check doesn't have
+    done = stored.where(F.col("y_classified").isNotNull()).select(*ROUND).distinct()
+    keys = (stored.join(done, ROUND).select("season", "round", "stage").distinct()
+            .orderBy(F.rand(seed)).limit(samples).collect())
     rounded = lambda df: df.select(*[F.round(c, 9).alias(c) if t == "double" else F.col(c) for c, t in df.select(*features).dtypes])
     problems = []
     for k in keys:

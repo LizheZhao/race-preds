@@ -20,11 +20,14 @@ import pandas as pd
 
 from src import schema
 from src.config import SITE_DIR, enable_cache
+from src.dispatch import jobs
 from src.dispatch.dispatcher import Progress, pre_weekend_at, process, publish_stage, ready_at
+from src.models import registry
 from src.sessions import get_sessions
 
 WINDOW_TAIL = pd.Timedelta(hours=24)  # after the race is ready: post-race penalties change the classification
 WEATHER_EVERY = pd.Timedelta(hours=3)
+WEATHER_DUE = "weather due"
 
 
 def window(season: int, rnd: int) -> tuple[pd.Timestamp, pd.Timestamp]:
@@ -53,8 +56,19 @@ def reasons(progress: Progress, manifest: schema.RaceManifest | None, now: datet
         why.append(f"processed {', '.join(progress.processed)}")
     weather = manifest.sections["weather"].updated_at
     if weather is None or now - weather >= WEATHER_EVERY:
-        why.append("weather due")
+        why.append(WEATHER_DUE)
     return why
+
+
+def refresh_features(season: int, rnd: int) -> None:
+    """a champion scores this stage's gold.features rows, which the lakehouse doesn't have for
+    a round in progress until build_features runs with it. A failure is not fatal: publish
+    then scores the baseline for the stage"""
+    try:
+        jobs.build_features(season, rnd)
+        print("  gold.features rebuilt with this round")
+    except Exception as exc:
+        print(f"  gold.features not rebuilt ({type(exc).__name__}: {exc}); the champion falls back to the baseline")
 
 
 def run(site: Path, now: datetime, rnd: int | None = None) -> tuple[bool, str | None]:
@@ -76,6 +90,8 @@ def run(site: Path, now: datetime, rnd: int | None = None) -> tuple[bool, str | 
     why = reasons(progress, manifest, now)
     if why:
         print(f"  publishing: {'; '.join(why)}")
+        if why != [WEATHER_DUE] and registry.released():
+            refresh_features(season, rnd)
         run_id = f"gh-{os.environ['GITHUB_RUN_ID']}" if "GITHUB_RUN_ID" in os.environ else f"local-{now:%Y%m%dT%H%MZ}"
         publish_stage(season, rnd, progress.stage, now, site, run_id)
     else:
