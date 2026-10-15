@@ -8,14 +8,15 @@ export type Artifact =
   | "weather"
   | "finishing_order"
   | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
   | "race_incidents"
   | "strategy"
   | "facts"
   | "results";
 export type Season = number;
 export type Round = number | null;
-export type Stage =
-  ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
+export type Stage = ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
 export type GeneratedAt = string;
 export type RunId = string;
 export type Qualifying = QualiRow[] | null;
@@ -45,6 +46,9 @@ export type Stints = [Stint, ...Stint[]];
 export type Compound = "SOFT" | "MEDIUM" | "HARD" | "INTERMEDIATE" | "WET";
 export type StartLap = number;
 export type EndLap = number;
+export type RacePace = DriverPace[] | null;
+export type DriverId3 = string;
+export type LapTimesS = number[];
 
 /**
  * Actual outcomes, filled in session by session. Also the ground truth for grading snapshots.
@@ -56,6 +60,7 @@ export interface ResultsDoc {
   race?: Race;
   race_incidents?: IncidentCounts | null;
   race_strategies?: RaceStrategies;
+  race_pace?: RacePace;
 }
 /**
  * This interface was referenced by `ResultsDoc`'s JSON-Schema
@@ -119,4 +124,12 @@ export interface Stint {
   compound: Compound;
   start_lap: StartLap;
   end_lap: EndLap;
+}
+/**
+ * This interface was referenced by `ResultsDoc`'s JSON-Schema
+ * via the `definition` "DriverPace".
+ */
+export interface DriverPace {
+  driver_id: DriverId3;
+  lap_times_s: LapTimesS;
 }

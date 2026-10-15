@@ -6,6 +6,10 @@ bar its replacement has to beat (docs/pipeline-plan.md, Part 2). Pure functions,
 probabilities: an ordering becomes a position matrix by mixing the permutation with the
 uniform matrix, P = (1 - eps) * perm + eps / n. Every row and every column sums to 1, as
 the schema requires for qualifying; finishing order scales each row by (1 - p_dnf)
+
+tyres: lap delta vs tyre age is a curve, not a line (linear wear, an accelerating term and
+a cliff near the end of the compound's life, see COMPOUNDS). Stint times sum that same
+curve, so a plan's cost and the published degradation curve agree
 """
 from functools import cache
 from itertools import product
@@ -20,7 +24,6 @@ ORDER_UNCERTAINTY = 0.5  # eps: weight of the uniform matrix
 PRIOR_RACES = 10
 PRIOR_P_SC, PRIOR_P_VSC, PRIOR_P_RED, PRIOR_SC_PER_RACE = 0.55, 0.45, 0.10, 0.9
 START_WINDOW_LAPS = 5  # first lap window, where first-lap incidents bunch
-
 
 
 class Tyre(NamedTuple):

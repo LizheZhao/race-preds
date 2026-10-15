@@ -299,9 +299,10 @@ def _predicted_quali(ctx: Context) -> tuple[list[str], dict[str, int] | None]:
 
 def qualifying(ctx: Context) -> schema.QualifyingDoc:
     order, grid = _predicted_quali(ctx)
-    model = ctx.model("quali-sprint-order", ["sprint_qualifying_position"]) if grid else \
-        ctx.model("quali-season-average", ["season_mean_quali_position"])
-    return schema.QualifyingDoc(meta=ctx.meta("qualifying"), model=model, drivers=baselines.qualifying(order))
+    name, feature = ("quali-sprint-order", "sprint_qualifying_position") if grid else \
+        ("quali-season-average", "season_mean_quali_position")
+    return schema.QualifyingDoc(meta=ctx.meta("qualifying"), model=ctx.model(name, [feature]),
+                                drivers=baselines.qualifying(order))
 
 
 def sprint_qualifying(ctx: Context) -> schema.SprintQualifyingDoc:
@@ -366,8 +367,6 @@ def sprint(ctx: Context) -> schema.SprintDoc:
                 "sprint_dnf_rate" if len(sprints) else "season_dnf_rate"]
     return schema.SprintDoc(meta=ctx.meta("sprint"), model=ctx.model("sprint-grid-order", features),
                             drivers=baselines.finishing_order(order, baselines.dnf_rate(history), grid))
-
-
 
 
 def race_incidents(ctx: Context) -> schema.RaceIncidentsDoc:

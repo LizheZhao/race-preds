@@ -62,6 +62,14 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
+- **A sprint weekend predicts every session** (2026-10-15). `sprint_qualifying` (target SQ)
+  and `sprint` (target S) join the snapshot sections, so the dashboard can show a trend from
+  practice through SQ, the sprint and Q to the race; both are `not_applicable` on a
+  conventional weekend. Once SQ has run its classification orders the `qualifying` and
+  `finishing_order` baselines and is the sprint grid. One `PREDICTIONS` registry in
+  `src/publish/documents.py` replaces the per-section tables in publish. Results gain
+  `race_pace` (clean green-flag laps) and weather `track_temp_c_min`; the tyre prior is a
+  curve (wear, acceleration, cliff), not a line. (Artifact schema → Stages)
 - **Phase 2b is narrowed; a Databricks failure is handled by retry, not by a runner
   pipeline** (2026-10-13). GitHub-hosted runners get 403 from F1 live timing, so the
   runner can't ingest a session. When a Databricks job fails, the dispatcher publishes the

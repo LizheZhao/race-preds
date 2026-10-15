@@ -8,14 +8,15 @@ export type Artifact =
   | "weather"
   | "finishing_order"
   | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
   | "race_incidents"
   | "strategy"
   | "facts"
   | "results";
 export type Season = number;
 export type Round = number | null;
-export type Stage =
-  ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
+export type Stage = ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
 export type GeneratedAt = string;
 export type RunId = string;
 export type Name = string;
@@ -32,12 +33,7 @@ export type RaceLaps = number | null;
 /**
  * @minItems 3
  */
-export type Outline = [
-  [number, number],
-  [number, number],
-  [number, number],
-  ...[number, number][],
-];
+export type Outline = [[number, number], [number, number], [number, number], ...[number, number][]];
 export type Number = number;
 export type Letter = string;
 export type X = number;
