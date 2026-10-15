@@ -43,14 +43,26 @@ def backfill_round(season: int, rnd: int, redo: bool = False) -> tuple[bool, flo
     return ok, (time.monotonic() - started) / 60
 
 
-def main(season: int, rounds: list[int], redo: bool) -> None:
+def main(season: int, rounds: list[int], redo: bool) -> list[int]:
+    """returns the rounds that didn't finish; re-running them skips what did"""
+    unfinished = []
     for rnd in rounds:
-        ok, minutes = backfill_round(season, rnd, redo)
-        states = jobs.statuses(season, rnd)
+        try:
+            ok, minutes = backfill_round(season, rnd, redo)
+            states = jobs.statuses(season, rnd)
+        except Exception as exc:  # a dropped connection to the workspace costs one round, not the batch
+            print(f"{season} R{rnd:02d}  ERROR   {type(exc).__name__}: {str(exc)[:200]}", flush=True)
+            unfinished.append(rnd)
+            continue
         gold = sorted(sid for (sid, stage), s in states.items() if stage == "gold" and s == "succeeded")
         other = {f"{sid}/{stage}": s for (sid, stage), s in states.items() if s != "succeeded"}
         print(f"{season} R{rnd:02d}  {'ok    ' if ok else 'FAILED'}  {minutes:5.1f} min  gold {gold}"
               + (f"  {other}" if other else ""), flush=True)
+        if not ok:
+            unfinished.append(rnd)
+    if unfinished:
+        print(f"{season}: re-run rounds {','.join(map(str, sorted(unfinished)))}")
+    return unfinished
 
 
 if __name__ == "__main__":
@@ -64,4 +76,5 @@ if __name__ == "__main__":
     today = datetime.now(timezone.utc)
     if today.weekday() not in BACKFILL_DAYS and not args.anyday:
         raise SystemExit(f"{today:%A} UTC is a race-weekend day; backfill runs Tuesday and Wednesday (--anyday to override)")
-    main(args.season, args.rounds, args.redo)
+    if main(args.season, args.rounds, args.redo):
+        raise SystemExit(1)
