@@ -17,7 +17,7 @@ The repo has three parts:
 
 ## Status and next steps
 
-As of 2026-10-13.
+As of 2026-10-15.
 
 | # | phase | status |
 |---|---|---|
@@ -25,7 +25,7 @@ As of 2026-10-13.
 | 1 | Lakehouse for one race | **Done** 2026-10-11 on 2026 R16 (Phase 1 record) |
 | 2 | Replay | **Done** 2026-10-11 on 2026 R15 (Phase 2 record) |
 | 2b | Fallback path | **Narrowed** 2026-10-13: release-hosted tree done; runner-side ingest deferred (runners can't reach F1 live timing). The rest folds into Phase 3 |
-| 3 | Backfill + models | **Next.** Plan written 2026-10-13 (Phase 3 plan) |
+| 3 | Backfill + models | **In progress.** Steps 1–5b built 2026-10-13 to 15. Backfill: 2024, 2025 and 2026 R1–R17 complete; 2022 and 2023 partial, held up by F1's live timing block (step 1, Progress). Season-split backtest run once on the partial data (step 4) |
 | 3b | Research swarm (optional) | Not started |
 | 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result. Redesign built locally 2026-10-15 (tag `dashboard-review-v1`); what its cards still need from the pipeline is in `docs/dashboard-data-needs.md` |
 | 5 | Go live | Built and dry-run in CI 2026-10-13; first real publish 2026-10-22 21:30 UTC |
@@ -680,6 +680,10 @@ is involved.
   the month. Data and settings survive. The quota itself is not published. The
   race-weekend path is meant to fall back to the runner (see Fallback, which doesn't
   work as written yet).
+  - First hit 2026-10-15 at about 23:00 UTC, after 7.1 h of job run time that UTC day,
+    all of it backfill and `build_features`. The SQL warehouse then answered "you have
+    hit your free daily limit" too, which blocks publish's reads as well. Keep a
+    backfill day well under 7 h, and never run one on a race-weekend day.
 - Personal access tokens expire. An expired token makes every dispatcher run fail until
   you notice the failure emails, so record the expiry date (Dispatcher → Secrets).
 - Scheduled workflows in a public repo are disabled after 60 days without commits. Keep
@@ -767,7 +771,27 @@ Each step ends in its own check. Don't start the next step until it passes.
 - **Progress.** 2026 R1–R17 complete 2026-10-14: 85 sessions in gold, 22 drivers each.
   R1–R13 took 68 min, 5.3 min per round on average (warm runs are faster than the
   first). 2025, 2024, 2023 and 2022 started 2026-10-15 (a Thursday, run with
-  `--anyday`: no race until R18 on 2026-10-22), one after another, about 10 h.
+  `--anyday`: no race until R18 on 2026-10-22), one after another.
+  - **2025:** complete, 24 rounds in 2.4 h (about 6 min per round), all six sprint
+    weekends included.
+  - **2024:** complete. The first batch died at R11 when the local driver's SQL
+    connection dropped after 15 min of retries; since `cdaae98` a dropped connection
+    costs one round, and a re-run skips what finished.
+  - **2023:** R18–R22 in gold. R1–R17 ran from 15:08 UTC into F1's live timing block
+    (HTTP 401 on every archive path, see Known constraints), and the deployed ingest
+    recorded all 85 sessions `not_available`. `backfill_round` skips those, so they need
+    `--redo` once the archive answers 200 again. FastF1's mirror has nothing from 2023 on.
+  - **2022:** R19–R22 in gold, loaded through FastF1's mirror during the block. R1–R18
+    never started: the repo moved from `~/文档` to `~/Documents` mid-run, and the local
+    driver lost its certifi path. The mirror serves all of 2022, so they can run now.
+  - **Free Edition daily limit** hit at about 23:00 UTC, after 7.1 h of job run time that
+    UTC day (96 `backfill_round` runs, 4 `build_features` runs). The SQL warehouse then
+    refused queries too (Known constraints).
+  - **Next:** `python -m src.dispatch.backfill 2022 1-18 --anyday` once the limit resets,
+    then `python -m src.dispatch.backfill 2023 1-17 --redo` once the archive is open. A
+    round counts as done only when all its sessions are in gold
+    (`ops.processed_sessions`), since a `not_available` row looks finished to the job.
+    Then rebuild `gold.features`, snapshot it and run `evaluate run --log`.
 - **Driver:** `python -m src.dispatch.backfill <season> <rounds>` (e.g. `2025 1-24`)
   starts `backfill_round` one round at a time, newest first, and prints each round's
   time and final states. It refuses to start Thursday to Monday (UTC) unless
@@ -815,6 +839,9 @@ Each step ends in its own check. Don't start the next step until it passes.
   - The job rebuilds the whole table and then checks 12 sampled stages (7.8 min, most
     of it the rebuilds). On 2026 alone: 17 rounds, 7 stages, 1,870 rows; the check
     passed. Re-run it after each backfill batch.
+  - Rebuilt 2026-10-15 on 2022–2026 as far as the backfill reached (2022 R19–R22, 2023
+    R18–R22, 2024, 2025, 2026 R1–R17): 7,560 rows in 16.2 min, and the 12-sample leakage
+    check passed.
 
 #### Step 3: the evaluation harness (frozen once written)
 
@@ -882,6 +909,20 @@ Each step ends in its own check. Don't start the next step until it passes.
     Twelve rounds can't separate the two, and tuning on them would overfit the
     walk-forward, so the simpler single model stays. Retest both on the season split
     first, then the pre-Q ordering (the weakest part).
+- **First season-split run, preliminary (2026-10-15).** On the partial backfill (step 1)
+  and not logged to MLflow; rerun with `--log` once 2022 and 2023 are complete. RPS,
+  `strength-pl` vs `grid-order`:
+  - 2026 walk-forward, 12 rounds: 0.132 vs 0.147 pre-weekend, 0.124 vs 0.142 after Q,
+    0.124 vs 0.144 at the sprint stages. Log loss 2.71 vs 3.26 pre-weekend. With 2024
+    and 2025 in the training data, the after-Q RPS improved from 0.128.
+  - 2024 season, 24 rounds, trained on only 9 rounds (2022 R19–R22, 2023 R18–R22):
+    0.134 vs 0.143 pre-weekend and after FP1, 0.130 vs 0.139 after FP3, 0.126 vs 0.125
+    after Q, and 0.157 vs 0.153 at the sprint stages (6 rounds). So the check fails
+    after Q and at sprint stages on this data; judge it again once training has all of
+    2022 and 2023.
+  - 2023 season: only R18–R22 have labels, too few to read.
+  - Qualifying has only its baseline (`quali-season-average`), so there is nothing to
+    compare yet.
 - **To do once 2022–2025 is in** (2026-10-15):
   - training span: 2026 only vs 2022–2026 pooled vs pooled with 2026 weighted up
     (`era_2026` as a feature or sample weights), judged on the 2026 walk-forward
