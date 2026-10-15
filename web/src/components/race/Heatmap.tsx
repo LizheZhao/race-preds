@@ -45,7 +45,7 @@ export function Heatmap({
             (extraHeader ? 56 : 0),
         }}
       >
-        <div className="mb-1 flex items-end text-[10px] text-muted-foreground">
+        <div className="mb-1 flex items-end text-[11px] text-muted-foreground">
           <div className="w-[88px] shrink-0" />
           <div
             className="grid shrink-0 gap-[2px]"
@@ -63,14 +63,14 @@ export function Heatmap({
             {barLabels.map((l) => (
               <span
                 key={l}
-                className="w-16 font-display uppercase tracking-wider"
+                className="cond w-16 font-bold tracking-wider uppercase"
               >
                 {l}
               </span>
             ))}
           </div>
           {extraHeader && (
-            <div className="ml-2 w-12 font-display uppercase tracking-wider">
+            <div className="cond ml-2 w-12 font-bold tracking-wider uppercase">
               {extraHeader}
             </div>
           )}
@@ -91,20 +91,20 @@ export function Heatmap({
                     toggleHighlight(r.driver_id)
                   }
                   className={cn(
-                    "flex cursor-pointer items-center rounded-sm transition-opacity duration-200",
+                    "flex cursor-pointer items-center transition-opacity duration-200",
                     dim && "opacity-30",
                     highlight === r.driver_id && "bg-foreground/5",
                   )}
                 >
                   <div className="flex w-[88px] shrink-0 items-center gap-2">
                     <span
-                      className="h-4 w-[3px] rounded-full"
+                      className="h-4 w-1"
                       style={{ background: colorOf(r.driver_id) }}
                     />
-                    <span className="font-display text-sm font-semibold">
+                    <span className="cond text-base font-extrabold">
                       {d?.code ?? r.driver_id}
                     </span>
-                    <span className="text-[10px] text-muted-foreground tnum">
+                    <span className="text-[11px] text-muted-foreground tnum">
                       {d?.number}
                     </span>
                   </div>
@@ -124,10 +124,10 @@ export function Heatmap({
                             </>,
                           )}
                           onPointerLeave={tip.hide}
-                          className="block rounded-[2px] bg-foreground/[0.04]"
+                          className="block bg-background"
                           style={{
                             height: cell,
-                            boxShadow: `inset 0 0 0 ${cell}px color-mix(in oklab, var(--foreground) ${Math.round((p / max) * 100)}%, transparent)`,
+                            boxShadow: `inset 0 0 0 ${cell}px color-mix(in oklab, var(--primary) ${Math.round((p / max) * 100)}%, transparent)`,
                           }}
                         />
                       );
@@ -145,13 +145,13 @@ export function Heatmap({
                         )}
                         onPointerLeave={tip.hide}
                       >
-                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10">
+                        <span className="h-2 flex-1 overflow-hidden bg-secondary">
                           <span
-                            className="block h-full rounded-full bg-foreground/80"
+                            className="block h-full bg-primary"
                             style={{ width: `${b.value * 100}%` }}
                           />
                         </span>
-                        <span className="w-7 text-right text-[10px] text-muted-foreground tnum">
+                        <span className="w-7 text-right text-[11px] text-muted-foreground tnum">
                           {(b.value * 100).toFixed(0)}
                         </span>
                       </span>

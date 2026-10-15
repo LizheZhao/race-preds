@@ -31,21 +31,23 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
   const cl = weather.climatology;
   return (
     <div className="space-y-5">
-      <div className="flex items-end gap-6">
-        <div>
-          <p className="label-caps mb-1">Race forecast</p>
-          <p className="font-display text-4xl font-semibold leading-none tnum">
-            {race?.forecast ? `${race.forecast.air_temp_c.toFixed(0)}°` : "—"}
-            {race?.forecast && (
-              <span className="ml-2 text-base font-normal text-muted-foreground">
-                {pct(race.forecast.p_rain, 0)} rain
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-      <div className="-mx-1 overflow-x-auto">
-        <div className="h-44 min-w-[560px]">
+      <p className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="h-0.5 w-4 bg-foreground" />
+          Air temperature
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-1.5 bg-tyre-wet" />
+          Rain chance
+        </span>
+        {!race?.observed && !race?.forecast && (
+          <span>
+            The race forecast opens once the race is inside the forecast window.
+          </span>
+        )}
+      </p>
+      <div>
+        <div className="h-44">
           <ResponsiveContainer>
             <ComposedChart
               data={data}
@@ -59,17 +61,14 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                     yAxisId="t"
                     x1={a}
                     x2={a + (SESSION_HOURS[s.session_id] ?? 1) * 36e5}
-                    fill={
-                      s.session_id === "R"
-                        ? "var(--primary)"
-                        : "var(--foreground)"
-                    }
-                    fillOpacity={s.session_id === "R" ? 0.18 : 0.07}
+                    fill="var(--foreground)"
+                    fillOpacity={s.session_id === "R" ? 0.16 : 0.06}
                     label={{
                       value: s.session_id,
                       position: "insideTop",
-                      fill: "var(--muted-foreground)",
-                      fontSize: 10,
+                      fill: "var(--foreground)",
+                      fontSize: 11,
+                      fontWeight: 700,
                       dy: -16,
                     }}
                     ifOverflow="extendDomain"
@@ -83,7 +82,7 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                 domain={["dataMin", "dataMax"]}
                 tickLine={false}
                 axisLine={{ stroke: "var(--border)" }}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                 tickFormatter={(t) =>
                   new Date(t).toLocaleDateString("en-GB", {
                     weekday: "short",
@@ -98,7 +97,7 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                 yAxisId="t"
                 tickLine={false}
                 axisLine={false}
-                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                 width={44}
                 tickFormatter={(v) => `${v}°`}
                 domain={["dataMin - 2", "dataMax + 2"]}
@@ -108,14 +107,14 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                 yAxisId="r"
                 dataKey="rain"
                 fill="var(--tyre-wet)"
-                opacity={0.7}
+                opacity={0.55}
                 barSize={3}
               />
               <Line
                 yAxisId="t"
                 dataKey="temp"
                 stroke="var(--foreground)"
-                strokeWidth={1.5}
+                strokeWidth={2}
                 dot={false}
               />
               <Tooltip
@@ -124,7 +123,7 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                   if (!active || !payload?.length) return null;
                   const p = payload[0]!.payload as (typeof data)[number];
                   return (
-                    <div className="rounded-sm border border-border bg-popover px-2.5 py-1.5 text-xs tnum">
+                    <div className="border border-foreground bg-popover px-2.5 py-1.5 text-xs tnum">
                       <div className="text-muted-foreground">
                         {new Date(p.t).toUTCString().slice(0, 22)} UTC
                       </div>
@@ -139,15 +138,13 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] border-t border-l border-border">
         {weather.sessions.map((s) => (
           <div
             key={s.session_id}
-            className="rounded-sm border border-border px-2.5 py-1.5 text-xs tnum"
+            className="border-r border-b border-border px-3 py-2 text-sm tnum"
           >
-            <span className="mr-2 font-display font-semibold">
-              {s.session_id}
-            </span>
+            <span className="cond mr-2 font-extrabold">{s.session_id}</span>
             {s.observed ? (
               <span>
                 {s.observed.air_temp_c_mean.toFixed(1)}°{" "}

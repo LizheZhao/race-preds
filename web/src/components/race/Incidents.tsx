@@ -1,5 +1,4 @@
 import type { RaceIncidentsDoc } from "@/data/types";
-import { Stat } from "./CircuitCard";
 import { pct, probNoun } from "./context";
 import { useTip } from "./Tip";
 
@@ -13,18 +12,34 @@ export function IncidentsView({ doc }: { doc: RaceIncidentsDoc }) {
   return (
     <div className="space-y-6">
       {tip.node}
-      <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
-        <Stat label={`Safety car`} value={pct(doc.p_safety_car, 0)} accent />
-        <Stat label="VSC" value={pct(doc.p_vsc, 0)} />
-        <Stat label="Red flag" value={pct(doc.p_red_flag, 0)} />
-        <Stat label="Exp. SCs" value={doc.expected_safety_cars.toFixed(2)} />
-      </div>
-      <p className="-mt-3 text-[11px] text-muted-foreground">
-        Percentages are {noun}s.
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-5">
+        <Flag
+          label="Safety car"
+          value={pct(doc.p_safety_car, 0)}
+          flag="bg-flag-yellow"
+        />
+        <Flag
+          label="Virtual safety car"
+          value={pct(doc.p_vsc, 0)}
+          flag="bg-[repeating-linear-gradient(180deg,var(--flag-yellow)_0_6px,var(--foreground)_6px_12px)]"
+        />
+        <Flag
+          label="Red flag"
+          value={pct(doc.p_red_flag, 0)}
+          flag="bg-flag-red"
+        />
+        <Flag
+          label="Safety cars expected"
+          value={doc.expected_safety_cars.toFixed(2)}
+          flag=""
+        />
+      </dl>
+      <p className="text-xs text-muted-foreground">
+        Percentages are {noun}s for at least one deployment.
       </p>
       <div>
         <p className="label-caps mb-2">Safety car {noun} by lap window</p>
-        <div className="flex h-24 items-end gap-1.5">
+        <div className="flex h-28 items-end gap-1.5">
           {doc.by_lap_window.map((w) => (
             <div
               key={w.start_lap}
@@ -36,15 +51,15 @@ export function IncidentsView({ doc }: { doc: RaceIncidentsDoc }) {
               )}
               onPointerLeave={tip.hide}
             >
-              <span className="text-[10px] text-muted-foreground tnum">
+              <span className="text-xs font-semibold tnum">
                 {(w.p_safety_car * 100).toFixed(0)}
               </span>
               <span
-                className="w-full rounded-t-[2px] bg-foreground/70"
-                style={{ height: `${(w.p_safety_car / maxW) * 60}px` }}
+                className="w-full border border-foreground bg-flag-yellow"
+                style={{ height: `${(w.p_safety_car / maxW) * 64}px` }}
               />
-              <span className="text-[10px] text-muted-foreground tnum">
-                {w.start_lap}
+              <span className="text-xs text-muted-foreground tnum">
+                L{w.start_lap}–{w.end_lap}
               </span>
             </div>
           ))}
@@ -71,7 +86,7 @@ export function IncidentsView({ doc }: { doc: RaceIncidentsDoc }) {
                     {Array.from({ length: h.safety_cars }, (_, i) => (
                       <span
                         key={`s${i}`}
-                        className="size-2 rounded-full bg-foreground"
+                        className="size-2 rounded-full bg-flag-yellow ring-1 ring-foreground"
                       />
                     ))}
                     {Array.from({ length: h.vscs }, (_, i) => (
@@ -83,23 +98,23 @@ export function IncidentsView({ doc }: { doc: RaceIncidentsDoc }) {
                     {Array.from({ length: h.red_flags }, (_, i) => (
                       <span
                         key={`r${i}`}
-                        className="size-2 rounded-full bg-primary"
+                        className="size-2 rounded-full bg-flag-red"
                       />
                     ))}
                     {h.safety_cars + h.vscs + h.red_flags === 0 && (
                       <span className="h-px w-2 bg-subtle" />
                     )}
                   </div>
-                  <span className="text-[10px] text-muted-foreground tnum">
+                  <span className="text-xs text-muted-foreground tnum">
                     ’{String(h.season).slice(2)}
                   </span>
                 </div>
               ))}
             </div>
           </div>
-          <p className="mt-2 flex gap-3 text-[10px] text-muted-foreground">
+          <p className="mt-2 flex gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
-              <span className="size-2 rounded-full bg-foreground" />
+              <span className="size-2 rounded-full bg-flag-yellow ring-1 ring-foreground" />
               SC
             </span>
             <span className="flex items-center gap-1">
@@ -107,12 +122,34 @@ export function IncidentsView({ doc }: { doc: RaceIncidentsDoc }) {
               VSC
             </span>
             <span className="flex items-center gap-1">
-              <span className="size-2 rounded-full bg-primary" />
+              <span className="size-2 rounded-full bg-flag-red" />
               Red flag
             </span>
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function Flag({
+  label,
+  value,
+  flag,
+}: {
+  label: string;
+  value: string;
+  flag: string;
+}) {
+  return (
+    <div className="flex items-stretch gap-3">
+      <span aria-hidden className={`w-3 shrink-0 ${flag}`} />
+      <div>
+        <dt className="label-caps">{label}</dt>
+        <dd className="xcond mt-1 text-4xl leading-none font-black tnum">
+          {value}
+        </dd>
+      </div>
     </div>
   );
 }

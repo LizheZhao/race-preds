@@ -10,25 +10,25 @@ export function CircuitView({ event }: { event: EventDoc }) {
     .sort((a, b) => b.season - a.season)
     .slice(0, 5);
   return (
-    <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+    <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <svg
         viewBox={`-20 -20 ${S + 40} ${S + 40}`}
-        className="w-full max-w-sm"
+        className="w-full max-w-xs"
         role="img"
         aria-label={`${c.name} track map`}
       >
         <polygon
           points={pts}
           fill="none"
-          stroke="var(--border)"
-          strokeWidth={14}
+          stroke="var(--secondary)"
+          strokeWidth={16}
           strokeLinejoin="round"
         />
         <polygon
           points={pts}
           fill="none"
           stroke="var(--foreground)"
-          strokeWidth={3}
+          strokeWidth={3.5}
           strokeLinejoin="round"
         />
         {c.outline[0] && (
@@ -37,7 +37,7 @@ export function CircuitView({ event }: { event: EventDoc }) {
             y={c.outline[0][1] * S - 9}
             width={3}
             height={18}
-            fill="var(--primary)"
+            fill="var(--flag-red)"
           />
         )}
         {c.corners.map((k) => {
@@ -52,9 +52,9 @@ export function CircuitView({ event }: { event: EventDoc }) {
               <circle
                 cx={k.x * S}
                 cy={k.y * S}
-                r={on ? 11 : 7}
-                fill={on ? "var(--primary)" : "var(--card)"}
-                stroke="var(--muted-foreground)"
+                r={on ? 11 : 7.5}
+                fill={on ? "var(--foreground)" : "var(--background)"}
+                stroke="var(--foreground)"
                 strokeWidth={1}
               />
               <text
@@ -62,9 +62,10 @@ export function CircuitView({ event }: { event: EventDoc }) {
                 y={k.y * S}
                 dy="0.35em"
                 textAnchor="middle"
-                fontSize={on ? 10 : 7}
-                fill="var(--foreground)"
-                className="font-display font-semibold tnum"
+                fontSize={on ? 11 : 8}
+                fontWeight={700}
+                fill={on ? "var(--background)" : "var(--foreground)"}
+                className="tnum"
               >
                 {k.number}
                 {k.letter}
@@ -74,33 +75,43 @@ export function CircuitView({ event }: { event: EventDoc }) {
         })}
       </svg>
       <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
-          <Stat
-            label="Length"
-            value={c.length_km != null ? `${c.length_km.toFixed(3)}` : "—"}
-            unit="km"
-          />
-          <Stat
-            label="Laps"
-            value={c.race_laps != null ? String(c.race_laps) : "—"}
-          />
-        </div>
+        <dl className="grid grid-cols-3 border-t border-border text-sm tnum">
+          <div className="py-2">
+            <dt className="text-muted-foreground">Length</dt>
+            <dd className="font-bold">
+              {c.length_km != null ? `${c.length_km.toFixed(3)} km` : "—"}
+            </dd>
+          </div>
+          <div className="py-2">
+            <dt className="text-muted-foreground">Laps</dt>
+            <dd className="font-bold">{c.race_laps ?? "—"}</dd>
+          </div>
+          <div className="py-2">
+            <dt className="text-muted-foreground">Corners</dt>
+            <dd className="font-bold">{c.corners.length}</dd>
+          </div>
+        </dl>
         <p className="text-xs text-muted-foreground tnum">
           {c.locality} · {c.lat.toFixed(4)}°, {c.lon.toFixed(4)}°
         </p>
-        {hover != null && <p className="font-display text-sm">Turn {hover}</p>}
+        {hover != null && (
+          <p className="cond text-sm font-extrabold uppercase">Turn {hover}</p>
+        )}
         {winners.length > 0 && (
           <div>
-            <p className="label-caps mb-2">Past winners</p>
-            <ul className="space-y-1.5 text-sm">
+            <h3 className="label-caps mb-2">Past winners</h3>
+            <ul className="text-sm">
               {winners.map((w) => (
-                <li key={w.season} className="flex gap-3">
-                  <span className="w-10 text-muted-foreground tnum">
-                    {w.season}
-                  </span>
-                  <span className="truncate">{w.driver_name}</span>
-                  <span className="ml-auto truncate text-xs text-muted-foreground">
-                    {w.team_name}
+                <li
+                  key={w.season}
+                  className="grid grid-cols-[3rem_1fr] gap-x-2 border-t border-border py-1.5"
+                >
+                  <span className="text-muted-foreground tnum">{w.season}</span>
+                  <span>
+                    <span className="font-semibold">{w.driver_name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {w.team_name}
+                    </span>
                   </span>
                 </li>
               ))}
@@ -108,34 +119,6 @@ export function CircuitView({ event }: { event: EventDoc }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-export function Stat({
-  label,
-  value,
-  unit,
-  accent,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div>
-      <p className="label-caps mb-1">{label}</p>
-      <p
-        className={`font-display text-3xl font-semibold leading-none tnum ${accent ? "text-primary" : ""}`}
-      >
-        {value}
-        {unit && (
-          <span className="ml-1 text-sm font-normal text-muted-foreground">
-            {unit}
-          </span>
-        )}
-      </p>
     </div>
   );
 }

@@ -13,10 +13,13 @@ export function QualifyingView({ doc }: { doc: QualifyingDoc }) {
     <div className="space-y-5">
       {pole && (
         <div>
-          <p className="label-caps mb-1">Pole {noun} · top</p>
-          <p className="font-display text-4xl font-semibold leading-none tnum">
-            {drivers.get(pole.driver_id)?.code ?? pole.driver_id}{" "}
-            <span className="text-primary">{pct(pole.p_pole)}</span>
+          <p className="text-lg tnum">
+            Most likely on pole:{" "}
+            <span className="font-extrabold">
+              {drivers.get(pole.driver_id)?.code ?? pole.driver_id}
+            </span>{" "}
+            <span className="font-bold text-primary">{pct(pole.p_pole)}</span>{" "}
+            <span className="text-sm text-muted-foreground">{noun}</span>
           </p>
         </div>
       )}

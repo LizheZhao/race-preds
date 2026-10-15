@@ -8,7 +8,7 @@ export function ResultsView({ doc }: { doc: ResultsDoc }) {
   return (
     <div className="space-y-5">
       {incidents && (
-        <p className="text-xs text-muted-foreground tnum">
+        <p className="text-sm tnum">
           {incidents.safety_cars} safety car
           {incidents.safety_cars === 1 ? "" : "s"} · {incidents.vscs} VSC ·{" "}
           {incidents.red_flags} red flag{incidents.red_flags === 1 ? "" : "s"}
@@ -115,15 +115,15 @@ function Row({
     <tr
       onClick={() => toggleHighlight(driverId)}
       className={cn(
-        "cursor-pointer border-t border-border transition-opacity",
+        "cursor-pointer border-t border-border transition-opacity hover:bg-secondary",
         highlight != null && highlight !== driverId && "opacity-35",
-        highlight === driverId && "bg-foreground/5",
+        highlight === driverId && "bg-secondary",
       )}
     >
       <td className="w-8 py-1.5 text-muted-foreground">{pos}</td>
       <td className="py-1.5">
         <span
-          className="mr-2 inline-block h-3 w-[3px] align-middle"
+          className="mr-2 inline-block h-3.5 w-1 align-[-2px]"
           style={{ background: colorOf(driverId) }}
         />
         {d?.last_name ?? driverId}

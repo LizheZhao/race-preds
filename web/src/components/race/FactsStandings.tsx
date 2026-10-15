@@ -6,7 +6,7 @@ import { useRace } from "./context";
 export function FactsView({ doc }: { doc: FactsDoc }) {
   const { colorOf, highlight } = useRace();
   return (
-    <ul className="grid gap-3 sm:grid-cols-2">
+    <ul>
       {doc.facts.map((f) => {
         const ids = f.driver_ids ?? [];
         const on = highlight != null && ids.includes(highlight);
@@ -15,24 +15,31 @@ export function FactsView({ doc }: { doc: FactsDoc }) {
           <li
             key={f.id}
             className={cn(
-              "rounded-sm border border-border bg-background/40 p-4 transition-opacity duration-200",
+              "grid gap-x-6 gap-y-2 border-b border-border py-4 transition-opacity duration-200 first:pt-0 sm:grid-cols-[7rem_minmax(0,1fr)]",
               dim && "opacity-35",
-              on && "bg-foreground/5",
             )}
-            style={
-              ids.length
-                ? { borderLeft: `3px solid ${colorOf(ids[0]!)}` }
-                : undefined
-            }
           >
-            <span className="label-caps">{f.category}</span>
-            <h3 className="mt-2 text-base font-semibold leading-snug">
-              {f.headline}
-            </h3>
-            {f.body && (
-              <p className="mt-1.5 text-sm text-muted-foreground">{f.body}</p>
-            )}
-            <p className="mt-3 text-[10px] text-subtle">{f.source}</p>
+            <span className="label-caps order-2 flex items-center gap-2 pt-1 sm:order-none">
+              {ids[0] && (
+                <span
+                  aria-hidden
+                  className="h-3 w-1"
+                  style={{ background: colorOf(ids[0]) }}
+                />
+              )}
+              {f.category}
+            </span>
+            <div>
+              <h3 className="text-xl leading-snug font-extrabold">
+                {f.headline}
+              </h3>
+              {f.body && (
+                <p className="mt-1 text-sm text-muted-foreground">{f.body}</p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Source: {f.source}
+              </p>
+            </div>
           </li>
         );
       })}
@@ -53,21 +60,12 @@ export function StandingsView({ event }: { event: EventDoc }) {
   const leader = ds[0];
   return (
     <div className="space-y-5">
-      {leader && (
-        <div>
-          <p className="label-caps mb-1">
-            Leader
-            {event.standings.after_round != null
-              ? ` after R${event.standings.after_round}`
-              : ""}
-          </p>
-          <p className="font-display text-4xl font-semibold leading-none tnum">
-            {drivers.get(leader.driver_id)?.code}{" "}
-            <span className="text-base font-normal text-muted-foreground">
-              {leader.points} pts
-            </span>
-          </p>
-        </div>
+      {leader && event.standings.after_round != null && (
+        <p className="text-sm text-muted-foreground">
+          After round {event.standings.after_round},{" "}
+          {drivers.get(leader.driver_id)?.last_name ?? leader.driver_id} leads
+          on {leader.points} points.
+        </p>
       )}
       <div className="grid gap-6 sm:grid-cols-2">
         <Table
@@ -99,7 +97,7 @@ export function StandingsView({ event }: { event: EventDoc }) {
       {(event.standings.drivers.length > 10 ||
         event.standings.teams.length > 10) && (
         <button
-          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          className="border border-foreground px-3 py-1.5 text-xs font-semibold hover:bg-foreground hover:text-background"
           onClick={() => setAll((v) => !v)}
         >
           {all ? "Show top 10" : "Show all"}
@@ -145,13 +143,13 @@ function Table({
               "border-t border-border transition-opacity",
               r.onClick && "cursor-pointer",
               r.dim && "opacity-35",
-              r.active && "bg-foreground/5",
+              r.active && "bg-secondary",
             )}
           >
             <td className="w-7 py-1.5 text-muted-foreground">{r.pos}</td>
             <td className="py-1.5">
               <span
-                className="mr-2 inline-block h-3 w-[3px] align-middle"
+                className="mr-2 inline-block h-3.5 w-1 align-[-2px]"
                 style={{ background: r.color }}
               />
               {r.name}

@@ -17,6 +17,14 @@ export const TYRE: Record<Compound, string> = {
   INTERMEDIATE: "var(--tyre-inter)",
   WET: "var(--tyre-wet)",
 };
+// Lines need contrast on the laminate: the white hard compound draws in ink.
+const LINE: Record<Compound, string> = {
+  SOFT: "var(--tyre-soft)",
+  MEDIUM: "#d9a400",
+  HARD: "var(--foreground)",
+  INTERMEDIATE: "var(--tyre-inter)",
+  WET: "var(--tyre-wet)",
+};
 const INITIAL: Record<Compound, string> = {
   SOFT: "S",
   MEDIUM: "M",
@@ -50,66 +58,62 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
     return row;
   });
 
+  const lastIdx = (c: Compound) => {
+    for (let i = degData.length - 1; i >= 0; i--)
+      if (degData[i]![c] != null) return i;
+    return -1;
+  };
+
   return (
     <div className="space-y-6">
       {tip.node}
-      <div className="flex flex-wrap items-end gap-8">
+      <p className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
         {best && (
-          <div>
-            <p className="label-caps mb-1">Fastest plan</p>
-            <p className="font-display text-4xl font-semibold leading-none">
+          <span>
+            Fastest:{" "}
+            <span className="font-bold text-foreground">
               {best.stops}-stop{" "}
               {best.stints.map((s) => INITIAL[s.compound]).join("–")}
-              {best.p_best != null && (
-                <span className="ml-2 text-base font-normal text-muted-foreground tnum">
-                  {pct(best.p_best, 0)} {noun}
-                </span>
-              )}
-            </p>
-          </div>
-        )}
-        <div>
-          <p className="label-caps mb-1">Pit loss</p>
-          <p className="font-display text-2xl font-semibold leading-none tnum">
-            {doc.pit_loss_s.toFixed(1)}
-            <span className="ml-1 text-sm font-normal text-muted-foreground">
-              s
             </span>
-          </p>
-        </div>
-        {doc.compounds_available && (
-          <div className="flex gap-2 text-xs">
-            {(
-              Object.entries(doc.compounds_available) as [Compound, string][]
-            ).map(([c, v]) => (
+            {best.p_best != null && ` · ${pct(best.p_best, 0)} ${noun}`}
+          </span>
+        )}
+        <span className="tnum">
+          Pit loss{" "}
+          <span className="font-bold text-foreground">
+            {doc.pit_loss_s.toFixed(1)} s
+          </span>
+        </span>
+        {doc.compounds_available &&
+          (Object.entries(doc.compounds_available) as [Compound, string][]).map(
+            ([c, v]) => (
               <span key={c} className="flex items-center gap-1.5">
                 <span
-                  className="size-2.5 rounded-full"
+                  className="size-3 rounded-full border border-foreground"
                   style={{ background: TYRE[c] }}
                 />
                 {v}
               </span>
-            ))}
-          </div>
-        )}
-      </div>
+            ),
+          )}
+      </p>
 
-      <div className="-mx-1 overflow-x-auto px-1">
-        <div className="min-w-[560px] space-y-3">
+      <div>
+        <div className="space-y-3">
           {opts.map((o) => (
             <div
               key={o.id}
-              className="grid grid-cols-[120px_1fr_96px] items-center gap-3"
+              className="grid grid-cols-[84px_1fr_52px] sm:grid-cols-[120px_1fr_96px] items-center gap-3"
             >
-              <span className="font-display text-sm font-semibold">
+              <span className="cond text-sm font-extrabold">
                 {o.stops}-stop{" "}
                 {o.stints.map((s) => INITIAL[s.compound]).join("–")}
               </span>
-              <div className="relative h-5 rounded-sm bg-foreground/5">
+              <div className="relative h-6 border border-foreground bg-background">
                 {o.stints.map((s, i) => (
                   <span
                     key={i}
-                    className="absolute top-0.5 h-4 rounded-[2px] border-r-2 border-card"
+                    className="absolute inset-y-0 border-r border-foreground last:border-r-0"
                     style={{
                       left: x(s.start_lap),
                       width: w(s.start_lap, s.end_lap),
@@ -127,7 +131,7 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
                 {o.pit_windows.map((p) => (
                   <span
                     key={p.stop}
-                    className="hatch pointer-events-none absolute -top-0.5 h-6 rounded-[2px] border border-foreground/40"
+                    className="hatch pointer-events-none absolute -inset-y-1 border border-dashed border-foreground/70"
                     style={{
                       left: x(p.earliest_lap),
                       width: w(p.earliest_lap, p.latest_lap),
@@ -137,7 +141,7 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
               </div>
               <span className="text-right text-xs tnum">
                 {o.expected_time_delta_s === 0 ? (
-                  <span className="text-primary">fastest</span>
+                  <span className="font-bold">Fastest</span>
                 ) : (
                   `+${o.expected_time_delta_s.toFixed(1)} s`
                 )}
@@ -149,12 +153,12 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
               </span>
             </div>
           ))}
-          <div className="grid grid-cols-[120px_1fr_96px] gap-3 text-[10px] text-muted-foreground tnum">
+          <div className="grid grid-cols-[84px_1fr_52px] sm:grid-cols-[120px_1fr_96px] gap-3 text-xs text-muted-foreground tnum">
             <span />
             <div className="flex justify-between">
               <span>Lap 1</span>
               <span className="flex items-center gap-1">
-                <span className="hatch inline-block h-2.5 w-4 border border-foreground/40" />
+                <span className="hatch inline-block h-3 w-5 border border-dashed border-foreground/70" />
                 pit window
               </span>
               <span>Lap {L}</span>
@@ -166,30 +170,31 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
       {degData.length > 0 && (
         <div>
           <p className="label-caps mb-2">Degradation · lap delta vs tyre age</p>
-          <div className="h-40">
+          <div className="h-48">
             <ResponsiveContainer>
               <LineChart
                 data={degData}
-                margin={{ top: 8, right: 64, bottom: 0, left: -18 }}
+                margin={{ top: 14, right: 72, bottom: 0, left: 4 }}
               >
                 <XAxis
                   dataKey="life"
                   tickLine={false}
                   axisLine={{ stroke: "var(--border)" }}
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  minTickGap={16}
                 />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
-                  width={44}
-                  tickFormatter={(v) => `+${v}s`}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  width={52}
+                  tickFormatter={(v: number) => `+${v.toFixed(1)}s`}
                 />
                 <Tooltip
                   cursor={{ stroke: "var(--border)" }}
                   content={({ active, payload, label }) =>
                     active && payload?.length ? (
-                      <div className="rounded-sm border border-border bg-popover px-2.5 py-1.5 text-xs tnum">
+                      <div className="border border-foreground bg-popover px-2.5 py-1.5 text-xs tnum">
                         <div className="text-muted-foreground">
                           Lap {label} of stint
                         </div>
@@ -206,8 +211,8 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
                   <Line
                     key={d.compound}
                     dataKey={d.compound}
-                    stroke={TYRE[d.compound]}
-                    strokeWidth={1.75}
+                    stroke={LINE[d.compound]}
+                    strokeWidth={2.25}
                     dot={false}
                     isAnimationActive={false}
                     label={({
@@ -219,14 +224,15 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
                       y: number;
                       index: number;
                     }) =>
-                      index === degData.length - 1 ? (
+                      // Each compound is labelled at the end of its own line, not the chart's.
+                      index === lastIdx(d.compound) && y != null ? (
                         <text
                           x={x + 6}
                           y={y}
                           dy="0.35em"
-                          fontSize={10}
-                          fill={TYRE[d.compound]}
-                          className="font-display"
+                          fontSize={12}
+                          fontWeight={700}
+                          fill={LINE[d.compound]}
                         >
                           {d.compound}
                         </text>

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useRace } from "./context";
 import { useTip } from "./Tip";
 
@@ -14,17 +15,32 @@ export interface BumpColumn {
 export function BumpChart({ columns }: { columns: BumpColumn[] }) {
   const { drivers, colorOf, highlight, toggleHighlight } = useRace();
   const tip = useTip();
+  // Fit the container, never wider than the natural size and never stretched.
+  const box = useRef<HTMLDivElement>(null);
+  const [avail, setAvail] = useState(9999);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setAvail(e!.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const first = columns[0]!;
   const last = columns[columns.length - 1]!;
   const ids = [...new Set(columns.flatMap((c) => c.order))];
   const n = Math.max(...columns.map((c) => c.order.length));
 
-  const H = 22 * n + 30,
-    W = Math.max(520, 140 * (columns.length - 1) + 180),
-    L = 90,
-    R = W - 90;
+  // Drawn at its own pixel size, never stretched: type stays at reading size on any width.
+  const narrow = avail < 480;
+  const H = 24 * n + 36,
+    W = Math.min(
+      Math.max(560, 150 * (columns.length - 1) + 220),
+      Math.max(300, avail),
+    ),
+    L = narrow ? 82 : 104,
+    R = W - (narrow ? 96 : 110);
   const x = (i: number) => L + ((R - L) * i) / (columns.length - 1);
-  const y = (rank: number) => 20 + ((rank - 1) / Math.max(1, n - 1)) * (H - 40);
+  const y = (rank: number) => 34 + ((rank - 1) / Math.max(1, n - 1)) * (H - 52);
   const rank = (c: BumpColumn, id: string) => {
     const i = c.order.indexOf(id);
     return i < 0 ? null : i + 1;
@@ -41,30 +57,35 @@ export function BumpChart({ columns }: { columns: BumpColumn[] }) {
     ] ?? 0;
 
   return (
-    <div className="-mx-1 overflow-x-auto">
+    <div ref={box} className="min-w-0">
       {tip.node}
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full min-w-[480px]"
-        style={{ height: "auto" }}
+        width={W}
+        height={H}
+        className="block max-w-none"
+        role="img"
+        aria-label={`Ranks by ${columns.map((c) => c.label).join(", ")}`}
       >
         {columns.map((c, i) => (
           <g key={c.label}>
             <text
               x={x(i)}
-              y={10}
+              y={12}
               textAnchor="middle"
-              className="font-display"
-              fontSize={10}
+              fontSize={12}
+              fontWeight={700}
+              letterSpacing="0.08em"
               fill="var(--muted-foreground)"
+              style={{ textTransform: "uppercase" }}
             >
               {c.label}
             </text>
             <line
               x1={x(i)}
               x2={x(i)}
-              y1={16}
-              y2={H - 14}
+              y1={22}
+              y2={H - 12}
               stroke="var(--border)"
             />
           </g>
@@ -97,7 +118,6 @@ export function BumpChart({ columns }: { columns: BumpColumn[] }) {
                 </>,
               )}
               onPointerLeave={tip.hide}
-              opacity={dim ? 0.25 : 1}
             >
               {points.slice(1).map((p, k) => {
                 const q = points[k]!;
@@ -109,7 +129,8 @@ export function BumpChart({ columns }: { columns: BumpColumn[] }) {
                     x2={x(p.i)}
                     y2={y(p.r)}
                     stroke={colorOf(id)}
-                    strokeWidth={strong || highlight === id ? 2.5 : 1.25}
+                    strokeOpacity={dim ? 0.3 : 1}
+                    strokeWidth={strong || highlight === id ? 3 : 1.5}
                     strokeDasharray={p.c.out?.has(id) ? "3 3" : undefined}
                   />
                 );
@@ -119,8 +140,11 @@ export function BumpChart({ columns }: { columns: BumpColumn[] }) {
                   key={p.i}
                   cx={x(p.i)}
                   cy={y(p.r)}
-                  r={3}
+                  r={3.5}
                   fill={colorOf(id)}
+                  fillOpacity={dim ? 0.35 : 1}
+                  stroke="var(--card)"
+                  strokeWidth={1}
                 />
               ))}
               {a != null && (
@@ -129,9 +153,10 @@ export function BumpChart({ columns }: { columns: BumpColumn[] }) {
                   y={y(a)}
                   dy="0.35em"
                   textAnchor="end"
-                  fontSize={10}
-                  fill="var(--foreground)"
-                  className="font-display tnum"
+                  fontSize={13}
+                  fontWeight={strong ? 800 : 500}
+                  fill={dim ? "var(--muted-foreground)" : "var(--foreground)"}
+                  className="tnum"
                 >
                   {code} {label(first, a)}
                 </text>
@@ -141,9 +166,16 @@ export function BumpChart({ columns }: { columns: BumpColumn[] }) {
                   x={R + 8}
                   y={y(b)}
                   dy="0.35em"
-                  fontSize={10}
-                  fill="var(--foreground)"
-                  className="font-display tnum"
+                  fontSize={13}
+                  fontWeight={strong ? 800 : 500}
+                  fill={
+                    last.out?.has(id)
+                      ? "var(--flag-red)"
+                      : dim
+                        ? "var(--muted-foreground)"
+                        : "var(--foreground)"
+                  }
+                  className="tnum"
                 >
                   {label(last, b)} {code}
                   {strong ? ` ${d > 0 ? "▲" : "▼"}${Math.abs(d)}` : ""}

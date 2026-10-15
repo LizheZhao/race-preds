@@ -14,6 +14,7 @@ import { StrategyView } from "@/components/race/Strategy";
 import { IncidentsView } from "@/components/race/Incidents";
 import { FactsView, StandingsView } from "@/components/race/FactsStandings";
 import { ResultsView } from "@/components/race/Results";
+import { Verdict } from "@/components/race/Verdict";
 
 export function App() {
   const q = useQuery({
@@ -86,6 +87,8 @@ export function App() {
     isHistory ? snap.data?.[k] : docs[k];
   const loadingSnap = isHistory && snap.isLoading;
   const sec = (k: keyof typeof manifest.sections) => manifest.sections[k];
+  const foLabel = STAGE_LABEL[pred("finishing_order")?.meta.stage ?? selected];
+  const raceResult = isHistory ? undefined : (docs.results?.race ?? undefined);
 
   return (
     <RaceProvider event={docs.event}>
@@ -97,10 +100,20 @@ export function App() {
           selected={selected}
           onSelect={(s) => setPicked(s === current ? null : s)}
         />
-        <main className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 px-4 py-6 md:px-8 lg:grid-cols-12 lg:gap-5">
+        <main className="mx-auto grid max-w-[1440px] grid-cols-1 items-start gap-x-6 gap-y-10 px-4 pt-6 pb-16 md:px-12 lg:grid-cols-12">
+          <div className="lg:col-span-12">
+            {pred("finishing_order") && (
+              <Verdict
+                doc={pred("finishing_order")!}
+                stageLabel={foLabel}
+                result={raceResult}
+              />
+            )}
+          </div>
           <SectionCard
-            title="Predicted finishing order"
-            className="lg:col-span-12"
+            title="Finishing order"
+            prediction
+            className="lg:col-span-8 lg:row-span-2"
             section={sec("finishing_order")}
             fetchError={fetchErrors.finishing_order}
             hasData={!!pred("finishing_order") || loadingSnap}
@@ -110,42 +123,16 @@ export function App() {
             {pred("finishing_order") && (
               <FinishingOrderView
                 doc={pred("finishing_order")!}
-                stageLabel={
-                  STAGE_LABEL[pred("finishing_order")!.meta.stage ?? selected]
-                }
+                stageLabel={foLabel}
                 trend={trend}
-                result={
-                  isHistory ? undefined : (docs.results?.race ?? undefined)
-                }
+                result={raceResult}
               />
             )}
           </SectionCard>
-
           <SectionCard
-            title="Predicted qualifying"
-            className="lg:col-span-12"
-            section={sec("qualifying")}
-            fetchError={fetchErrors.qualifying}
-            hasData={!!pred("qualifying") || loadingSnap}
-            model={pred("qualifying")?.model}
-            stageKey={selected}
-          >
-            {pred("qualifying") && <QualifyingView doc={pred("qualifying")!} />}
-          </SectionCard>
-          <SectionCard
-            title="Tyre strategy"
-            className="lg:col-span-7"
-            section={sec("strategy")}
-            fetchError={fetchErrors.strategy}
-            hasData={!!pred("strategy") || loadingSnap}
-            model={pred("strategy")?.model}
-            stageKey={selected}
-          >
-            {pred("strategy") && <StrategyView doc={pred("strategy")!} />}
-          </SectionCard>
-          <SectionCard
-            title="Safety car & red flag risk"
-            className="lg:col-span-5"
+            title="Race control risk"
+            prediction
+            className="lg:col-span-4"
             section={sec("race_incidents")}
             fetchError={fetchErrors.race_incidents}
             hasData={!!pred("race_incidents") || loadingSnap}
@@ -157,8 +144,20 @@ export function App() {
             )}
           </SectionCard>
           <SectionCard
+            title="Tyre strategy"
+            prediction
+            className="lg:col-span-7 lg:row-start-4"
+            section={sec("strategy")}
+            fetchError={fetchErrors.strategy}
+            hasData={!!pred("strategy") || loadingSnap}
+            model={pred("strategy")?.model}
+            stageKey={selected}
+          >
+            {pred("strategy") && <StrategyView doc={pred("strategy")!} />}
+          </SectionCard>
+          <SectionCard
             title="Weather"
-            className="lg:col-span-7"
+            className="lg:col-span-4 lg:col-start-9 lg:row-start-3"
             section={sec("weather")}
             fetchError={fetchErrors.weather}
             hasData={!!docs.weather}
@@ -175,8 +174,20 @@ export function App() {
             {docs.event && <CircuitView event={docs.event} />}
           </SectionCard>
           <SectionCard
+            title="Qualifying"
+            prediction
+            className="lg:col-span-12"
+            section={sec("qualifying")}
+            fetchError={fetchErrors.qualifying}
+            hasData={!!pred("qualifying") || loadingSnap}
+            model={pred("qualifying")?.model}
+            stageKey={selected}
+          >
+            {pred("qualifying") && <QualifyingView doc={pred("qualifying")!} />}
+          </SectionCard>
+          <SectionCard
             title="Championship"
-            className="lg:col-span-5"
+            className="lg:col-span-7"
             section={sec("event")}
             fetchError={fetchErrors.event}
             hasData={!!docs.event}
@@ -184,8 +195,8 @@ export function App() {
             {docs.event && <StandingsView event={docs.event} />}
           </SectionCard>
           <SectionCard
-            title="Fun facts"
-            className="lg:col-span-7"
+            title="Notes from the data"
+            className="lg:col-span-5"
             section={sec("facts")}
             fetchError={fetchErrors.facts}
             hasData={!!docs.facts}
@@ -202,6 +213,29 @@ export function App() {
             {docs.results && <ResultsView doc={docs.results} />}
           </SectionCard>
         </main>
+        <footer className="bg-foreground text-background">
+          <div className="mx-auto grid max-w-[1440px] gap-6 px-4 py-10 text-sm md:grid-cols-3 md:px-12">
+            <p className="cond text-2xl leading-tight font-black uppercase md:col-span-1">
+              Race Week
+            </p>
+            <p className="text-background/75">
+              Ingested from FastF1, Jolpica and Open-Meteo into a Delta
+              lakehouse on Databricks, scored by baselines and MLflow-registered
+              models, and published here as static JSON by a GitHub Actions
+              dispatcher after every session.
+            </p>
+            <p className="text-background/75 md:text-right">
+              <a
+                href="https://github.com/LizheZhao/race-preds"
+                className="font-semibold text-background underline decoration-background/40 hover:decoration-background"
+              >
+                Source and pipeline on GitHub
+              </a>
+              <br />
+              Not affiliated with Formula 1 or the FIA.
+            </p>
+          </div>
+        </footer>
       </div>
     </RaceProvider>
   );

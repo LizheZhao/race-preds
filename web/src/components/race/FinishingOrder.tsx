@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FinishingOrderDoc, RaceRow } from "@/data/types";
 import { cn } from "@/lib/utils";
 import { BumpChart, type BumpColumn } from "./Bump";
-import { actualOrder, predictedOrder, scorecard } from "./compare";
+import { actualOrder, predictedOrder } from "./compare";
 import { Heatmap } from "./Heatmap";
 import { pct, probNoun, useRace } from "./context";
 
@@ -42,45 +42,29 @@ export function FinishingOrderView({
       sortKey(a.expected_position_if_classified) -
       sortKey(b.expected_position_if_classified),
   );
-  const favourite = [...doc.drivers].sort((a, b) => b.p_win - a.p_win)[0];
   const hasGrid = rows.some((r) => r.grid_position != null);
   const code = (id: string | undefined) =>
     id ? (drivers.get(id)?.code ?? id) : "—";
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        {favourite && (
-          <div>
-            <p className="label-caps mb-1">Win {noun} · favourite</p>
-            <p className="font-display text-4xl font-semibold leading-none tnum">
-              {code(favourite.driver_id)}{" "}
-              <span className="text-primary">{pct(favourite.p_win)}</span>
-            </p>
-          </div>
-        )}
-        <div
-          className="inline-flex rounded-sm border border-border p-0.5 text-xs"
-          role="group"
-          aria-label="View"
-        >
-          {modes.map((m) => (
-            <button
-              key={m}
-              type="button"
-              disabled={m === "trend" && trend.length < 2}
-              onClick={() => setMode(m)}
-              className={cn(
-                "rounded-[3px] px-3 py-1 font-display font-semibold uppercase tracking-wider transition-colors disabled:opacity-30",
-                mode === m
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {MODE_LABEL[m]}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {mode === "result"
+            ? `Predicted after ${stageLabel}, against the race classification.`
+            : mode === "trend"
+              ? "How the predicted order moved through the weekend."
+              : `Position ${noun}s for every driver, after ${stageLabel}.`}
+        </p>
+        <Segmented
+          value={mode}
+          options={modes.map((m) => ({
+            value: m,
+            label: MODE_LABEL[m],
+            disabled: m === "trend" && trend.length < 2,
+          }))}
+          onChange={setMode}
+        />
       </div>
 
       {mode === "result" && result ? (
@@ -100,7 +84,7 @@ export function FinishingOrderView({
               order: predictedOrder(t.doc),
             }))}
           />
-          <p className="mt-3 text-[11px] text-muted-foreground">
+          <p className="mt-3 text-xs text-muted-foreground">
             Predicted finishing rank after each session. The biggest movers
             between the first and last snapshot are drawn bold.
           </p>
@@ -108,6 +92,7 @@ export function FinishingOrderView({
       ) : (
         <div key="heat" className="stage-fade">
           <Heatmap
+            compact
             noun={noun}
             verb="finishes"
             rows={rows.map((r) => ({
@@ -128,10 +113,9 @@ export function FinishingOrderView({
             }))}
             extraHeader={hasGrid ? "Grid→" : undefined}
           />
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            Prediction made after {stageLabel}. Rows sorted by expected
-            finishing position if classified. Click a driver to highlight them
-            across the page.
+          <p className="mt-3 text-xs text-muted-foreground">
+            Rows sorted by expected finishing position if classified. Click a
+            driver to highlight them across the page.
           </p>
         </div>
       )}
@@ -150,105 +134,159 @@ function VsResult({
   stageLabel: string;
   code: (id: string | undefined) => string;
 }) {
-  const card = scorecard(doc, result);
+  const { colorOf, toggleHighlight, highlight } = useRace();
+  const pred = predictedOrder(doc);
   const actual = actualOrder(result);
   const status = new Map(result.map((r) => [r.driver_id, r.classified_as]));
+  const outLabel = (id: string) =>
+    status.get(id) === "R" ? "DNF" : (status.get(id) ?? "out");
   const columns: BumpColumn[] = [
-    { label: `Predicted (${stageLabel})`, order: predictedOrder(doc) },
-    {
-      label: "Result",
-      order: actual.order,
-      out: actual.out,
-      outLabel: (id) =>
-        status.get(id) === "R" ? "DNF" : (status.get(id) ?? "out"),
-    },
+    { label: `Predicted · ${stageLabel}`, order: pred },
+    { label: "Result", order: actual.order, out: actual.out, outLabel },
   ];
-  const n = Math.min(10, result.length);
+  // Where the model missed by the most: retirements first, then the largest rank gaps.
+  const misses = pred
+    .filter((id) => actual.order.includes(id))
+    .map((id) => ({
+      id,
+      from: pred.indexOf(id) + 1,
+      to: actual.order.indexOf(id) + 1,
+      out: actual.out.has(id),
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.out) - Number(a.out) ||
+        Math.abs(b.to - b.from) - Math.abs(a.to - a.from),
+    )
+    .filter((m) => m.out || m.to !== m.from)
+    .slice(0, 7);
   return (
-    <div className="space-y-5">
-      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat
-          label="Winner"
-          value={`${code(card.winner)}`}
-          note={
-            card.favourite === card.winner
-              ? "favourite won"
-              : `favourite ${code(card.favourite)}`
-          }
-          hit={card.favourite === card.winner}
-        />
-        <Stat
-          label="Podium"
-          value={`${card.podiumHits}/3`}
-          note="drivers in the predicted top 3"
-        />
-        <Stat
-          label={`Top ${n}`}
-          value={`${card.top10Hits}/${n}`}
-          note={`drivers in the predicted top ${n}`}
-        />
-        <Stat
-          label="Rank error"
-          value={card.meanError == null ? "—" : card.meanError.toFixed(1)}
-          note="mean places off, finishers"
-        />
-      </dl>
-      <BumpChart columns={columns} />
-      <p className="text-[11px] text-muted-foreground">
-        Last prediction before the race (after {stageLabel}) against the
-        classification. Dashed lines end in a retirement.
-      </p>
+    <div className="@container">
+      <div className="grid gap-8 @3xl:grid-cols-[auto_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <BumpChart columns={columns} />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Dashed lines end in a retirement.
+          </p>
+        </div>
+        <div className="min-w-0">
+          <h3 className="label-caps mb-1">Largest misses</h3>
+          <table className="w-full text-sm tnum">
+            <thead className="sr-only">
+              <tr>
+                <th>Driver</th>
+                <th>Predicted</th>
+                <th>Finished</th>
+                <th>Gap</th>
+              </tr>
+            </thead>
+            <tbody>
+              {misses.map((m) => {
+                const gap = m.from - m.to;
+                return (
+                  <tr
+                    key={m.id}
+                    onClick={() => toggleHighlight(m.id)}
+                    className={cn(
+                      "cursor-pointer border-b border-border transition-opacity",
+                      highlight != null && highlight !== m.id && "opacity-35",
+                    )}
+                  >
+                    <td className="py-2">
+                      <span
+                        className="mr-2 inline-block h-3.5 w-1 align-[-2px]"
+                        style={{ background: colorOf(m.id) }}
+                      />
+                      <span className="cond text-base font-extrabold">
+                        {code(m.id)}
+                      </span>
+                    </td>
+                    <td className="py-2 text-muted-foreground">P{m.from}</td>
+                    <td className="py-2">
+                      {m.out ? (
+                        <span className="font-semibold text-flag-red">
+                          {outLabel(m.id)}
+                        </span>
+                      ) : (
+                        `P${m.to}`
+                      )}
+                    </td>
+                    <td
+                      className={cn(
+                        "py-2 text-right font-semibold",
+                        m.out
+                          ? "text-flag-red"
+                          : gap > 0
+                            ? "text-gain"
+                            : "text-flag-red",
+                      )}
+                    >
+                      {m.out ? "out" : `${gap > 0 ? "▲" : "▼"}${Math.abs(gap)}`}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="mt-3 max-w-[48ch] text-xs text-muted-foreground">
+            ▲ finished higher than predicted, ▼ lower. Click a driver to follow
+            them across the page.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
-function Stat({
-  label,
+function Segmented<T extends string>({
   value,
-  note,
-  hit,
+  options,
+  onChange,
 }: {
-  label: string;
-  value: string;
-  note: string;
-  hit?: boolean;
+  value: T;
+  options: { value: T; label: string; disabled?: boolean }[];
+  onChange: (v: T) => void;
 }) {
   return (
-    <div>
-      <dt className="label-caps mb-1">{label}</dt>
-      <dd className="font-display text-2xl font-semibold leading-none tnum">
-        {value}
-        {hit != null && (
-          <span
-            className={cn(
-              "ml-2 text-sm",
-              hit ? "text-foreground" : "text-primary",
-            )}
-          >
-            {hit ? "✓" : "✗"}
-          </span>
-        )}
-      </dd>
-      <dd className="mt-1 text-[11px] text-muted-foreground">{note}</dd>
+    <div
+      className="inline-flex border border-foreground"
+      role="group"
+      aria-label="View"
+    >
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          disabled={o.disabled}
+          aria-pressed={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "cond px-3 py-1.5 text-sm font-bold tracking-[0.06em] uppercase transition-colors disabled:opacity-30",
+            value === o.value
+              ? "bg-foreground text-background"
+              : "hover:bg-foreground/8",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
 
 function GridDelta({ grid, exp }: { grid: number | null; exp: number | null }) {
   if (grid == null || exp == null)
-    return (
-      <span className="ml-2 w-12 text-[11px] text-muted-foreground">—</span>
-    );
+    return <span className="ml-2 w-12 text-xs text-muted-foreground">—</span>;
   const d = grid - exp;
   return (
-    <span className="ml-2 w-12 text-[11px] tnum">
+    <span className="ml-2 w-12 text-xs tnum">
       P{grid}{" "}
       <span
         className={
           d > 0.5
-            ? "text-foreground"
+            ? "text-gain"
             : d < -0.5
-              ? "text-primary"
+              ? "text-flag-red"
               : "text-muted-foreground"
         }
       >
