@@ -27,7 +27,7 @@ As of 2026-10-13.
 | 2b | Fallback path | **Narrowed** 2026-10-13: release-hosted tree done; runner-side ingest deferred (runners can't reach F1 live timing). The rest folds into Phase 3 |
 | 3 | Backfill + models | **Next.** Plan written 2026-10-13 (Phase 3 plan) |
 | 3b | Research swarm (optional) | Not started |
-| 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result |
+| 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result. Redesign built locally 2026-10-15 (tag `dashboard-review-v1`); what its cards still need from the pipeline is in `docs/dashboard-data-needs.md` |
 | 5 | Go live | Built and dry-run in CI 2026-10-13; first real publish 2026-10-22 21:30 UTC |
 
 **Order for the rest of 2026: go live first, models after** (decided 2026-10-12). Six
