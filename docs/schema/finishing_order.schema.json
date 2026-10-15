@@ -92,6 +92,8 @@
             "weather",
             "finishing_order",
             "qualifying",
+            "sprint_qualifying",
+            "sprint",
             "race_incidents",
             "strategy",
             "facts",

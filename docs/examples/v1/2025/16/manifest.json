@@ -50,6 +50,24 @@
       "history": [],
       "message": null
     },
+    "sprint_qualifying": {
+      "status": "not_applicable",
+      "path": null,
+      "stage": null,
+      "updated_at": null,
+      "available_from": null,
+      "history": [],
+      "message": "No sprint this weekend."
+    },
+    "sprint": {
+      "status": "not_applicable",
+      "path": null,
+      "stage": null,
+      "updated_at": null,
+      "available_from": null,
+      "history": [],
+      "message": "No sprint this weekend."
+    },
     "race_incidents": {
       "status": "ready",
       "path": "race_incidents/FP2.json",

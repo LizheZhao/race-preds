@@ -51,13 +51,13 @@ STAGE_ORDER: dict[str, list[str]] = {
 }
 DRY_COMPOUNDS = {"SOFT", "MEDIUM", "HARD"}
 
-ArtifactName = Literal["index", "manifest", "event", "weather", "finishing_order",
-                       "qualifying", "race_incidents", "strategy", "facts", "results"]
-SectionName = Literal["event", "weather", "finishing_order", "qualifying",
+ArtifactName = Literal["index", "manifest", "event", "weather", "finishing_order", "qualifying",
+                       "sprint_qualifying", "sprint", "race_incidents", "strategy", "facts", "results"]
+SectionName = Literal["event", "weather", "finishing_order", "qualifying", "sprint_qualifying", "sprint",
                       "race_incidents", "strategy", "facts", "results"]
 SECTIONS: tuple[str, ...] = SectionName.__args__
 # Sections that keep one snapshot per stage at <section>/<stage>.json.
-SNAPSHOT_SECTIONS = ("finishing_order", "qualifying", "race_incidents", "strategy")
+SNAPSHOT_SECTIONS = ("finishing_order", "qualifying", "sprint_qualifying", "sprint", "race_incidents", "strategy")
 
 
 def round_dir(season: int, rnd: int) -> str:
@@ -370,6 +370,7 @@ class ObservedWeather(Strict):
 
     air_temp_c_mean: float
     track_temp_c_max: float
+    track_temp_c_min: float | None = None  # None when the track sensor never gave a usable reading
     humidity_mean: Fraction
     wind_speed_ms_mean: float = Field(ge=0)
     rain_share: Fraction  # share of samples with Rainfall == True
@@ -547,6 +548,21 @@ class QualifyingDoc(Document):
             if abs(col - 1) > PROB_TOL:
                 raise ValueError(f"grid slot {i + 1} probabilities sum to {col:.6f}")
         return self
+
+
+class SprintQualifyingDoc(QualifyingDoc):
+    """Same shape as qualifying, for the sprint qualifying session. Not applicable on a conventional weekend."""
+
+    ARTIFACT = "sprint_qualifying"
+
+
+# ---------------------------------------------------------------- sprint/<stage>.json
+
+
+class SprintDoc(FinishingOrderDoc):
+    """Same shape as finishing_order, for the sprint. Not applicable on a conventional weekend."""
+
+    ARTIFACT = "sprint"
 
 
 # ---------------------------------------------------------------- race_incidents/<stage>.json
@@ -730,6 +746,11 @@ class DriverStrategy(Strict):
     stints: list[Stint] = Field(min_length=1)
 
 
+class DriverPace(Strict):
+    driver_id: DriverId
+    lap_times_s: list[float]  # clean green-flag race laps, in lap order
+
+
 class ResultsDoc(Document):
     """Actual outcomes, filled in session by session. Also the ground truth for grading snapshots."""
 
@@ -739,10 +760,12 @@ class ResultsDoc(Document):
     race: list[RaceRow] | None = None
     race_incidents: IncidentCounts | None = None
     race_strategies: list[DriverStrategy] | None = None
+    race_pace: list[DriverPace] | None = None
 
     @model_validator(mode="after")
     def _check(self):
-        for label, rows in (("qualifying", self.qualifying), ("sprint", self.sprint), ("race", self.race)):
+        for label, rows in (("qualifying", self.qualifying), ("sprint", self.sprint), ("race", self.race),
+                            ("race pace", self.race_pace)):
             if rows:
                 _unique([r.driver_id for r in rows], f"{label} driver ids")
         for s in self.race_strategies or []:
@@ -755,7 +778,7 @@ class ResultsDoc(Document):
 DOCUMENTS: dict[str, type[Document]] = {
     cls.ARTIFACT: cls
     for cls in (SeasonIndex, RaceManifest, EventDoc, WeatherDoc, FinishingOrderDoc,
-                QualifyingDoc, RaceIncidentsDoc, StrategyDoc, FactsDoc, ResultsDoc)
+                QualifyingDoc, SprintQualifyingDoc, SprintDoc, RaceIncidentsDoc, StrategyDoc, FactsDoc, ResultsDoc)
 }
 
 
@@ -810,7 +833,7 @@ def check_round(directory: Path) -> list[str]:
     drivers = {d.id for d in event.drivers}
     teams = {t.id for t in event.teams}
 
-    for name in ("finishing_order", "qualifying"):
+    for name in ("finishing_order", "qualifying", "sprint_qualifying", "sprint"):
         if name in docs:
             predicted = {d.driver_id for d in docs[name].drivers}
             if predicted != drivers:
@@ -824,7 +847,8 @@ def check_round(directory: Path) -> list[str]:
 
     if "results" in docs:
         res = docs["results"]
-        rows = [*(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or [])]
+        rows = [*(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or []),
+                *(res.race_pace or [])]
         unknown = {r.driver_id for r in rows} - drivers
         if unknown:
             errors.append(f"results: unknown driver ids {sorted(unknown)}")
