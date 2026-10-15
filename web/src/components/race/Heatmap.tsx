@@ -10,8 +10,6 @@ const GAP = 2;
 const BAR_PX = 28;
 const GAIN_TIP =
   "Grid slot minus the most likely finish. ▲2 means the model expects this driver to gain 2 places from where they start. ▼ means expected to lose places.";
-const LIKELY_TIP =
-  "Most likely finishing position if the driver is classified (median of the classified distribution).";
 
 /** Drivers × finishing positions. Column count comes from the data, never hardcoded. */
 export function Heatmap({
@@ -38,12 +36,9 @@ export function Heatmap({
     "78px",
     `${n * (CELL + GAP)}px`,
     "repeat(4, 58px)",
-    "44px",
     "52px",
-    "48px",
-    ...(result ? ["52px"] : []),
   ].join(" ");
-  const minWidth = 26 + 78 + n * (CELL + GAP) + 232 + 144 + (result ? 52 : 0);
+  const minWidth = 26 + 78 + n * (CELL + GAP) + 232 + 52;
   const head =
     "flex items-end pb-1 font-display text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
   const right = "justify-end pr-2";
@@ -74,16 +69,6 @@ export function Heatmap({
               {l}
             </span>
           ))}
-          <span className={cn(head, right)}>Grid</span>
-          <span className={cn(head, right)}>
-            <span
-              className="cursor-help border-b border-dotted border-muted-foreground"
-              onPointerEnter={tip.show(LIKELY_TIP)}
-              onPointerLeave={tip.hide}
-            >
-              Likely
-            </span>
-          </span>
           <span className={cn(head, right)}>
             <span
               className="cursor-help border-b border-dotted border-muted-foreground"
@@ -93,9 +78,6 @@ export function Heatmap({
               Gain
             </span>
           </span>
-          {result && (
-            <span className={cn(head, right, "text-result")}>Result</span>
-          )}
         </div>
         {rows.map((r, i) => {
           const id = r.driver_id;
@@ -103,8 +85,10 @@ export function Heatmap({
           const name = d ? `${d.first_name} ${d.last_name}` : id;
           const res = byId.get(id);
           const rp = res?.position ?? null;
-          const likely = medianPosition(r.position_probs);
-          const gain = placesGained(r.grid_position ?? null, likely);
+          const gain = placesGained(
+            r.grid_position ?? null,
+            medianPosition(r.position_probs),
+          );
           const on = highlight === id;
           const num = "text-xs tnum";
           return (
@@ -140,6 +124,11 @@ export function Heatmap({
                 <span className="ml-1.5 text-[11px] text-muted-foreground tnum">
                   {d?.number}
                 </span>
+                {res && rp == null && (
+                  <span className="ml-1.5 text-[10px] font-semibold text-result">
+                    {res.classified_as === "R" ? "DNF" : res.classified_as}
+                  </span>
+                )}
               </span>
               <span
                 className="grid"
@@ -208,24 +197,9 @@ export function Heatmap({
                   <span className={num}>{Math.round(v * 100)}</span>
                 </span>
               ))}
-              <span
-                className={cn(num, "pr-2 text-right text-muted-foreground")}
-              >
-                {r.grid_position != null ? `P${r.grid_position}` : "—"}
-              </span>
-              <span className={cn(num, "pr-2 text-right")}>P{likely}</span>
               <span className={cn(num, "pr-2 text-right", gainClass(gain))}>
                 {gainLabel(gain)}
               </span>
-              {result && (
-                <span className={cn(num, "pr-2 text-right text-result")}>
-                  {rp != null
-                    ? `P${rp}`
-                    : res?.classified_as === "R"
-                      ? "DNF"
-                      : "—"}
-                </span>
-              )}
             </div>
           );
         })}
