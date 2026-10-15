@@ -22,7 +22,7 @@ import pandas as pd
 from src.config import FEATURES_SNAPSHOT
 
 SECTIONS = ("finishing_order", "qualifying")
-SEASON_SPLIT = (2022, 2023, 2024)
+SEASON_SPLIT = (2023, 2024)  # trained on the era's earlier seasons, 2022 on
 WALK_FORWARD = (2026, 6)  # season, first test round; later rounds join as they are played
 HOLDOUT = 2025
 LOG_FLOOR = 1e-6

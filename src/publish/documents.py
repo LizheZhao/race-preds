@@ -282,7 +282,22 @@ def _champion(ctx: Context, section: str) -> tuple[registry.Bundle, pd.DataFrame
     if rows.empty:
         print(f"  {section}: champion {bundle.meta['version']} has no gold.features rows at {ctx.stage}, using the baseline")
         return None
-    return bundle, rows
+    return bundle, _on_roster(ctx, rows, entries(ctx))
+
+
+def _on_roster(ctx: Context, rows: pd.DataFrame, roster: pd.DataFrame) -> pd.DataFrame:
+    """one feature row per entrant of event.json, which check_round holds every prediction to.
+    gold.features can disagree on a weekend in progress (a stand-in whose code it has never
+    seen, the previous round's entry list before a session has run): rows of drivers not
+    entered are dropped, and an entrant without a row gets one with every feature missing,
+    which the model treats like a rookie's"""
+    on = roster[["driver_id", "team_id"]].rename(columns={"team_id": "constructor_id"})
+    aligned = on.merge(rows.drop(columns="constructor_id"), on="driver_id", how="left")
+    aligned[["season", "round", "stage"]] = ctx.season, ctx.round, ctx.stage
+    missing, extra = set(on["driver_id"]) - set(rows["driver_id"]), set(rows["driver_id"]) - set(on["driver_id"])
+    if missing or extra:
+        print(f"  gold.features vs entry list at {ctx.stage}: no rows for {sorted(missing)}, not entered {sorted(extra)}")
+    return aligned
 
 
 def _model_info(meta: dict) -> schema.ModelInfo:

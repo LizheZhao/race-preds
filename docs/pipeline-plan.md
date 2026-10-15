@@ -62,6 +62,12 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
+- **Training data is the ground-effect era, 2022 on** (2026-10-15). 2026 replaced both
+  the chassis rules (smaller cars, active aero instead of DRS) and the power unit (about
+  half electric, no MGU-H), so data from before 2022, two rule sets back, is left out.
+  2022–2025 enters as a prior that the 2026 walk-forward must show to help: compare 2026
+  only, 2022–2026 pooled, and pooled with 2026 weighted up. The backfill stops at 2022;
+  the season split tests 2023 and 2024. (Phase 3 plan, steps 1, 3 and 4)
 - **Phase 2b is narrowed; a Databricks failure is handled by retry, not by a runner
   pipeline** (2026-10-13). GitHub-hosted runners get 403 from F1 live timing, so the
   runner can't ingest a session. When a Databricks job fails, the dispatcher publishes the
@@ -708,7 +714,7 @@ at the top of this document.
 | 1 | **Lakehouse, one race.** Ingest one race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | Gold tables for that race; re-running produces identical tables. **Passed 2026-10-11** on 2026 R16. |
 | 2 | **Replay.** Run the dispatcher against a past weekend on a fake clock, session by session, with baseline models and a real publish step. | A full round directory that passes `python -m src.schema check`, with no manual steps. **Passed 2026-10-11** on 2026 R15. |
 | 2b | **Fallback path**, narrowed 2026-10-13. The published tree lives in a Release (done). Champions are exported to Release assets and scored without Spark (done inside Phase 3). Runner-side ingest is deferred. | A Databricks job failure leaves the site on the last complete stage and emails the owner; the next run recovers. Checked by the CI dry runs of 2026-10-13. |
-| 3 | **Backfill + models** (Phase 3 plan). Backfill 2018 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. Add the Monday champion check with shadow scoring. | Each model beats its baseline on the backtest. Calibration decided per model. |
+| 3 | **Backfill + models** (Phase 3 plan). Backfill 2022 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. Add the Monday champion check with shadow scoring. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness. | A swarm-proposed change beats the champion on the backtest **and** on the untouched holdout season, and, once the owner merges it, is picked by the Monday check. |
 | 4 | **Front end** (parallel from the start). Lovable design → `web/`, built against `docs/examples/v1/`, deployed to GitHub Pages, then pointed at real output. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
 | 5 | **Go live.** Enable the schedule for the current season. | One real weekend published end to end with no manual step. |
@@ -726,10 +732,11 @@ over-quota day would stop the live weekend.
 
 Each step ends in its own check. Don't start the next step until it passes.
 
-#### Step 1: backfill the lakehouse, 2018 → 2026 R17
+#### Step 1: backfill the lakehouse, 2022 → 2026 R17
 
-- **Scope.** Every session in `get_sessions()` for 2018–2025 and 2026 R1–R17, about
-  900 sessions. 2026 R15–R17 are already in. Live rounds from R18 on fill themselves.
+- **Scope.** Every session in `get_sessions()` for 2022–2025 and 2026 R1–R17, about 470
+  sessions (narrowed from 2018 on 2026-10-15, see Decisions). Live rounds from R18 on
+  fill themselves.
 - **Storage: all on Databricks, the same path as a live session.** Raw `SessionTables`
   Parquet goes to the Volume (`/Volumes/race_preds/raw/fastf1/<season>/<round>/<session>/`),
   then bronze → silver → gold Delta tables in the `race_preds` catalog. Nothing is
@@ -751,7 +758,8 @@ Each step ends in its own check. Don't start the next step until it passes.
   before R20. Start with 2026 R1–R13 (~1.6 h) and watch the usage page before sizing up.
 - **Progress.** 2026 R1–R17 complete 2026-10-14: 85 sessions in gold, 22 drivers each.
   R1–R13 took 68 min, 5.3 min per round on average (warm runs are faster than the
-  first). Next: 2025 on Tuesday 2026-10-20.
+  first). 2025, 2024, 2023 and 2022 started 2026-10-15 (a Thursday, run with
+  `--anyday`: no race until R18 on 2026-10-22), one after another, about 10 h.
 - **Driver:** `python -m src.dispatch.backfill <season> <rounds>` (e.g. `2025 1-24`)
   starts `backfill_round` one round at a time, newest first, and prints each round's
   time and final states. It refuses to start Thursday to Monday (UTC) unless
@@ -803,8 +811,8 @@ Each step ends in its own check. Don't start the next step until it passes.
 #### Step 3: the evaluation harness (frozen once written)
 
 - **Splits:**
-  - season-split backtest: test seasons 2022, 2023, 2024, each trained on every
-    earlier season
+  - season-split backtest: test seasons 2023 and 2024, each trained on the earlier
+    seasons of the era (2022 on); 2022 has no same-era season before it
   - 2026 walk-forward: R6–R17, each round trained through the round before. This is
     the closest replay of live use, and it is where the 2026 rule change shows.
   - holdout: 2025, scored once per model just before it becomes a candidate, and never
@@ -866,6 +874,17 @@ Each step ends in its own check. Don't start the next step until it passes.
     Twelve rounds can't separate the two, and tuning on them would overfit the
     walk-forward, so the simpler single model stays. Retest both on the season split
     first, then the pre-Q ordering (the weakest part).
+- **To do once 2022–2025 is in** (2026-10-15):
+  - training span: 2026 only vs 2022–2026 pooled vs pooled with 2026 weighted up
+    (`era_2026` as a feature or sample weights), judged on the 2026 walk-forward
+  - drivers without their own form: a rookie's empty form is imputed with the global
+    median today, which puts a rookie at a backmarker team in midfield. Fill it from
+    team form instead, as the baseline does with the team-mate (checked: an entrant with
+    no features ranked 8th of 22 at stage Q)
+  - drivers back after a gap: "last 5 races" reaches into earlier seasons and other
+    teams (Pérez and Bottas skipped 2025). Limit form windows to the era or to recent
+    rounds, and add form relative to the team-mate, which carries across team changes
+  - a team without history (Cadillac 2026) has no team form for its first rounds
 
 #### Step 5: MLflow, champion export, scoring in publish
 
@@ -927,6 +946,12 @@ Three gaps:
   - End to end on 2026-10-14: `run.py --round 18 --now 2026-10-22T22:00Z` with version 1
     exported locally rebuilt the features and published `strength-pl v1` at
     `pre_weekend`, every section `ready`.
+  - Publish aligns the champion's rows to its own entry list before scoring
+    (`documents._on_roster`), because `check_round` requires a prediction's drivers to
+    equal `event.json`'s and a mismatch fails the whole stage. Rows of drivers not
+    entered are dropped; an entrant without a row gets one with every feature missing.
+    Checked on R17 at Q with one driver swapped for an unseen one: 22 drivers, matching
+    the entry list.
   - To finish the check after R18 FP1 is processed (FP1 starts 17:30 UTC on 2026-10-23,
     the dispatcher processes it from 19:30 UTC):
     export version 1 locally, run `run.py --round 18` into a scratch site, check that
