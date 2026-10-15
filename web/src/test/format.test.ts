@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { sessionColumns } from "@/components/race/compare";
+import { predictionColumns, sessionColumns } from "@/components/race/compare";
 import {
+  boxStats,
   gainLabel,
   medianPosition,
   placesGained,
 } from "@/components/race/format";
-import type { ResultsDoc } from "@/data/types";
+import type { EventDoc, FinishingOrderDoc, ResultsDoc } from "@/data/types";
 
 describe("medianPosition", () => {
   it("is the first position where half the mass is reached", () => {
@@ -49,5 +50,38 @@ describe("sessionColumns", () => {
     expect(cols[0]!.order).toEqual(["a", "b"]);
     expect([...cols[0]!.out!]).toEqual(["b"]);
     expect(cols[2]!.outLabel!("b")).toBe("DNF");
+  });
+});
+
+describe("boxStats", () => {
+  it("summarises laps with Tukey whiskers and flags slow outliers", () => {
+    const s = boxStats([90, 91, 92, 93, 94, 120])!;
+    expect([s.q1, s.median, s.q3]).toEqual([91.25, 92.5, 93.75]);
+    expect([s.low, s.high]).toEqual([90, 94]);
+    expect(s.outliers).toEqual([120]);
+  });
+  it("needs three laps", () => {
+    expect(boxStats([90, 91])).toBeNull();
+  });
+});
+
+describe("predictionColumns", () => {
+  it("ranks only this weekend's entrants by the standings, unranked entrants last", () => {
+    const event = {
+      drivers: [{ id: "a" }, { id: "b" }, { id: "c" }],
+      standings: {
+        drivers: [
+          { driver_id: "b", position: 1 },
+          { driver_id: "gone", position: 2 },
+          { driver_id: "a", position: 3 },
+        ],
+      },
+    } as unknown as EventDoc;
+    const race = { drivers: [] } as unknown as FinishingOrderDoc;
+    expect(predictionColumns(event, {}, race)[0]!.order).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
   });
 });

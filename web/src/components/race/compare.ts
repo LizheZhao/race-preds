@@ -4,6 +4,8 @@ import type {
   QualifyingDoc,
   RaceRow,
   ResultsDoc,
+  SprintDoc,
+  SprintQualifyingDoc,
 } from "@/data/types";
 import type { BumpColumn } from "./Bump";
 
@@ -92,31 +94,50 @@ export const qualifyingOrder = (doc: QualifyingDoc) =>
     .sort((a, b) => a.expected_position - b.expected_position)
     .map((d) => d.driver_id);
 
+export const TREND_KEYS = [
+  "sprint_qualifying",
+  "sprint",
+  "qualifying",
+] as const;
+export type TrendDocs = {
+  sprint_qualifying?: SprintQualifyingDoc | undefined;
+  sprint?: SprintDoc | undefined;
+  qualifying?: QualifyingDoc | undefined;
+};
+
 /**
- * Columns are named for the session being predicted. The first is the championship order,
- * which is all the model has before any competitive session.
+ * One column per session, named for the session being predicted, each from that
+ * prediction's last snapshot before it ran. The first is the championship order going
+ * into the weekend.
  */
 export function predictionColumns(
   event: EventDoc | undefined,
-  qualifying: QualifyingDoc | undefined,
+  docs: TrendDocs,
   race: FinishingOrderDoc,
 ): BumpColumn[] {
   const cols: BumpColumn[] = [];
   if (event) {
+    const entered = new Set(event.drivers.map((d) => d.id));
     const champ = [...event.standings.drivers]
       .sort((a, b) => a.position - b.position)
-      .map((d) => d.driver_id);
-    const rest = event.drivers
-      .map((d) => d.id)
-      .filter((id) => !champ.includes(id));
+      .map((d) => d.driver_id)
+      .filter((id) => entered.has(id));
+    const rest = [...entered].filter((id) => !champ.includes(id));
     cols.push({
       label: "Pre / Practice",
       order: [...champ, ...rest],
-      tip: "Before any competitive session the model has no grid, so it falls back to the championship order.",
+      tip: "Championship standings going into the weekend.",
     });
   }
-  if (qualifying)
-    cols.push({ label: "Qualifying", order: qualifyingOrder(qualifying) });
+  if (docs.sprint_qualifying)
+    cols.push({
+      label: "Sprint Quali",
+      order: qualifyingOrder(docs.sprint_qualifying),
+    });
+  if (docs.sprint)
+    cols.push({ label: "Sprint", order: predictedOrder(docs.sprint) });
+  if (docs.qualifying)
+    cols.push({ label: "Qualifying", order: qualifyingOrder(docs.qualifying) });
   cols.push({ label: "Race", order: predictedOrder(race) });
   return cols;
 }

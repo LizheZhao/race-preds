@@ -49,3 +49,44 @@ const TEAM_ABBR: Record<string, string> = {
 };
 export const teamAbbr = (id: string, name: string) =>
   TEAM_ABBR[id] ?? name.slice(0, 3).toUpperCase();
+
+export interface BoxStats {
+  n: number;
+  q1: number;
+  median: number;
+  q3: number;
+  /** Whisker ends: the furthest laps within 1.5 × IQR of the box. */
+  low: number;
+  high: number;
+  sd: number;
+  outliers: number[];
+}
+
+/** Tukey box-plot summary of lap times; null below three laps. */
+export function boxStats(laps: number[]): BoxStats | null {
+  if (laps.length < 3) return null;
+  const v = [...laps].sort((a, b) => a - b);
+  const q = (p: number) => {
+    const i = (v.length - 1) * p;
+    const lo = Math.floor(i);
+    return v[lo]! + (v[Math.ceil(i)]! - v[lo]!) * (i - lo);
+  };
+  const q1 = q(0.25),
+    q3 = q(0.75),
+    iqr = q3 - q1;
+  const inside = v.filter((x) => x >= q1 - 1.5 * iqr && x <= q3 + 1.5 * iqr);
+  const mean = v.reduce((s, x) => s + x, 0) / v.length;
+  const sd = Math.sqrt(
+    v.reduce((s, x) => s + (x - mean) ** 2, 0) / (v.length - 1),
+  );
+  return {
+    n: v.length,
+    q1,
+    median: q(0.5),
+    q3,
+    low: inside[0]!,
+    high: inside[inside.length - 1]!,
+    sd,
+    outliers: v.filter((x) => x < inside[0]! || x > inside[inside.length - 1]!),
+  };
+}

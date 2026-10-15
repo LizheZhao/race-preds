@@ -16,9 +16,14 @@ const NAME: Record<string, string> = {
 };
 const hoursOf = (id: string) => HOURS[id] ?? 1;
 
-/** Observed track temperature of a session; `min` is null until the document publishes it. */
+/** Observed track temperature of a session; `min` is null when the sensor data had none. */
 function trackTemp(s: Session): { min: number | null; max: number } | null {
-  return s.observed ? { min: null, max: s.observed.track_temp_c_max } : null;
+  return s.observed
+    ? {
+        min: s.observed.track_temp_c_min ?? null,
+        max: s.observed.track_temp_c_max,
+      }
+    : null;
 }
 const trackText = (t: ReturnType<typeof trackTemp>) =>
   t
@@ -105,10 +110,12 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
               <>
                 {" "}
                 <span className="text-warning">
+                  {o.track_temp_c_min != null &&
+                    `${o.track_temp_c_min.toFixed(0)}–`}
                   {o.track_temp_c_max.toFixed(0)}°C
                 </span>{" "}
                 <span className="text-base font-normal text-muted-foreground">
-                  track max ·{" "}
+                  {o.track_temp_c_min != null ? "track" : "track max"} ·{" "}
                   {o.rain_share > 0
                     ? `${pct(o.rain_share, 0)} wet laps`
                     : "dry"}
@@ -294,7 +301,7 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
               {[
                 "Session",
                 "Air avg",
-                "Track max",
+                "Track min–max",
                 "Humidity avg",
                 "Wind avg",
                 "Wet laps",

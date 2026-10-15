@@ -2,26 +2,32 @@ import { useState } from "react";
 import type { ResultsDoc } from "@/data/types";
 import { cn } from "@/lib/utils";
 import { classOrder } from "./compare";
+import { LapTimes } from "./LapTimes";
 import { TYRE, INITIAL } from "./Strategy";
 import { Seg } from "./Seg";
 import { useRace } from "./context";
 import { useTip } from "./Tip";
 
-type Tab = "stints";
+type Tab = "laps" | "stints";
 const TABS: { key: Tab; label: string }[] = [
+  { key: "laps", label: "Lap times" },
   { key: "stints", label: "Tyre stints" },
 ];
 
-/** Race tyre stints for every driver in finishing order. */
+/** Race lap times and tyre stints for every driver in finishing order. */
 export function RacePaceView({ doc }: { doc: ResultsDoc }) {
-  const [tab, setTab] = useState<Tab>("stints");
+  const tabs = doc.race_pace?.length
+    ? TABS
+    : TABS.filter((t) => t.key !== "laps");
+  const [tab, setTab] = useState<Tab>(tabs[0]!.key);
   return (
     <div>
-      {TABS.length > 1 && (
+      {tabs.length > 1 && (
         <div className="mb-3">
-          <Seg label="View" options={TABS} value={tab} onChange={setTab} />
+          <Seg label="View" options={tabs} value={tab} onChange={setTab} />
         </div>
       )}
+      {tab === "laps" && <LapTimes doc={doc} />}
       {tab === "stints" && <Stints doc={doc} />}
     </div>
   );

@@ -1,10 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { loadCurrentRound, loadStageDoc, loadStageSnapshots } from "@/data/api";
+import {
+  loadCurrentRound,
+  loadLatestPrediction,
+  loadStageSnapshots,
+} from "@/data/api";
 import type { PredictionKey, Stage } from "@/data/types";
 import { PREDICTION_KEYS } from "@/data/types";
 import { RaceProvider } from "@/components/race/context";
-import { predictionColumns } from "@/components/race/compare";
+import {
+  predictionColumns,
+  TREND_KEYS,
+  type TrendDocs,
+} from "@/components/race/compare";
 import { probNoun } from "@/components/race/context";
 import { Header, STAGE_LABEL, STAGE_ORDER } from "@/components/race/Header";
 import { SectionCard } from "@/components/race/SectionCard";
@@ -64,31 +72,18 @@ export function App() {
     return s;
   }, [bundle, current]);
 
-  // The prediction trend's qualifying column is the newest qualifying snapshot, which
-  // stays in the history once the section is no longer current (path is null by then).
-  const qSection = bundle?.manifest.sections["qualifying"];
-  const qStage = qSection?.stage ?? qSection?.history?.at(-1);
-  const qualifyingQ = useQuery({
-    queryKey: ["qualifying-latest", roundKey, qSection?.updated_at, qStage],
-    queryFn: () =>
-      loadStageDoc(
-        {
-          ...bundle!,
-          manifest: {
-            ...bundle!.manifest,
-            sections: {
-              ...bundle!.manifest.sections,
-              qualifying: {
-                ...qSection!,
-                path: qSection!.path ?? "qualifying/latest.json",
-              },
-            },
-          },
-        },
-        "qualifying",
-        qStage!,
-      ),
-    enabled: !!bundle && !!qSection && !!qStage,
+  // The trend's session columns are each prediction's newest snapshot, history included.
+  const trendQ = useQuery({
+    queryKey: ["trend", roundKey, bundle?.manifest.meta.generated_at],
+    queryFn: async () => {
+      const [sprint_qualifying, sprint, qualifying] = await Promise.all(
+        TREND_KEYS.map((k) =>
+          loadLatestPrediction(bundle!, k).catch(() => undefined),
+        ),
+      );
+      return { sprint_qualifying, sprint, qualifying } as TrendDocs;
+    },
+    enabled: !!bundle,
     staleTime: Infinity,
   });
 
@@ -112,7 +107,7 @@ export function App() {
   const sections = SECTIONS.filter(
     ({ key }) => sec(key)?.status !== "not_applicable",
   );
-  const trend = fo ? predictionColumns(docs.event, qualifyingQ.data, fo) : [];
+  const trend = fo ? predictionColumns(docs.event, trendQ.data ?? {}, fo) : [];
 
   return (
     <RaceProvider event={docs.event}>

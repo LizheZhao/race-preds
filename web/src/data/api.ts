@@ -140,6 +140,22 @@ export async function loadStageDoc<K extends PredictionKey>(
   );
 }
 
+/**
+ * The newest snapshot of a prediction, also once its session has run: a qualifying section
+ * is then not_applicable with no path, and its snapshots live on as history at
+ * `<section>/<stage>.json`.
+ */
+export async function loadLatestPrediction<K extends PredictionKey>(
+  bundle: RoundBundle,
+  key: K,
+): Promise<SectionDocs[K] | undefined> {
+  const s = bundle.manifest.sections[key];
+  const stage = s?.stage ?? s?.history?.at(-1);
+  if (!s || !stage) return undefined;
+  if (s.path && stage === s.stage) return bundle.docs[key];
+  return getJson<SectionDocs[K]>(`${bundle.roundDir}/${key}/${stage}.json`);
+}
+
 /** All prediction documents for an earlier stage (only those whose history lists it). */
 export async function loadStageSnapshots(bundle: RoundBundle, stage: Stage) {
   const out: Partial<Pick<SectionDocs, PredictionKey>> = {};
