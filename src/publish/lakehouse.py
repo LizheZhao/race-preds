@@ -71,6 +71,15 @@ def race_stints(season: int, rnd: int) -> pd.DataFrame:
                  season=season, rnd=rnd)
 
 
+def race_pace(season: int, rnd: int) -> pd.DataFrame:
+    """clean green-flag race laps (driver, driver_id, lap_number, lap_time_s) in lap order"""
+    return query("""SELECT driver, driver_id, lap_number, lap_time_s FROM race_preds.silver.laps
+                    WHERE season = :season AND round = :rnd AND session_id = 'R'
+                      AND is_clean AND NOT is_deleted AND track_status = '1' AND lap_time_s IS NOT NULL
+                    ORDER BY driver, lap_number""",
+                 season=season, rnd=rnd)
+
+
 def features(season: int, rnd: int, stage: str) -> pd.DataFrame:
     """gold.features rows of one round at one stage: what a champion model scores"""
     return query("""SELECT * FROM race_preds.gold.features

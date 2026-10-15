@@ -5,8 +5,10 @@ a Context fixes the round, the stage and the clock. Lakehouse reads are limited 
 sessions usable at the stage, and reference data stops at the previous round, so a replay
 of a past weekend publishes what could have been known at that moment
 """
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
+from typing import NamedTuple
 
 import pandas as pd
 
@@ -145,8 +147,10 @@ def weather(ctx: Context) -> schema.WeatherDoc:
         entry = {"session_id": s["session_id"], "start_utc": start.to_pydatetime()}
         if s["session_id"] in observed.index:
             o = observed.loc[s["session_id"]]
+            coldest = _num(o["track_temp_min"])  # gold rows built before the dropped-sensor fix hold 0.0 here
             entry["observed"] = schema.ObservedWeather(
                 air_temp_c_mean=float(o["air_temp_mean"]), track_temp_c_max=float(o["track_temp_max"]),
+                track_temp_c_min=coldest if coldest and coldest > 0 else None,
                 humidity_mean=float(o["humidity_mean"]) / 100, wind_speed_ms_mean=float(o["wind_speed_mean"]),
                 rain_share=float(o["rain_frac"]))
         else:
@@ -181,6 +185,12 @@ def _race_rows(res: pd.DataFrame) -> list[schema.RaceRow]:
     return rows
 
 
+def _race_pace(ctx: Context) -> list[schema.DriverPace]:
+    laps = _ids(ctx, lh.race_pace(ctx.season, ctx.round)).dropna(subset=["driver_id"])
+    return [schema.DriverPace(driver_id=d, lap_times_s=g["lap_time_s"].astype(float).tolist())
+            for d, g in laps.groupby("driver_id", sort=True)]
+
+
 def _strategies(stints: pd.DataFrame) -> list[schema.DriverStrategy]:
     """what each driver ran; a driver with an unknown compound or a gap in the laps is left out"""
     out = []
@@ -208,6 +218,7 @@ def results(ctx: Context) -> schema.ResultsDoc | None:
         r = lh.session_rows(ctx.season, ctx.round, ["R"]).iloc[0]
         parts["race_incidents"] = schema.IncidentCounts(safety_cars=int(r["sc_n"]), vscs=int(r["vsc_n"]), red_flags=int(r["red_n"]))
         parts["race_strategies"] = _strategies(_ids(ctx, lh.race_stints(ctx.season, ctx.round)))
+        parts["race_pace"] = _race_pace(ctx)
     return schema.ResultsDoc(meta=ctx.meta("results"), **parts) if parts else None
 
 
@@ -260,16 +271,44 @@ def facts(ctx: Context) -> schema.FactsDoc:
 # ---------------------------------------------------------------- predictions
 
 
-def _quali_order(ctx: Context) -> list[str]:
+def _season_order(ctx: Context) -> list[str]:
     roster = entries(ctx)
     return baselines.quali_order(roster["driver_id"].tolist(), dict(zip(roster["driver_id"], roster["team_id"])),
                                  ref.results_before(ctx.season, ctx.round, "qualifying"))
 
 
+def _grid(ctx: Context, session_id: str) -> dict[str, int]:
+    q = _results(ctx, session_id).dropna(subset=["position", "driver_id"])
+    return dict(zip(q["driver_id"], q["position"].astype(int)))
+
+
+def _by_grid(order: list[str], grid: dict[str, int]) -> list[str]:
+    """order by grid position; entrants missing from it keep their relative order at the back"""
+    return sorted(order, key=lambda d: grid.get(d, len(order) + 1))
+
+
+def _predicted_quali(ctx: Context) -> tuple[list[str], dict[str, int] | None]:
+    """the expected qualifying order and the sprint qualifying grid it comes from (None before SQ):
+    sprint qualifying orders the field once it has run, else the season mean"""
+    order = _season_order(ctx)
+    if "SQ" not in ctx.usable:
+        return order, None
+    grid = _grid(ctx, "SQ")
+    return _by_grid(order, grid), grid
+
+
 def qualifying(ctx: Context) -> schema.QualifyingDoc:
-    return schema.QualifyingDoc(
-        meta=ctx.meta("qualifying"), model=ctx.model("quali-season-average", ["season_mean_quali_position"]),
-        drivers=baselines.qualifying(_quali_order(ctx)))
+    order, grid = _predicted_quali(ctx)
+    model = ctx.model("quali-sprint-order", ["sprint_qualifying_position"]) if grid else \
+        ctx.model("quali-season-average", ["season_mean_quali_position"])
+    return schema.QualifyingDoc(meta=ctx.meta("qualifying"), model=model, drivers=baselines.qualifying(order))
+
+
+def sprint_qualifying(ctx: Context) -> schema.SprintQualifyingDoc:
+    """season-mean order only: its snapshots stop before SQ, so the result never leaks in"""
+    return schema.SprintQualifyingDoc(
+        meta=ctx.meta("sprint_qualifying"), model=ctx.model("quali-season-average", ["season_mean_quali_position"]),
+        drivers=baselines.qualifying(_season_order(ctx)))
 
 
 def _champion(ctx: Context, section: str) -> tuple[registry.Bundle, pd.DataFrame] | None:
@@ -308,14 +347,27 @@ def finishing_order(ctx: Context) -> schema.FinishingOrderDoc:
     if champion := _champion(ctx, "finishing_order"):
         return _scored_finishing_order(ctx, *champion)
     p_dnf = baselines.dnf_rate(ref.results_before(ctx.season, ctx.round, "race"))
-    order, grid = _quali_order(ctx), None
+    order, sq_grid = _predicted_quali(ctx)
+    grid, feature = None, "sprint_qualifying_position" if sq_grid else "season_mean_quali_position"
     if "Q" in ctx.usable:
-        q = _results(ctx, "Q").dropna(subset=["position", "driver_id"])
-        grid = dict(zip(q["driver_id"], q["position"].astype(int)))
-        order = sorted(order, key=lambda d: grid.get(d, len(order) + 1))
-    features = ["qualifying_position" if grid else "season_mean_quali_position", "season_dnf_rate"]
-    return schema.FinishingOrderDoc(meta=ctx.meta("finishing_order"), model=ctx.model("grid-order", features),
+        grid = _grid(ctx, "Q")
+        order, feature = _by_grid(order, grid), "qualifying_position"
+    return schema.FinishingOrderDoc(meta=ctx.meta("finishing_order"),
+                                    model=ctx.model("grid-order", [feature, "season_dnf_rate"]),
                                     drivers=baselines.finishing_order(order, p_dnf, grid))
+
+
+def sprint(ctx: Context) -> schema.SprintDoc:
+    """the sprint by its grid: sprint qualifying once it has run, else the predicted order"""
+    order, grid = _predicted_quali(ctx)
+    sprints = ref.results_before(ctx.season, ctx.round, "sprint")
+    history = sprints if len(sprints) else ref.results_before(ctx.season, ctx.round, "race")
+    features = ["sprint_qualifying_position" if grid else "season_mean_quali_position",
+                "sprint_dnf_rate" if len(sprints) else "season_dnf_rate"]
+    return schema.SprintDoc(meta=ctx.meta("sprint"), model=ctx.model("sprint-grid-order", features),
+                            drivers=baselines.finishing_order(order, baselines.dnf_rate(history), grid))
+
+
 
 
 def race_incidents(ctx: Context) -> schema.RaceIncidentsDoc:
@@ -336,5 +388,17 @@ def strategy(ctx: Context) -> schema.StrategyDoc:
         degradation=plan["degradation"])
 
 
-SNAPSHOTS = {"finishing_order": finishing_order, "qualifying": qualifying,
-             "race_incidents": race_incidents, "strategy": strategy}
+class Prediction(NamedTuple):
+    build: Callable[[Context], schema.Document]
+    session: str  # the session it predicts; its snapshots are the stages before it
+    kept_after: bool  # the last snapshot stays up once the session has run, else it goes to history
+
+
+PREDICTIONS = {
+    "sprint_qualifying": Prediction(sprint_qualifying, "SQ", kept_after=False),
+    "sprint": Prediction(sprint, "S", kept_after=True),
+    "qualifying": Prediction(qualifying, "Q", kept_after=False),
+    "finishing_order": Prediction(finishing_order, "R", kept_after=True),
+    "race_incidents": Prediction(race_incidents, "R", kept_after=True),
+    "strategy": Prediction(strategy, "R", kept_after=True),
+}

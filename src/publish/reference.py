@@ -208,8 +208,9 @@ def standings(season: int, after_round: int) -> tuple[pd.DataFrame, pd.DataFrame
 
 @cache
 def season_results(season: int, kind: str) -> pd.DataFrame:
-    """Ergast race or qualifying results of a whole season (all rounds published so far)"""
-    fetch = {"race": _ergast().get_race_results, "qualifying": _ergast().get_qualifying_results}[kind]
+    """Ergast race, sprint or qualifying results of a whole season (all rounds published so far)"""
+    fetch = {"race": _ergast().get_race_results, "qualifying": _ergast().get_qualifying_results,
+             "sprint": _ergast().get_sprint_results}[kind]
     results, _ = _retry(collect_pages, fetch, season=season)
     return results
 
