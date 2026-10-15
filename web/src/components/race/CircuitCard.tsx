@@ -1,19 +1,46 @@
 import { useState } from "react";
 import type { EventDoc } from "@/data/types";
+import { Stat } from "./Stat";
+
+const S = 300;
 
 export function CircuitView({ event }: { event: EventDoc }) {
   const c = event.circuit;
   const [hover, setHover] = useState<number | null>(null);
-  const S = 300;
   const pts = c.outline.map(([x, y]) => `${x * S},${y * S}`).join(" ");
-  const winners = [...(c.past_winners ?? [])]
-    .sort((a, b) => b.season - a.season)
-    .slice(0, 5);
   return (
-    <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+    <div className="grid gap-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Stat
+          className="text-[26px]"
+          label="Length"
+          value={
+            c.length_km != null ? (
+              <>
+                {c.length_km.toFixed(3)}
+                <span className="ml-1 text-[13px] font-normal text-muted-foreground">
+                  km
+                </span>
+              </>
+            ) : (
+              "—"
+            )
+          }
+        />
+        <Stat
+          className="text-[26px]"
+          label="Laps"
+          value={c.race_laps != null ? String(c.race_laps) : "—"}
+        />
+        <Stat
+          className="text-[26px]"
+          label="Corners"
+          value={String(c.corners.length)}
+        />
+      </div>
       <svg
         viewBox={`-20 -20 ${S + 40} ${S + 40}`}
-        className="w-full max-w-sm"
+        className="mx-auto block w-full max-w-[360px]"
         role="img"
         aria-label={`${c.name} track map`}
       >
@@ -52,7 +79,7 @@ export function CircuitView({ event }: { event: EventDoc }) {
               <circle
                 cx={k.x * S}
                 cy={k.y * S}
-                r={on ? 11 : 7}
+                r={on ? 11 : 8}
                 fill={on ? "var(--primary)" : "var(--card)"}
                 stroke="var(--muted-foreground)"
                 strokeWidth={1}
@@ -62,7 +89,7 @@ export function CircuitView({ event }: { event: EventDoc }) {
                 y={k.y * S}
                 dy="0.35em"
                 textAnchor="middle"
-                fontSize={on ? 10 : 7}
+                fontSize={on ? 10 : 8}
                 fill="var(--foreground)"
                 className="font-display font-semibold tnum"
               >
@@ -73,69 +100,6 @@ export function CircuitView({ event }: { event: EventDoc }) {
           );
         })}
       </svg>
-      <div className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
-          <Stat
-            label="Length"
-            value={c.length_km != null ? `${c.length_km.toFixed(3)}` : "—"}
-            unit="km"
-          />
-          <Stat
-            label="Laps"
-            value={c.race_laps != null ? String(c.race_laps) : "—"}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground tnum">
-          {c.locality} · {c.lat.toFixed(4)}°, {c.lon.toFixed(4)}°
-        </p>
-        {hover != null && <p className="font-display text-sm">Turn {hover}</p>}
-        {winners.length > 0 && (
-          <div>
-            <p className="label-caps mb-2">Past winners</p>
-            <ul className="space-y-1.5 text-sm">
-              {winners.map((w) => (
-                <li key={w.season} className="flex gap-3">
-                  <span className="w-10 text-muted-foreground tnum">
-                    {w.season}
-                  </span>
-                  <span className="truncate">{w.driver_name}</span>
-                  <span className="ml-auto truncate text-xs text-muted-foreground">
-                    {w.team_name}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export function Stat({
-  label,
-  value,
-  unit,
-  accent,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div>
-      <p className="label-caps mb-1">{label}</p>
-      <p
-        className={`font-display text-3xl font-semibold leading-none tnum ${accent ? "text-primary" : ""}`}
-      >
-        {value}
-        {unit && (
-          <span className="ml-1 text-sm font-normal text-muted-foreground">
-            {unit}
-          </span>
-        )}
-      </p>
     </div>
   );
 }

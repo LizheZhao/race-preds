@@ -8,11 +8,13 @@ import {
 import type { Driver, EventDoc, Team } from "@/data/types";
 
 interface Ctx {
+  event: EventDoc | undefined;
   drivers: Map<string, Driver>;
   teams: Map<string, Team>;
   highlight: string | null;
   toggleHighlight: (id: string) => void;
   colorOf: (driverId: string) => string;
+  teamOf: (driverId: string) => Team | undefined;
 }
 const RaceCtx = createContext<Ctx | null>(null);
 
@@ -28,10 +30,12 @@ export function RaceProvider({
     const drivers = new Map((event?.drivers ?? []).map((d) => [d.id, d]));
     const teams = new Map((event?.teams ?? []).map((t) => [t.id, t]));
     return {
+      event,
       drivers,
       teams,
       highlight,
       toggleHighlight: (id) => setHighlight((h) => (h === id ? null : id)),
+      teamOf: (id) => teams.get(drivers.get(id)?.team_id ?? ""),
       colorOf: (id) =>
         teams.get(drivers.get(id)?.team_id ?? "")?.color ?? "var(--subtle)",
     };
