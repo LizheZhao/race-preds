@@ -81,7 +81,7 @@ def _publish_round(ctx: Context, work: Path) -> dict[str, schema.SectionStatus]:
 
     for name, pred in docs.PREDICTIONS.items():
         if pred.session not in order:
-            sections[name] = schema.SectionStatus(status="not_applicable", message="No sprint this weekend.")
+            sections[name] = schema.SectionStatus(status="not_applicable")
             continue
         # snapshots are the stages before the session it predicts
         stages = order[:order.index(pred.session)]

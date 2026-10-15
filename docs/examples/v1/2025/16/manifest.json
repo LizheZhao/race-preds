@@ -57,7 +57,7 @@
       "updated_at": null,
       "available_from": null,
       "history": [],
-      "message": "No sprint this weekend."
+      "message": null
     },
     "sprint": {
       "status": "not_applicable",
@@ -66,7 +66,7 @@
       "updated_at": null,
       "available_from": null,
       "history": [],
-      "message": "No sprint this weekend."
+      "message": null
     },
     "race_incidents": {
       "status": "ready",
