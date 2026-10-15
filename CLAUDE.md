@@ -168,6 +168,9 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   `read_session()` reads it back without FastF1. No Databricks imports. In a job, keep
   the FastF1 cache on local temp disk: SQLite does not work on a Volume. Columns that
   can be all-empty need a type in `FIXED_TYPES`, or ingest refuses to write them.
+  FastF1 swallows HTTP errors, so ingest watches its requests: a refused or failed
+  archive request raises `ArchiveRequestFailed` (recorded `failed`), and only a missing
+  file raises `SessionNotAvailable` (`not_available`).
 - `etl/bronze.py` (pipeline, Spark only, no FastF1): `load_session(spark, session_dir)`
   replaces one session in the `race_preds.bronze.*` Delta tables. Runs as the second
   task of `process_session`; needs a Databricks Spark session, so it cannot run locally.
