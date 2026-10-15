@@ -139,6 +139,19 @@ download and memory are small for a serverless job. The real costs are the engin
 FastF1, such as Sepang, get no apex numbers. No model needs telemetry yet, so this is a
 dashboard feature, not a model input.
 
+### What else telemetry gives
+
+Checked on Singapore 2026 (R17). Channels: speed, RPM, gear, throttle, brake, DRS, X/Y/Z
+position, and the gap to the car ahead.
+
+| Use | Singapore 2026 | Verdict |
+|---|---|---|
+| Circuit character fact cards, from the pole lap | 46% of the lap at full throttle, 24% on the brakes, 12 braking zones (the biggest stop sheds 195 km/h before T14), 58 gear changes, 63–308 km/h, 5.3 m of elevation change | Worth it. One lap per weekend, same ingest pass as the apex table |
+| Team corner profile: apex speed against the field median in slow (<120 km/h) and fast (≥180 km/h) corners | McLaren +3.7 slow / +4.2 fast km/h; Cadillac and Williams weakest | Promising model feature (car type × circuit type), but noisy from one lap per driver: Aston Martin's −14.5 in fast corners comes from 4 corners and 2 laps. Needs several sessions and the backfill before it is trusted |
+| DRS / active aero | the DRS channel is 0 on every sample in 2026 | Not available. Active aero isn't in FastF1 telemetry |
+| 2026 energy "clipping" (speed falling at full throttle before the braking point) | a first detector found none in 1,102 race laps | Unproven. The detector wasn't validated, so this says nothing yet |
+| Gap to the car ahead (`DistanceToDriverAhead`) | not analysed | Possible later: following and overtaking analysis, heavier to compute |
+
 ## Suggested order
 
 1. **Ops:** finish the backfill, deploy and rebuild gold, register the `strength-pl`
