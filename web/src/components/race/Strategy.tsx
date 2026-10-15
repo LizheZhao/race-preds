@@ -43,11 +43,15 @@ export function CompoundLegend({ doc }: { doc: StrategyDoc }) {
             className="size-2.5 rounded-full"
             style={{ background: TYRE[c] }}
           />
-          {NAME[c]}
-          {doc.compounds_available?.[c] && (
-            <span className="text-muted-foreground">
-              · {doc.compounds_available[c]}
-            </span>
+          {doc.compounds_available?.[c] ? (
+            <>
+              <span className="font-semibold">
+                {doc.compounds_available[c]}
+              </span>
+              <span className="text-muted-foreground">{NAME[c]}</span>
+            </>
+          ) : (
+            NAME[c]
           )}
         </span>
       ))}
