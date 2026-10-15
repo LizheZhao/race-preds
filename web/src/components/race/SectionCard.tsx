@@ -9,7 +9,10 @@ import type { ModelInfo, SectionStatus } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 interface Props {
+  id?: string;
   title: string;
+  subtitle?: ReactNode;
+  emptyText?: string | undefined;
   section?: SectionStatus | undefined;
   fetchError?: string | undefined;
   hasData: boolean;
@@ -21,7 +24,10 @@ interface Props {
 }
 
 export function SectionCard({
+  id,
   title,
+  subtitle,
+  emptyText,
   section,
   fetchError,
   hasData,
@@ -50,7 +56,7 @@ export function SectionCard({
   } else if (!hasData) {
     body = (
       <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
-        No snapshot for this stage.
+        {emptyText ?? "No snapshot for this stage."}
       </div>
     );
   } else {
@@ -63,16 +69,22 @@ export function SectionCard({
 
   return (
     <section
+      id={id}
       className={cn(
-        "flex min-w-0 flex-col rounded-md border border-border bg-card p-5 md:p-6",
+        "flex min-w-0 scroll-mt-32 flex-col rounded-md border border-border bg-card p-4 md:px-6 md:py-5",
         className,
       )}
     >
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="label-caps">{title}</h2>
-          {model && !model.calibrated && hasData && status !== "pending" && (
-            <UncalibratedNote />
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="section-title">{title}</h2>
+            {model && !model.calibrated && hasData && status !== "pending" && (
+              <UncalibratedNote />
+            )}
+          </div>
+          {subtitle && (
+            <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
           )}
         </div>
         {aside}
