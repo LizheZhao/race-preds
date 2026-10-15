@@ -31,6 +31,7 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-warning: var(--warning);
+  --color-result: var(--result);
   --color-subtle: var(--subtle);
   --color-tyre-soft: var(--tyre-soft);
   --color-tyre-medium: var(--tyre-medium);
@@ -59,6 +60,7 @@
   --destructive: oklch(0.59 0.24 28);
   --destructive-foreground: oklch(0.99 0 0);
   --warning: oklch(0.8 0.16 75);
+  --result: oklch(0.8 0.14 200);
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.59 0.24 28);
@@ -100,6 +102,14 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-muted-foreground);
+}
+@utility section-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-foreground);
+  text-wrap: balance;
 }
 @utility hatch {
   background-image: repeating-linear-gradient(

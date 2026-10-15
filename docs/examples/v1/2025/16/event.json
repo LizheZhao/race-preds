@@ -507,67 +507,89 @@
         "number": 1,
         "letter": "",
         "x": 0.9722,
-        "y": 0.2948
+        "y": 0.2948,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 2,
         "letter": "",
         "x": 0.7121,
-        "y": 0.4283
+        "y": 0.4283,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 3,
         "letter": "",
         "x": 0.5244,
-        "y": 0.4642
+        "y": 0.4642,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 4,
         "letter": "",
         "x": 0.4458,
-        "y": 0.4114
+        "y": 0.4114,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 5,
         "letter": "",
         "x": 0.2073,
-        "y": 0.324
+        "y": 0.324,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 6,
         "letter": "",
         "x": 0.0018,
-        "y": 0.2401
+        "y": 0.2401,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 7,
         "letter": "",
         "x": 0.1536,
-        "y": 0.1574
+        "y": 0.1574,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 8,
         "letter": "",
         "x": 0.4172,
-        "y": 0.0691
+        "y": 0.0691,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 9,
         "letter": "",
         "x": 0.5109,
-        "y": 0.0056
+        "y": 0.0056,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 10,
         "letter": "",
         "x": 0.6626,
-        "y": 0.0226
+        "y": 0.0226,
+        "name": null,
+        "name_origin": null
       },
       {
         "number": 11,
         "letter": "",
         "x": 0.9571,
-        "y": 0.1558
+        "y": 0.1558,
+        "name": null,
+        "name_origin": null
       }
     ],
     "past_winners": [
@@ -586,7 +608,9 @@
         "driver_name": "Max Verstappen",
         "team_name": "Red Bull"
       }
-    ]
+    ],
+    "story": null,
+    "speed_trap": null
   },
   "sessions": [
     {

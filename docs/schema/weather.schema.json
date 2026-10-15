@@ -104,6 +104,8 @@
             "weather",
             "finishing_order",
             "qualifying",
+            "sprint_qualifying",
+            "sprint",
             "race_incidents",
             "strategy",
             "facts",
@@ -182,6 +184,18 @@
         "track_temp_c_max": {
           "title": "Track Temp C Max",
           "type": "number"
+        },
+        "track_temp_c_min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track Temp C Min"
         },
         "humidity_mean": {
           "maximum": 1.0,

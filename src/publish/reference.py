@@ -19,7 +19,7 @@ import requests
 from fastf1.ergast import Ergast
 from fastf1.exceptions import ErgastInvalidRequestError
 
-from src.config import CIRCUIT_DIR
+from src.config import CIRCUIT_DIR, STORY_DIR, TYRE_DIR
 from src.results import collect_pages
 
 RACE_DISTANCE_KM = 305  # FIA minimum race distance; race laps = the fewest laps covering it
@@ -70,11 +70,30 @@ def past_winners(circuit_id: str, before_season: int) -> pd.DataFrame:
     """race winners at the circuit in earlier seasons, newest first, with the laps they ran"""
     winners, _ = _retry(collect_pages, _ergast().get_race_results, circuit=circuit_id, results_position=1)
     if winners.empty:
-        return pd.DataFrame(columns=["season", "driver_name", "team_name", "laps"])
+        return pd.DataFrame(columns=["season", "driver_name", "team_name", "laps", "grid"])
     winners = winners[winners["season"] < before_season]
     return (winners.assign(driver_name=winners["givenName"] + " " + winners["familyName"],
                            team_name=winners["constructorName"])
-            .sort_values("season", ascending=False)[["season", "driver_name", "team_name", "laps"]])
+            .sort_values("season", ascending=False)[["season", "driver_name", "team_name", "laps", "grid"]])
+
+
+def rounds_at(circuit_id: str, seasons) -> list[tuple[int, int]]:
+    """(season, round) of every race held at the circuit in the given seasons"""
+    return [(int(s), int(r)) for s in seasons for r, row in ergast_schedule(int(s)).iterrows()
+            if row["circuitId"] == circuit_id]
+
+
+def circuit_story(circuit_id: str) -> dict | None:
+    """the curated story of a circuit, or None when nobody has written one"""
+    path = STORY_DIR / f"{circuit_id}.json"
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def tyre_allocation(season: int, rnd: int) -> dict[str, str] | None:
+    """Pirelli's dry compounds for the round, e.g. {"SOFT": "C5"}; None when not recorded"""
+    path = TYRE_DIR / f"{season}.json"
+    entry = json.loads(path.read_text())["rounds"].get(str(rnd)) if path.exists() else None
+    return {c: entry[c] for c in ("SOFT", "MEDIUM", "HARD")} if entry else None
 
 
 def _geometry_source(season: int, rnd: int, circuit_id: str):
@@ -208,8 +227,9 @@ def standings(season: int, after_round: int) -> tuple[pd.DataFrame, pd.DataFrame
 
 @cache
 def season_results(season: int, kind: str) -> pd.DataFrame:
-    """Ergast race or qualifying results of a whole season (all rounds published so far)"""
-    fetch = {"race": _ergast().get_race_results, "qualifying": _ergast().get_qualifying_results}[kind]
+    """Ergast race, sprint or qualifying results of a whole season (all rounds published so far)"""
+    fetch = {"race": _ergast().get_race_results, "qualifying": _ergast().get_qualifying_results,
+             "sprint": _ergast().get_sprint_results}[kind]
     results, _ = _retry(collect_pages, fetch, season=season)
     return results
 

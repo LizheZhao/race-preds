@@ -1,4 +1,5 @@
 // The only module that fetches data. Point VITE_DATA_BASE_URL at another host to switch sources.
+import { PREDICTION_KEYS } from "./types";
 import type {
   EventDoc,
   FactsDoc,
@@ -7,6 +8,8 @@ import type {
   RaceIncidentsDoc,
   RaceManifest,
   ResultsDoc,
+  SprintDoc,
+  SprintQualifyingDoc,
   SeasonIndex,
   SectionKey,
   Stage,
@@ -51,6 +54,8 @@ export interface SectionDocs {
   results?: ResultsDoc;
   finishing_order?: FinishingOrderDoc;
   qualifying?: QualifyingDoc;
+  sprint_qualifying?: SprintQualifyingDoc;
+  sprint?: SprintDoc;
   strategy?: StrategyDoc;
   race_incidents?: RaceIncidentsDoc;
 }
@@ -77,6 +82,8 @@ const LOADABLE: (keyof SectionDocs)[] = [
   "results",
   "finishing_order",
   "qualifying",
+  "sprint_qualifying",
+  "sprint",
   "strategy",
   "race_incidents",
 ];
@@ -133,17 +140,27 @@ export async function loadStageDoc<K extends PredictionKey>(
   );
 }
 
+/**
+ * The newest snapshot of a prediction, also once its session has run: a qualifying section
+ * is then not_applicable with no path, and its snapshots live on as history at
+ * `<section>/<stage>.json`.
+ */
+export async function loadLatestPrediction<K extends PredictionKey>(
+  bundle: RoundBundle,
+  key: K,
+): Promise<SectionDocs[K] | undefined> {
+  const s = bundle.manifest.sections[key];
+  const stage = s?.stage ?? s?.history?.at(-1);
+  if (!s || !stage) return undefined;
+  if (s.path && stage === s.stage) return bundle.docs[key];
+  return getJson<SectionDocs[K]>(`${bundle.roundDir}/${key}/${stage}.json`);
+}
+
 /** All prediction documents for an earlier stage (only those whose history lists it). */
 export async function loadStageSnapshots(bundle: RoundBundle, stage: Stage) {
   const out: Partial<Pick<SectionDocs, PredictionKey>> = {};
-  const keys: PredictionKey[] = [
-    "finishing_order",
-    "qualifying",
-    "strategy",
-    "race_incidents",
-  ];
   await Promise.all(
-    keys.map(async (key) => {
+    PREDICTION_KEYS.map(async (key) => {
       try {
         const doc = await loadStageDoc(bundle, key, stage);
         if (doc) (out as Record<string, unknown>)[key] = doc;

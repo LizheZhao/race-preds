@@ -27,7 +27,7 @@ As of 2026-10-13.
 | 2b | Fallback path | **Narrowed** 2026-10-13: release-hosted tree done; runner-side ingest deferred (runners can't reach F1 live timing). The rest folds into Phase 3 |
 | 3 | Backfill + models | **Next.** Plan written 2026-10-13 (Phase 3 plan) |
 | 3b | Research swarm (optional) | Not started |
-| 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result |
+| 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result. Redesign built locally 2026-10-15 (tag `dashboard-review-v1`); what its cards still need from the pipeline is in `docs/dashboard-data-needs.md` |
 | 5 | Go live | Built and dry-run in CI 2026-10-13; first real publish 2026-10-22 21:30 UTC |
 
 **Order for the rest of 2026: go live first, models after** (decided 2026-10-12). Six
@@ -68,6 +68,14 @@ point to.
   2022–2025 enters as a prior that the 2026 walk-forward must show to help: compare 2026
   only, 2022–2026 pooled, and pooled with 2026 weighted up. The backfill stops at 2022;
   the season split tests 2023 and 2024. (Phase 3 plan, steps 1, 3 and 4)
+- **A sprint weekend predicts every session** (2026-10-15). `sprint_qualifying` (target SQ)
+  and `sprint` (target S) join the snapshot sections, so the dashboard can show a trend from
+  practice through SQ, the sprint and Q to the race; both are `not_applicable` on a
+  conventional weekend. Once SQ has run its classification orders the `qualifying` and
+  `finishing_order` baselines and is the sprint grid. One `PREDICTIONS` registry in
+  `src/publish/documents.py` replaces the per-section tables in publish. Results gain
+  `race_pace` (clean green-flag laps) and weather `track_temp_c_min`; the tyre prior is a
+  curve (wear, acceleration, cliff), not a line. (Artifact schema → Stages)
 - **Phase 2b is narrowed; a Databricks failure is handled by retry, not by a runner
   pipeline** (2026-10-13). GitHub-hosted runners get 403 from F1 live timing, so the
   runner can't ingest a session. When a Databricks job fails, the dispatcher publishes the

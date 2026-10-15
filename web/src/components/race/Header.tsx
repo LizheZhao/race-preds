@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { EventDoc, RaceManifest, Stage } from "@/data/types";
 import { cn } from "@/lib/utils";
 import { relTime } from "./context";
+import { SectionNav, type NavItem } from "./SectionNav";
 
 export const STAGE_ORDER: Record<RaceManifest["format"], Stage[]> = {
   conventional: ["pre_weekend", "FP1", "FP2", "FP3", "Q", "R"],
@@ -36,7 +37,15 @@ interface Props {
   selectable: Set<Stage>;
   selected: Stage;
   onSelect: (s: Stage) => void;
+  sections: NavItem[];
 }
+
+const DAY_FMT: Intl.DateTimeFormatOptions = {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+};
 
 export function Header({
   manifest,
@@ -44,23 +53,24 @@ export function Header({
   selectable,
   selected,
   onSelect,
+  sections,
 }: Props) {
   const now = useNow();
   const current = manifest.meta.stage ?? "pre_weekend";
   const stages = STAGE_ORDER[manifest.format];
   const curIdx = stages.indexOf(current);
-  // The race stage is only reached once the race has a result, so it is never "now".
-  const final = current === "R";
   const race = event?.sessions.find((s) => s.id === "R");
 
   const raceStart = new Date(manifest.race_start_utc).getTime();
   // The session status can lag the clock; a race is over well within 3 hours of lights out.
-  const pastRace = now != null && now > raceStart + RACE_OVER_MS;
+  const finished =
+    race?.status === "completed" ||
+    (now != null && now > raceStart + RACE_OVER_MS);
+  const live = race?.status === "live" && !finished;
 
-  let clock: React.ReactNode = "—";
-  if (race?.status === "live" && !pastRace)
-    clock = <span className="text-primary">LIVE</span>;
-  else if (race?.status === "completed" || pastRace) clock = "FINISHED";
+  let status: React.ReactNode = "";
+  if (finished) status = "race finished";
+  else if (live) status = <span className="text-primary">LIVE</span>;
   else if (now != null) {
     const diff = Math.max(0, raceStart - now);
     const d = Math.floor(diff / 864e5),
@@ -68,109 +78,72 @@ export function Header({
       m = Math.floor(diff / 6e4) % 60,
       s = Math.floor(diff / 1e3) % 60;
     const p = (n: number) => String(n).padStart(2, "0");
-    clock = `${p(d)}d ${p(h)}:${p(m)}:${p(s)}`;
+    status = `lights out in ${d}d ${p(h)}:${p(m)}:${p(s)}`;
   }
+  const day = new Date(manifest.race_start_utc).toLocaleDateString(
+    "en-GB",
+    DAY_FMT,
+  );
 
   return (
-    <header className="border-b border-border">
-      <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="label-caps mb-2 flex items-center gap-2">
-              <span className="inline-block h-3 w-1 bg-primary" />
-              Race Week · Round {manifest.meta.round} · {manifest.meta.season}
-            </p>
-            <h1 className="text-3xl font-bold leading-none tracking-tight md:text-5xl">
+    <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur-md">
+      <div className="mx-auto max-w-[1440px] px-4 md:px-8">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 py-2.5">
+          <div className="min-w-0">
+            <h1 className="font-display text-[22px] font-bold leading-none">
               {manifest.event_name}
             </h1>
-            {event && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {event.circuit.name} · {event.circuit.locality},{" "}
-                {event.circuit.country}
-              </p>
-            )}
-          </div>
-          <div className="md:text-right">
-            <p className="label-caps mb-1">Lights out</p>
-            <p className="font-display text-3xl font-semibold tnum md:text-4xl">
-              {clock}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground tnum">
-              {new Date(manifest.race_start_utc)
-                .toUTCString()
-                .replace(":00 GMT", " UTC")}
+            <p className="mt-1 truncate text-xs text-muted-foreground tnum">
+              Round {manifest.meta.round} ·{" "}
+              {event?.circuit.locality ?? manifest.meta.season} · {day}
+              {status && <> · {status}</>}
             </p>
           </div>
-        </div>
-
-        <nav aria-label="Weekend stage" className="mt-8 overflow-x-auto">
-          <ol className="flex min-w-[520px] gap-1">
-            {stages.map((s, i) => {
-              const done = i <= curIdx;
-              const clickable = selectable.has(s);
-              const isSel = s === selected;
-              return (
-                <li key={s} className="flex-1">
-                  <button
-                    type="button"
-                    disabled={!clickable}
-                    onClick={() => onSelect(s)}
-                    className={cn(
-                      "group w-full text-left transition-opacity",
-                      clickable ? "cursor-pointer" : "cursor-default",
-                      !done && "opacity-40",
-                    )}
-                  >
-                    <span
+          <div className="ml-auto hidden items-center gap-3 sm:flex">
+            <ol aria-label="Weekend stage" className="flex gap-1">
+              {stages.map((s, i) => {
+                const clickable = selectable.has(s);
+                return (
+                  <li key={s}>
+                    <button
+                      type="button"
+                      disabled={!clickable}
+                      aria-pressed={s === selected}
+                      onClick={() => onSelect(s)}
                       className={cn(
-                        "block h-1 rounded-full transition-colors",
-                        isSel
-                          ? "bg-primary"
-                          : done
-                            ? "bg-foreground/50 group-hover:bg-foreground/80"
-                            : "bg-foreground/15",
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "mt-2 flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wider",
-                        isSel ? "text-foreground" : "text-muted-foreground",
+                        "flex items-center gap-1.5 rounded-[3px] border px-2 py-1 font-display text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors",
+                        s === selected
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-muted-foreground",
+                        clickable && s !== selected && "hover:text-foreground",
+                        i > curIdx && "opacity-40",
                       )}
                     >
-                      {STAGE_LABEL[s]}
-                      {s === current && (
-                        <span className="rounded-sm bg-primary px-1 text-[9px] text-primary-foreground">
-                          {final ? "FINAL" : "NOW"}
-                        </span>
+                      {s === current && s !== selected && (
+                        <span className="size-1.5 rounded-full bg-primary" />
                       )}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-        <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-          <span>
-            {selected === current
-              ? final
-                ? "Race finished · last pre-race predictions against the result"
-                : "Showing latest predictions"
-              : `Viewing ${STAGE_LABEL[selected]} snapshot — `}
-            {selected !== current && (
+                      {STAGE_LABEL[s]}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+            {selected !== current ? (
               <button
-                className="text-foreground underline underline-offset-2"
+                className="text-xs text-foreground underline underline-offset-2"
                 onClick={() => onSelect(current)}
               >
                 back to latest
               </button>
+            ) : (
+              <span className="text-xs text-muted-foreground tnum">
+                updated{" "}
+                {now != null ? relTime(manifest.meta.generated_at, now) : "…"}
+              </span>
             )}
-          </span>
-          <span className="tnum">
-            updated{" "}
-            {now != null ? relTime(manifest.meta.generated_at, now) : "…"}
-          </span>
+          </div>
         </div>
+        <SectionNav items={sections} />
       </div>
     </header>
   );

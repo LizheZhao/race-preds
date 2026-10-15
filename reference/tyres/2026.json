@@ -1,0 +1,146 @@
+{
+ "season": 2026,
+ "range": "C1–C5 (five dry compounds, C1 hardest to C5 softest; C6 dropped for 2026; plus Intermediate and Full Wet). Each race nominates three consecutive-or-skipped C-numbers as Hard < Medium < Soft (white/yellow/red).",
+ "rounds": {
+  "1": {
+   "event": "Australian Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-australian-grand.4Uli9fb5X7hNAhkxzikv5B"
+  },
+  "2": {
+   "event": "Chinese Grand Prix",
+   "HARD": "C2",
+   "MEDIUM": "C3",
+   "SOFT": "C4",
+   "source": "https://press.pirelli.com/complete-f1-tyre-range-for-the-first-three-grands-prix-of-2026/"
+  },
+  "3": {
+   "event": "Japanese Grand Prix",
+   "HARD": "C1",
+   "MEDIUM": "C2",
+   "SOFT": "C3",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-japanese-grand-prix.4V0p1BrC3PbEiWNzsivaSr"
+  },
+  "4": {
+   "event": "Miami Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://press.pirelli.com/the-softest-trio-for-the-challenges-of-miami-and-montreal/"
+  },
+  "5": {
+   "event": "Canadian Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://press.pirelli.com/the-softest-trio-for-the-challenges-of-miami-and-montreal/"
+  },
+  "6": {
+   "event": "Monaco Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-monaco-grand-prix.6RNlF5Skp9niWsEz6urQMr"
+  },
+  "7": {
+   "event": "Barcelona-Catalunya Grand Prix",
+   "HARD": "C2",
+   "MEDIUM": "C3",
+   "SOFT": "C4",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-barcelona-catalunya-grand-prix.2wVnaPZmlQUuj9P72FrjuA"
+  },
+  "8": {
+   "event": "Austrian Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-austrian-grand-prix.2bhUStvp9xxGLpN2gvTeib"
+  },
+  "9": {
+   "event": "British Grand Prix",
+   "HARD": "C1",
+   "MEDIUM": "C2",
+   "SOFT": "C3",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-british-grand-prix.3qD9d5o8X4x3se0F7Zg5i1"
+  },
+  "10": {
+   "event": "Belgian Grand Prix",
+   "HARD": "C2",
+   "MEDIUM": "C3",
+   "SOFT": "C4",
+   "source": "https://formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-belgian-grand-prix.5RaQVyMqM9Fl5ON3xTcVO0"
+  },
+  "11": {
+   "event": "Hungarian Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://www.mercedesamgf1.com/news/what-are-the-tyre-options-for-the-2026-hungarian-gp"
+  },
+  "12": {
+   "event": "Dutch Grand Prix",
+   "HARD": "C2",
+   "MEDIUM": "C3",
+   "SOFT": "C4",
+   "source": "https://formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-dutch-grand-prix.402ufleb78rXrqaispof9U"
+  },
+  "13": {
+   "event": "Italian Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-italian-grand-prix.7nOpWdCgvCBFDGlnODs0gk"
+  },
+  "14": {
+   "event": "Spanish Grand Prix (Madrid, Madring)",
+   "HARD": "C2",
+   "MEDIUM": "C3",
+   "SOFT": "C4",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-spanish-grand-prix.2vlcVOBnZUFRCooVcqWG7n"
+  },
+  "15": {
+   "event": "Azerbaijan Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-azerbaijan-grand-prix.1UFiasleBnLs9s0hyRCpS0"
+  },
+  "16": {
+   "event": "Bahrain Grand Prix in Malaysia (Sepang)",
+   "HARD": "C2",
+   "MEDIUM": "C3",
+   "SOFT": "C4",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-bahrain-grand-prix-in-malaysia.4vcrMxYY9DWg7PwyiNMrEV"
+  },
+  "17": {
+   "event": "Singapore Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-singapore-grand-prix.4rG7uAn2d6vveGmRlkE5RM"
+  },
+  "18": {
+   "event": "United States Grand Prix",
+   "HARD": "C2",
+   "MEDIUM": "C3",
+   "SOFT": "C4",
+   "source": "https://press.pirelli.com/the-compound-selection-for-austin-mexico-city-and-so-paulo/"
+  },
+  "19": {
+   "event": "Mexico City Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://press.pirelli.com/the-compound-selection-for-austin-mexico-city-and-so-paulo/"
+  },
+  "20": {
+   "event": "São Paulo Grand Prix",
+   "HARD": "C3",
+   "MEDIUM": "C4",
+   "SOFT": "C5",
+   "source": "https://press.pirelli.com/the-compound-selection-for-austin-mexico-city-and-so-paulo/"
+  }
+ }
+}

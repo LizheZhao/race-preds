@@ -145,6 +145,7 @@ for sid, _, start, status in SESSIONS:
     if status == "completed":
         observed = S.ObservedWeather(air_temp_c_mean=26.4 if sid == "FP2" else 23.1,
                                      track_temp_c_max=44.0 if sid == "FP2" else 36.5,
+                                     track_temp_c_min=31.5 if sid == "FP2" else 29.0,
                                      humidity_mean=0.52, wind_speed_ms_mean=1.8, rain_share=0.0)
     session_weather.append(S.SessionWeather(session_id=sid, start_utc=start,
                                             forecast=forecast_at(start), observed=observed))
@@ -294,6 +295,8 @@ manifest = S.RaceManifest(
         "finishing_order": S.SectionStatus(status="ready", path="finishing_order/FP2.json", stage="FP2",
                                            updated_at=upd, history=["FP1"]),
         "qualifying": S.SectionStatus(status="ready", path="qualifying/FP2.json", stage="FP2", updated_at=upd),
+        "sprint_qualifying": S.SectionStatus(status="not_applicable"),
+        "sprint": S.SectionStatus(status="not_applicable"),
         "race_incidents": S.SectionStatus(status="ready", path="race_incidents/FP2.json", stage="FP2", updated_at=upd),
         "strategy": S.SectionStatus(status="ready", path="strategy/FP2.json", stage="FP2", updated_at=upd),
         "facts": S.SectionStatus(status="stale", path="facts.json", stage="FP2", updated_at=upd - timedelta(hours=3),

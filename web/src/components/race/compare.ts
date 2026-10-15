@@ -1,4 +1,13 @@
-import type { FinishingOrderDoc, RaceRow } from "@/data/types";
+import type {
+  EventDoc,
+  FinishingOrderDoc,
+  QualifyingDoc,
+  RaceRow,
+  ResultsDoc,
+  SprintDoc,
+  SprintQualifyingDoc,
+} from "@/data/types";
+import type { BumpColumn } from "./Bump";
 
 /** Driver ids in predicted order: expected position if classified, ties by win score. */
 export function predictedOrder(doc: FinishingOrderDoc): string[] {
@@ -11,19 +20,126 @@ export function predictedOrder(doc: FinishingOrderDoc): string[] {
     .map((d) => d.driver_id);
 }
 
-/** Classified finishers by position, then the rest in the order the result lists them. */
-export function actualOrder(race: RaceRow[]): {
-  order: string[];
-  out: Set<string>;
-} {
-  const classified = race
-    .filter((r) => r.position != null)
-    .sort((a, b) => a.position! - b.position!);
-  const rest = race.filter((r) => r.position == null);
+/** Drivers with a value for `key` first, by that value, then the rest in the order the result lists them. */
+export function classOrder(
+  rows: RaceRow[],
+  key: "position" | "grid" = "position",
+): { order: string[]; out: Set<string> } {
+  const placed = rows
+    .filter((r) => r[key] != null)
+    .sort((a, b) => a[key]! - b[key]!);
+  const rest = rows.filter((r) => r[key] == null);
   return {
-    order: [...classified, ...rest].map((r) => r.driver_id),
+    order: [...placed, ...rest].map((r) => r.driver_id),
     out: new Set(rest.map((r) => r.driver_id)),
   };
+}
+
+export const actualOrder = (race: RaceRow[]) => classOrder(race);
+
+const OUT_LABEL: Record<string, string> = {
+  R: "DNF",
+  D: "DSQ",
+  E: "EXC",
+  W: "WD",
+  N: "NC",
+};
+
+/** Actual classifications in session order; sessions the weekend did not run are skipped. */
+export function sessionColumns(results: ResultsDoc): BumpColumn[] {
+  const cols: BumpColumn[] = [];
+  const cause = (rows: RaceRow[]) => {
+    const m = new Map(rows.map((r) => [r.driver_id, r.classified_as]));
+    return (id: string) => OUT_LABEL[m.get(id) ?? ""] ?? m.get(id) ?? "out";
+  };
+  if (results.sprint) {
+    const grid = classOrder(results.sprint, "grid");
+    cols.push({
+      label: "Sprint Quali",
+      order: grid.order,
+      out: grid.out,
+      outLabel: () => "Pit",
+    });
+    const sprint = classOrder(results.sprint);
+    cols.push({
+      label: "Sprint",
+      order: sprint.order,
+      out: sprint.out,
+      outLabel: cause(results.sprint),
+    });
+  }
+  if (results.qualifying)
+    cols.push({
+      label: "Qualifying",
+      order: [...results.qualifying]
+        .sort((a, b) => a.position - b.position)
+        .map((r) => r.driver_id),
+    });
+  if (results.race) {
+    const race = classOrder(results.race);
+    cols.push({
+      label: "Race",
+      order: race.order,
+      out: race.out,
+      outLabel: cause(results.race),
+      result: true,
+    });
+  }
+  return cols;
+}
+
+/** Predicted order of a qualifying document: expected position, best first. */
+export const qualifyingOrder = (doc: QualifyingDoc) =>
+  [...doc.drivers]
+    .sort((a, b) => a.expected_position - b.expected_position)
+    .map((d) => d.driver_id);
+
+export const TREND_KEYS = [
+  "sprint_qualifying",
+  "sprint",
+  "qualifying",
+] as const;
+export type TrendDocs = {
+  sprint_qualifying?: SprintQualifyingDoc | undefined;
+  sprint?: SprintDoc | undefined;
+  qualifying?: QualifyingDoc | undefined;
+};
+
+/**
+ * One column per session, named for the session being predicted, each from that
+ * prediction's last snapshot before it ran. The first is the championship order going
+ * into the weekend.
+ */
+export function predictionColumns(
+  event: EventDoc | undefined,
+  docs: TrendDocs,
+  race: FinishingOrderDoc,
+): BumpColumn[] {
+  const cols: BumpColumn[] = [];
+  if (event) {
+    const entered = new Set(event.drivers.map((d) => d.id));
+    const champ = [...event.standings.drivers]
+      .sort((a, b) => a.position - b.position)
+      .map((d) => d.driver_id)
+      .filter((id) => entered.has(id));
+    const rest = [...entered].filter((id) => !champ.includes(id));
+    cols.push({
+      label: "Pre / Practice",
+      order: [...champ, ...rest],
+      tip: "Championship standings going into the weekend.",
+    });
+  }
+  if (docs.sprint_qualifying)
+    cols.push({
+      label: "Sprint Quali",
+      order: qualifyingOrder(docs.sprint_qualifying),
+    });
+  if (docs.sprint)
+    cols.push({ label: "Sprint", order: predictedOrder(docs.sprint) });
+  if (docs.qualifying)
+    cols.push({ label: "Qualifying", order: qualifyingOrder(docs.qualifying) });
+  cols.push({ label: "Race", order: predictedOrder(race) });
+  return cols;
 }
 
 export interface Scorecard {

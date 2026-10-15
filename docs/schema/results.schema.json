@@ -1,5 +1,28 @@
 {
   "$defs": {
+    "DriverPace": {
+      "additionalProperties": false,
+      "properties": {
+        "driver_id": {
+          "pattern": "^[a-z0-9_]+$",
+          "title": "Driver Id",
+          "type": "string"
+        },
+        "lap_times_s": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Lap Times S",
+          "type": "array"
+        }
+      },
+      "required": [
+        "driver_id",
+        "lap_times_s"
+      ],
+      "title": "DriverPace",
+      "type": "object"
+    },
     "DriverStrategy": {
       "additionalProperties": false,
       "properties": {
@@ -67,6 +90,8 @@
             "weather",
             "finishing_order",
             "qualifying",
+            "sprint_qualifying",
+            "sprint",
             "race_incidents",
             "strategy",
             "facts",
@@ -364,6 +389,21 @@
       ],
       "default": null,
       "title": "Race Strategies"
+    },
+    "race_pace": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/DriverPace"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Race Pace"
     }
   },
   "required": [

@@ -31,13 +31,15 @@ layout below can change without touching front-end code.
 v1/
   index.json                         season index, current_round pointer
   2026/16/
-    manifest.json                    one status entry per section, always all eight
+    manifest.json                    one status entry per section, always all ten
     event.json                       circuit, sessions, teams, drivers, standings
     weather.json                     forecast + observed + climatology
     facts.json
     results.json                     actuals, filled in as sessions complete
     finishing_order/<stage>.json     ┐
     qualifying/<stage>.json          │ one snapshot per stage, e.g. FP1.json, FP2.json, Q.json
+    sprint_qualifying/<stage>.json   │ sprint weekends only; the manifest says not_applicable otherwise
+    sprint/<stage>.json              │ same
     race_incidents/<stage>.json      │
     strategy/<stage>.json            ┘
 ```
@@ -72,11 +74,19 @@ What a conventional weekend publishes:
 | Sun after R | `R` | results (race, incidents, strategies used) |
 | every few hours | unchanged | weather (forecasts move on their own clock, not with sessions) |
 
+A sprint weekend adds two predicted sessions, so the dashboard can show a trend across the
+whole weekend: `sprint_qualifying` (snapshots until SQ runs, then history like `qualifying`)
+and `sprint` (snapshots until S runs, then the last one stays up). Once SQ has run, its
+classification orders the `qualifying` and `finishing_order` baselines and is the `sprint`
+grid. Both have the shape of their race counterparts (`SprintQualifyingDoc` is a
+`QualifyingDoc`, `SprintDoc` a `FinishingOrderDoc`). On a conventional weekend both
+sections are `not_applicable`.
+
 Every stage is optional. If FP3 is rained out, the pipeline skips from `FP2` to `Q`.
 
 ## Section status
 
-The manifest always lists all eight sections, so the front end never has to infer a
+The manifest always lists all ten sections, so the front end never has to infer a
 missing panel:
 
 | status | has data | front end shows |
@@ -92,6 +102,20 @@ FP2, the FP1 prediction stays up with a warning and the panel isn't blanked. The
 has to preserve the previous path when it writes `stale`.
 
 ## Decisions worth knowing
+
+**Results carry the evidence behind a prediction.** `results.race_pace` lists each driver's
+clean green-flag race laps in lap order, for pace charts. `weather.sessions[].observed`
+has `track_temp_c_min` next to the max; it is null when the track sensor gave no usable
+reading (FastF1 reports a dropped sensor as 0.0 °C).
+
+**Curated circuit knowledge lives in committed reference files, with its source.**
+`event.circuit.story` (designer, notable moments) and `corners[].name` / `name_origin` come
+from `reference/stories/<circuit_id>.json`; every moment carries a `source` URL, and a
+circuit without a file simply has no story. `strategy.compounds_available` (Pirelli's
+C-numbers) comes from `reference/tyres/<season>.json`, because FastF1 doesn't have it.
+`event.circuit.speed_trap` is measured, not curated: the fastest FastF1 `SpeedST` reading
+in this weekend's sessions so far and at this circuit before it (`silver.laps`), with
+`record_since`, the first season the lakehouse has for it.
 
 **Probabilities are fractions, and they carry a `calibrated` flag.** Every prediction
 document has `model.calibrated`. It becomes `true` only after the backtest shows the

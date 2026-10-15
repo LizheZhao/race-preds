@@ -71,6 +71,28 @@ def race_stints(season: int, rnd: int) -> pd.DataFrame:
                  season=season, rnd=rnd)
 
 
+def race_pace(season: int, rnd: int) -> pd.DataFrame:
+    """clean green-flag race laps (driver, driver_id, lap_number, lap_time_s) in lap order"""
+    return query("""SELECT driver, driver_id, lap_number, lap_time_s FROM race_preds.silver.laps
+                    WHERE season = :season AND round = :rnd AND session_id = 'R'
+                      AND is_clean AND NOT is_deleted AND track_status = '1' AND lap_time_s IS NOT NULL
+                    ORDER BY driver, lap_number""",
+                 season=season, rnd=rnd)
+
+
+def top_speed(rounds: Iterable[tuple[int, int]], session_ids: Iterable[str] | None = None) -> pd.DataFrame:
+    """the fastest speed-trap lap (driver, season, session_id, speed_st_kph) over the given rounds and sessions,
+    with first_season, the earliest season those rounds have laps for"""
+    where = " OR ".join(f"(season = {int(s)} AND round = {int(r)})" for s, r in rounds)
+    if not where:
+        return pd.DataFrame(columns=["driver", "season", "session_id", "speed_st_kph", "first_season"])
+    sessions = f"AND session_id IN {_in(session_ids)}" if session_ids is not None else ""
+    return query(f"""SELECT driver, season, session_id, speed_st_kph, MIN(season) OVER () AS first_season
+                     FROM race_preds.silver.laps
+                     WHERE ({where}) {sessions} AND speed_st_kph IS NOT NULL
+                     ORDER BY speed_st_kph DESC LIMIT 1""")
+
+
 def features(season: int, rnd: int, stage: str) -> pd.DataFrame:
     """gold.features rows of one round at one stage: what a champion model scores"""
     return query("""SELECT * FROM race_preds.gold.features

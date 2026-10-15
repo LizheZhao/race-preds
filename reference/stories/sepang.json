@@ -1,0 +1,49 @@
+{
+ "designer": "Hermann Tilke",
+ "moments": [
+  {
+   "season": 1999,
+   "headline": "Sepang debuts as Schumacher returns from injury",
+   "body": "Michael Schumacher returned from a broken leg to help Eddie Irvine win; Ferrari's one-two was excluded, then reinstated on appeal.",
+   "source": "https://www.formula1.com/en/latest/article/do-you-remember-schumachers-stunning-malaysia-comeback.5DKHwLoLqfVjZlTklC4nTD"
+  },
+  {
+   "season": 2009,
+   "headline": "Storm stops the race, half points awarded",
+   "body": "Heavy rain stopped the race on lap 33, with Jenson Button winning and half points awarded.",
+   "source": "https://www.autosport.com/f1/news/f1-malaysian-gp-stand-out-moments/10843036/"
+  },
+  {
+   "season": 2013,
+   "headline": "Multi-21: Vettel passes Webber against team orders",
+   "body": "Sebastian Vettel passed Mark Webber despite Red Bull's instruction to hold position, and won by four seconds.",
+   "source": "https://www.autosport.com/f1/news/f1-malaysian-gp-stand-out-moments/10843036/"
+  },
+  {
+   "season": 2016,
+   "headline": "Circuit resurfaced, final hairpin raised",
+   "body": "The track was resurfaced and nine corners modified, with the Turn 15 hairpin raised by one metre.",
+   "source": "https://www.espn.com/f1/story/_/id/17649920/sepang-circuit-extensively-altered-ahead-malaysian-gp"
+  },
+  {
+   "season": 2017,
+   "headline": "Final Malaysian Grand Prix announced",
+   "body": "In April, Formula 1 and the circuit announced that the October 2017 race would be Malaysia's last.",
+   "source": "https://www.formula1.com/en/latest/headlines/2017/4/2017-race-to-be-malaysias-f1-farewell.html"
+  },
+  {
+   "season": 2026,
+   "headline": "Sepang hosts the 2026 Bahrain Grand Prix",
+   "body": "The 2026 Bahrain Grand Prix was held at Sepang on 4 October; Max Verstappen won from pole in a rain-hit race.",
+   "source": "https://www.formula1.com/en/latest/article/verstappen-wins-rain-hit-bahrain-gp-in-malaysia-over-antonelli-as-russell-retires-late-on.6qfpIHPch8mIVj2YgfHdCp"
+  }
+ ],
+ "corners": [
+  {
+   "number": 4,
+   "name": "Langkawi",
+   "origin": null,
+   "source": "https://global.honda/en/F1/circuit/sepang-international-circuit/"
+  }
+ ]
+}

@@ -49,11 +49,12 @@ def _weather_summary(tables: SessionTables, start: float, end: float) -> dict:
     inside = weather[(weather["Time"] >= start) & (weather["Time"] <= end)]
     if inside.empty:
         inside = weather
+    track = inside["TrackTemp"].where(inside["TrackTemp"] > 0)  # a dropped sensor reads exactly 0.0
     return {
         "air_temp_mean": inside["AirTemp"].mean(),
-        "track_temp_mean": inside["TrackTemp"].mean(),
-        "track_temp_min": inside["TrackTemp"].min(),
-        "track_temp_max": inside["TrackTemp"].max(),
+        "track_temp_mean": track.mean(),
+        "track_temp_min": track.min(),
+        "track_temp_max": track.max(),
         "humidity_mean": inside["Humidity"].mean(),
         "wind_speed_mean": inside["WindSpeed"].mean(),
         "rain_frac": inside["Rainfall"].astype(bool).mean(),
