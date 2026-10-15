@@ -100,7 +100,7 @@ function FactCards({ doc }: { doc: FactsDoc }) {
             key={f.id}
             onClick={ids[0] ? () => toggleHighlight(ids[0]!) : undefined}
             className={cn(
-              "rounded-[4px] border border-border px-3.5 py-3 transition-opacity duration-200",
+              " border border-border px-3.5 py-3 transition-opacity duration-200",
               ids[0] && "cursor-pointer",
               dim && "opacity-35",
               on && "bg-foreground/5",
@@ -118,7 +118,7 @@ function FactCards({ doc }: { doc: FactsDoc }) {
             {f.body && (
               <p className="mt-1 text-xs text-muted-foreground">{f.body}</p>
             )}
-            <p className="mt-2 text-[10px] text-subtle">{f.source}</p>
+            <p className="mt-2 text-[11px] text-subtle">{f.source}</p>
           </li>
         );
       })}

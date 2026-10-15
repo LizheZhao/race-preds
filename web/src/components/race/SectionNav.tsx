@@ -35,7 +35,7 @@ export function SectionNav({ items }: { items: NavItem[] }) {
   return (
     <nav
       aria-label="Sections"
-      className="-mx-1 flex gap-0.5 overflow-x-auto pb-2 [scrollbar-width:none]"
+      className="-mx-2.5 flex gap-0.5 overflow-x-auto [scrollbar-width:none]"
     >
       {items.map((i) => (
         <a
@@ -43,9 +43,9 @@ export function SectionNav({ items }: { items: NavItem[] }) {
           href={`#${i.id}`}
           aria-current={current === i.id ? "location" : undefined}
           className={cn(
-            "whitespace-nowrap rounded-[3px] px-2.5 py-1 font-display text-xs font-semibold uppercase tracking-[0.06em] transition-colors hover:bg-popover hover:text-foreground",
+            "cond whitespace-nowrap px-2.5 py-2 text-sm font-bold uppercase tracking-[0.06em] transition-colors hover:text-foreground",
             current === i.id
-              ? "text-foreground shadow-[inset_0_-2px_0_var(--primary)]"
+              ? "text-foreground shadow-[inset_0_-3px_0_var(--foreground)]"
               : "text-muted-foreground",
           )}
         >

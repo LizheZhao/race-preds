@@ -20,24 +20,18 @@ export function Stat({
     <div>
       <p className="label-caps mb-1.5">{label}</p>
       <p
-        className={cn(
-          "font-display text-[30px] font-semibold leading-none tnum",
-          className,
-        )}
+        className={cn("xcond text-4xl leading-none font-black tnum", className)}
       >
         {value}
         {mark != null && (
           <span
-            className={cn(
-              "ml-2 text-sm",
-              mark ? "text-foreground" : "text-primary",
-            )}
+            className={cn("ml-2 text-sm", mark ? "text-gain" : "text-flag-red")}
           >
             {mark ? "✓" : "✗"}
           </span>
         )}
       </p>
-      {note && <p className="mt-1 text-[11px] text-muted-foreground">{note}</p>}
+      {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
     </div>
   );
 }

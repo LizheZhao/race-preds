@@ -20,7 +20,7 @@ export function useTip() {
   const hide = useCallback(() => setTip(null), []);
   const node = tip ? (
     <div
-      className="pointer-events-none fixed z-50 max-w-64 -translate-x-1/2 -translate-y-full rounded-sm border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-lg tnum"
+      className="pointer-events-none fixed z-50 max-w-64 -translate-x-1/2 -translate-y-full border border-foreground bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-lg tnum"
       style={{ left: tip.x, top: tip.y - 10 }}
     >
       {tip.content}

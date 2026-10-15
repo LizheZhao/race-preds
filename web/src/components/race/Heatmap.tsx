@@ -40,7 +40,7 @@ export function Heatmap({
   ].join(" ");
   const minWidth = 26 + 78 + n * (CELL + GAP) + 232 + 52;
   const head =
-    "flex items-end pb-1 font-display text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
+    "flex items-end pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
   const right = "justify-end pr-2";
 
   return (
@@ -125,7 +125,7 @@ export function Heatmap({
                   {d?.number}
                 </span>
                 {res && rp == null && (
-                  <span className="ml-1.5 text-[10px] font-semibold text-result">
+                  <span className="ml-1.5 text-[11px] font-semibold text-result">
                     {res.classified_as === "R" ? "DNF" : res.classified_as}
                   </span>
                 )}
@@ -157,13 +157,13 @@ export function Heatmap({
                       )}
                       onPointerLeave={tip.hide}
                       className={cn(
-                        "block rounded-[2px]",
+                        "block",
                         isResult &&
                           "relative z-10 outline-2 -outline-offset-1 outline-result",
                       )}
                       style={{
                         height: CELL,
-                        background: `color-mix(in oklab, var(--foreground) ${level}%, transparent)`,
+                        background: `color-mix(in oklab, var(--primary) ${level}%, transparent)`,
                       }}
                     />
                   );
@@ -190,7 +190,7 @@ export function Heatmap({
                   <i
                     className={cn(
                       "block h-1 rounded-sm",
-                      l === "DNF" ? "bg-primary" : "bg-foreground/75",
+                      l === "DNF" ? "bg-flag-red" : "bg-primary",
                     )}
                     style={{ width: Math.max(2, v * BAR_PX) }}
                   />
@@ -207,17 +207,17 @@ export function Heatmap({
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span
-            className="inline-block size-3 rounded-[2px]"
+            className="inline-block size-3"
             style={{
               background:
-                "linear-gradient(90deg, color-mix(in oklab, var(--foreground) 6%, transparent), var(--foreground))",
+                "linear-gradient(90deg, color-mix(in oklab, var(--primary) 6%, transparent), var(--primary))",
             }}
           />
-          Brighter = higher {noun}
+          Deeper blue = higher {noun}
         </span>
         {result && (
           <span className="flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-[2px] outline-2 -outline-offset-2 outline-result" />
+            <span className="inline-block size-3 outline-2 -outline-offset-2 outline-result" />
             Actual finishing position
           </span>
         )}

@@ -14,7 +14,7 @@ export function Seg<K extends string>({
 }) {
   return (
     <div
-      className="inline-flex max-w-full overflow-x-auto rounded-[4px] border border-border p-0.5"
+      className="inline-flex max-w-full overflow-x-auto border border-foreground"
       role="group"
       aria-label={label}
     >
@@ -26,10 +26,10 @@ export function Seg<K extends string>({
           aria-pressed={o.key === value}
           onClick={() => onChange(o.key)}
           className={cn(
-            "whitespace-nowrap rounded-[3px] px-3 py-1.5 font-display text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors disabled:opacity-30",
+            "cond whitespace-nowrap px-3 py-1.5 text-sm font-bold tracking-[0.06em] uppercase transition-colors disabled:opacity-30",
             o.key === value
               ? "bg-foreground text-background"
-              : "text-muted-foreground hover:text-foreground",
+              : "hover:bg-foreground/8",
           )}
         >
           {o.label}

@@ -101,7 +101,7 @@ export function CircuitView({ event }: { event: EventDoc }) {
             y={c.outline[0][1] * S - 9}
             width={3}
             height={18}
-            fill="var(--primary)"
+            fill="var(--flag-red)"
           />
         )}
         {c.corners.map((k) => {
@@ -117,7 +117,7 @@ export function CircuitView({ event }: { event: EventDoc }) {
                 cx={k.x * S}
                 cy={k.y * S}
                 r={on ? 11 : 8}
-                fill={on ? "var(--primary)" : "var(--card)"}
+                fill={on ? "var(--foreground)" : "var(--background)"}
                 stroke={k.name ? "var(--result)" : "var(--muted-foreground)"}
                 strokeWidth={k.name ? 1.5 : 1}
               />

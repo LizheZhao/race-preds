@@ -93,7 +93,7 @@ function Stints({ doc }: { doc: ResultsDoc }) {
                 {stints.map((s, k) => (
                   <span
                     key={k}
-                    className="absolute inset-y-0 rounded-[2px]"
+                    className="absolute inset-y-0"
                     style={{
                       left: `${x(s.start_lap)}%`,
                       width: `${x(s.end_lap + 1) - x(s.start_lap)}%`,

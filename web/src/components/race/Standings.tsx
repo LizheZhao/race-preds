@@ -79,7 +79,7 @@ export function TeamsStandings({ event }: { event: EventDoc }) {
                 <span className="flex items-center gap-2.5">
                   <span
                     aria-hidden="true"
-                    className="grid h-5 w-[30px] place-items-center rounded-[3px] font-display text-[9px] font-bold text-white"
+                    className="grid h-5 w-[30px] place-items-center font-display text-[9px] font-bold text-white"
                     style={{ background: t?.color ?? "var(--subtle)" }}
                   >
                     {teamAbbr(r.team_id, t?.name ?? r.team_id)}

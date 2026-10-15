@@ -62,7 +62,7 @@ export function IncidentsView({
           <span>{t.label}</span>
           <span className="relative h-2 rounded-full bg-foreground/10">
             <i
-              className={`absolute inset-y-0 left-0 rounded-full ${t.red ? "bg-primary" : "bg-foreground/70"}`}
+              className={`absolute inset-y-0 left-0 rounded-full ${t.red ? "bg-flag-red" : "bg-flag-yellow"}`}
               style={{ width: `${t.p(doc) * 100}%` }}
             />
           </span>
@@ -98,10 +98,10 @@ export function IncidentsView({
               {Math.round(w.p_safety_car * 100)}
             </span>
             <i
-              className="block w-full rounded-t-[2px] bg-foreground/65"
+              className="block w-full border border-foreground bg-flag-yellow"
               style={{ height: (w.p_safety_car / maxW) * 70 }}
             />
-            <span className="text-[10px] text-muted-foreground tnum">
+            <span className="text-[11px] text-muted-foreground tnum">
               {w.start_lap}–{w.end_lap}
             </span>
           </div>
@@ -145,7 +145,7 @@ export function IncidentsView({
                   {Array.from({ length: h.red_flags }, (_, i) => (
                     <span
                       key={`r${i}`}
-                      className="size-[9px] rounded-full bg-primary"
+                      className="size-[9px] rounded-full bg-flag-red"
                     />
                   ))}
                   {h.safety_cars + h.vscs + h.red_flags === 0 && (
@@ -168,7 +168,7 @@ export function IncidentsView({
               VSC
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-primary" />
+              <span className="size-2.5 rounded-full bg-flag-red" />
               Red flag
             </span>
           </p>

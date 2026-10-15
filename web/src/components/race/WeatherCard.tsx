@@ -46,7 +46,7 @@ export function WeatherLegend({ hasTrack }: { hasTrack: boolean }) {
         </span>
       )}
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-[2px] bg-tyre-wet" />
+        <span className="size-3 bg-tyre-wet" />
         Rain chance %
       </span>
     </div>
@@ -179,7 +179,7 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                 y={PT}
                 width={w}
                 height={H - PT - PB}
-                fill={isRace ? "var(--primary)" : "var(--foreground)"}
+                fill="var(--foreground)"
                 opacity={isRace ? 0.16 : 0.06}
               />
               <text

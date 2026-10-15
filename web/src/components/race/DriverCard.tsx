@@ -140,7 +140,7 @@ export function DriverCard({
       {stints.length > 0 && (
         <section className="mt-4">
           <h3 className="label-caps mb-1.5">Race tyres</h3>
-          <div className="flex h-2.5 gap-px overflow-hidden rounded-[2px]">
+          <div className="flex h-2.5 gap-px overflow-hidden">
             {stints.map((s, i) => (
               <span
                 key={i}

@@ -39,54 +39,14 @@ export function FinishingOrderView({
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
-        <div className="flex flex-wrap gap-x-8 gap-y-4">
-          {favourite && (
-            <Stat
-              label={`Favourite · win ${noun}`}
-              value={
-                <>
-                  {code(favourite.driver_id)}{" "}
-                  <span className="text-primary">{pct(favourite.p_win)}</span>
-                </>
-              }
-            />
-          )}
-          {card ? (
-            <>
-              <Stat
-                label="Winner"
-                value={code(card.winner)}
-                mark={card.favourite === card.winner}
-                note={
-                  card.favourite === card.winner
-                    ? "favourite won"
-                    : `favourite ${code(card.favourite)}`
-                }
-              />
-              <Stat
-                label="Podium"
-                value={`${card.podiumHits}/3`}
-                note="in the predicted top 3"
-              />
-              <Stat
-                label={`Top ${n}`}
-                value={`${card.top10Hits}/${n}`}
-                note={`in the predicted top ${n}`}
-              />
-              <Stat
-                label="Rank error"
-                value={card.meanError == null ? "—" : card.meanError.toFixed(1)}
-                note="mean places off, finishers"
-              />
-            </>
-          ) : (
-            <Stat
-              label="Predicted podium"
-              value={predictedOrder(doc).slice(0, 3).map(code).join(" · ")}
-            />
-          )}
-        </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+        <p className="text-sm text-muted-foreground">
+          {mode === "heat"
+            ? `Position ${noun}s for every driver, after ${stageLabel}.`
+            : mode === "trend"
+              ? "How the predicted race order moved through the weekend."
+              : "Where each driver finished in every session so far."}
+        </p>
         <Seg
           label="View"
           value={mode}

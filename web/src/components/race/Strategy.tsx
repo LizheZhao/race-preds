@@ -108,7 +108,7 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
                 {o.stints.map((s, k) => (
                   <span
                     key={k}
-                    className="absolute inset-y-0 rounded-[2px]"
+                    className="absolute inset-y-0"
                     style={{
                       left: `${x(s.start_lap)}%`,
                       width: `${x(s.end_lap + 1) - x(s.start_lap)}%`,
@@ -125,7 +125,7 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
                 {o.pit_windows.map((p) => (
                   <span key={p.stop}>
                     <span
-                      className="hatch absolute -inset-y-1 rounded-[3px] border border-foreground/45"
+                      className="hatch absolute -inset-y-1 border border-foreground/45"
                       style={{
                         left: `${x(p.earliest_lap)}%`,
                         width: `${x(p.latest_lap + 1) - x(p.earliest_lap)}%`,
@@ -138,7 +138,7 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
                       onPointerLeave={tip.hide}
                     />
                     <span
-                      className="pointer-events-none absolute top-[22px] -translate-x-1/2 whitespace-nowrap text-[10px] text-muted-foreground tnum"
+                      className="pointer-events-none absolute top-[22px] -translate-x-1/2 whitespace-nowrap text-[11px] text-muted-foreground tnum"
                       style={{
                         left: `${(x(p.earliest_lap) + x(p.latest_lap + 1)) / 2}%`,
                       }}
@@ -150,7 +150,7 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
               </div>
               <span className="text-right text-sm leading-4 tnum">
                 {i === 0 ? (
-                  <span className="text-primary">fastest</span>
+                  <span className="font-bold">Fastest</span>
                 ) : (
                   `+${o.expected_time_delta_s.toFixed(1)} s`
                 )}
@@ -160,7 +160,7 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
           <div className="mr-[86px] ml-[124px] mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground tnum">
             <span>Lap 1</span>
             <span className="flex items-center gap-1.5">
-              <span className="hatch inline-block h-3 w-3 rounded-[2px] border border-foreground/45" />
+              <span className="hatch inline-block h-3 w-3 border border-foreground/45" />
               pit window
             </span>
             <span>Lap {L}</span>

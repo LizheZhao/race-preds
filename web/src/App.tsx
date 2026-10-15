@@ -24,6 +24,7 @@ import { IncidentsView } from "@/components/race/Incidents";
 import { RacePaceView } from "@/components/race/RacePace";
 import { StoryView } from "@/components/race/Story";
 import { ResultsView } from "@/components/race/Results";
+import { Verdict } from "@/components/race/Verdict";
 
 /** Page order; the manifest section decides whether each one exists. */
 const SECTIONS = [
@@ -120,10 +121,22 @@ export function App() {
           onSelect={(s) => setPicked(s === current ? null : s)}
           sections={sections.map(({ id, nav }) => ({ id, label: nav }))}
         />
-        <main className="mx-auto grid max-w-[1440px] grid-cols-1 gap-5 px-4 py-5 pb-16 md:px-8 lg:grid-cols-12">
+        <main className="mx-auto grid max-w-[1440px] grid-cols-1 items-start gap-x-6 gap-y-10 px-4 pt-6 pb-16 md:px-12 lg:grid-cols-12">
+          {fo && (
+            <div className="lg:col-span-12">
+              <Verdict
+                doc={fo}
+                stageLabel={foStage}
+                result={
+                  isHistory ? undefined : (docs.results?.race ?? undefined)
+                }
+              />
+            </div>
+          )}
           <SectionCard
             id="finishing"
             title="Predicted finishing order"
+            prediction
             subtitle={
               fo &&
               `Made after ${foStage} · percentages are ${probNoun(fo.model.calibrated)}s`
@@ -149,6 +162,7 @@ export function App() {
           <SectionCard
             id="strategy"
             title="Tyre strategy"
+            prediction
             subtitle="Plans ranked by expected race time"
             className="lg:col-span-7"
             section={sec("strategy")}
@@ -165,6 +179,7 @@ export function App() {
           <SectionCard
             id="risk"
             title="Safety car & red flag risk"
+            prediction
             className="lg:col-span-5"
             section={sec("race_incidents")}
             fetchError={fetchErrors.race_incidents}
@@ -251,6 +266,29 @@ export function App() {
             {docs.results && <ResultsView doc={docs.results} />}
           </SectionCard>
         </main>
+        <footer className="bg-foreground text-background">
+          <div className="mx-auto grid max-w-[1440px] gap-6 px-4 py-10 text-sm md:grid-cols-3 md:px-12">
+            <p className="cond text-2xl leading-tight font-black uppercase">
+              Race Week
+            </p>
+            <p className="text-background/75">
+              Ingested from FastF1, Jolpica and Open-Meteo into a Delta
+              lakehouse on Databricks, scored by baselines and MLflow-registered
+              models, and published here as static JSON by a GitHub Actions
+              dispatcher after every session.
+            </p>
+            <p className="text-background/75 md:text-right">
+              <a
+                href="https://github.com/LizheZhao/race-preds"
+                className="font-semibold text-background underline decoration-background/40 hover:decoration-background"
+              >
+                Source and pipeline on GitHub
+              </a>
+              <br />
+              Not affiliated with Formula 1 or the FIA.
+            </p>
+          </div>
+        </footer>
       </div>
     </RaceProvider>
   );
