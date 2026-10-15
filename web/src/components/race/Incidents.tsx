@@ -29,9 +29,7 @@ export function IncidentsView({
   const tip = useTip();
   const noun = probNoun(doc.model.calibrated);
   const maxW = Math.max(0.01, ...doc.by_lap_window.map((w) => w.p_safety_car));
-  const hist = [...(doc.circuit_history ?? [])].sort(
-    (a, b) => a.season - b.season,
-  );
+  const hist = [...(doc.circuit_history ?? [])].reverse();
   return (
     <div>
       {tip.node}
@@ -119,9 +117,9 @@ export function IncidentsView({
               gridTemplateColumns: `repeat(${hist.length}, minmax(0, 1fr))`,
             }}
           >
-            {hist.map((h) => (
+            {hist.map((h, i) => (
               <div
-                key={h.season}
+                key={`${h.season}-${i}`}
                 className="flex flex-col items-center gap-1"
                 onPointerEnter={tip.show(
                   <>
