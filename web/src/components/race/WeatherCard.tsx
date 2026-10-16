@@ -1,6 +1,9 @@
 import type { WeatherDoc } from "@/data/types";
+import { cn } from "@/lib/utils";
 import { pct } from "./context";
+import { SHOW } from "./ResultsTable";
 import { useTip } from "./Tip";
+import { useWidth } from "./useWidth";
 
 type Session = WeatherDoc["sessions"][number];
 
@@ -53,15 +56,18 @@ export function WeatherLegend({ hasTrack }: { hasTrack: boolean }) {
   );
 }
 
-const W = 1340,
-  H = 300,
-  PL = 40,
-  PR = 44,
+const PL = 34,
   PT = 26,
   PB = 26;
 
 export function WeatherView({ weather }: { weather: WeatherDoc }) {
   const tip = useTip();
+  // Drawn at its real width so labels stay 10px on a phone instead of shrinking with the frame.
+  const [ref, width] = useWidth<HTMLDivElement>();
+  const W = width || 1340;
+  const narrow = W < 640;
+  const H = narrow ? 220 : 300;
+  const PR = narrow ? 34 : 44;
   const hr = weather.hourly.map((h) => ({
     t: new Date(h.time_utc).getTime(),
     a: h.air_temp_c,
@@ -94,6 +100,21 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
   for (let v = lo; v <= hi; v += 5) ticks.push(v);
   const o = race?.s.observed;
   const f = race?.s.forecast;
+  // Sessions an hour or two apart crowd each other on a phone: lift every other close label
+  // a line, and set a track reading left of its dot when the next reading sits close on its right.
+  const sx = sess.map(({ t }) => gx(t));
+  const lifted = sx.reduce<boolean[]>(
+    (acc, x, i) => [...acc, i > 0 && !acc[i - 1] && x - sx[i - 1]! < 26],
+    [],
+  );
+  const dotX = sess.map(({ s, t }) => gx(t + hoursOf(s.session_id) * 18e5));
+  const leftLabel = sess.map(
+    ({ track }, i) =>
+      !!track &&
+      sess
+        .slice(i + 1)
+        .some((n, k) => n.track && dotX[i + 1 + k]! - dotX[i]! < 36),
+  );
 
   return (
     <div>
@@ -130,185 +151,198 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
           </p>
         </div>
       )}
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="block h-auto w-full"
-        role="img"
-        aria-label="Hourly weather"
-      >
-        {ticks.map((v) => (
-          <g key={v}>
-            <line
-              x1={PL}
-              x2={W - PR}
-              y1={gyT(v)}
-              y2={gyT(v)}
-              stroke="var(--border)"
-            />
-            <text
-              x={PL - 6}
-              y={gyT(v)}
-              dy="0.35em"
-              textAnchor="end"
-              fontSize={10}
-              fill="var(--muted-foreground)"
-            >
-              {v}°
-            </text>
-          </g>
-        ))}
-        {[0, 25, 50, 75, 100].map((p) => (
-          <text
-            key={p}
-            x={W - PR + 6}
-            y={gyR(p)}
-            dy="0.35em"
-            fontSize={10}
-            fill="var(--tyre-wet)"
-          >
-            {p}%
-          </text>
-        ))}
-        {sess.map(({ s, t }) => {
-          const isRace = s.session_id === "R";
-          const w = Math.max(3, gx(t + hoursOf(s.session_id) * 36e5) - gx(t));
-          return (
-            <g key={s.session_id}>
-              <rect
-                x={gx(t)}
-                y={PT}
-                width={w}
-                height={H - PT - PB}
-                fill="var(--foreground)"
-                opacity={isRace ? 0.16 : 0.06}
+      <div ref={ref}>
+        <svg
+          width={W}
+          height={H}
+          viewBox={`0 0 ${W} ${H}`}
+          className="block"
+          role="img"
+          aria-label="Hourly weather"
+        >
+          {ticks.map((v) => (
+            <g key={v}>
+              <line
+                x1={PL}
+                x2={W - PR}
+                y1={gyT(v)}
+                y2={gyT(v)}
+                stroke="var(--border)"
               />
               <text
-                x={gx(t)}
-                y={PT - 8}
+                x={PL - 6}
+                y={gyT(v)}
+                dy="0.35em"
+                textAnchor="end"
                 fontSize={10}
                 fill="var(--muted-foreground)"
               >
-                {s.session_id}
+                {v}°
               </text>
             </g>
-          );
-        })}
-        {hr.map((h) => (
-          <rect
-            key={h.t}
-            x={gx(h.t) - bw / 2}
-            y={gyR(h.r)}
-            width={bw}
-            height={gyR(0) - gyR(h.r)}
-            fill="var(--tyre-wet)"
-            opacity={0.4}
-            onPointerEnter={tip.show(
-              <>
-                {new Date(h.t).toUTCString().slice(0, 22)} UTC
-                <br />
-                {h.a.toFixed(1)}°C · {h.r.toFixed(0)}% rain
-              </>,
-            )}
-            onPointerLeave={tip.hide}
-          />
-        ))}
-        <path
-          d={hr
-            .map(
-              (h, i) =>
-                `${i ? "L" : "M"}${gx(h.t).toFixed(1)},${gyT(h.a).toFixed(1)}`,
-            )
-            .join("")}
-          fill="none"
-          stroke="var(--foreground)"
-          strokeWidth={1.6}
-        />
-        {sess.map(({ s, t, track }) => {
-          if (!track) return null;
-          const cx = gx(t + hoursOf(s.session_id) * 18e5);
-          return (
-            <g
-              key={s.session_id}
+          ))}
+          {[0, 25, 50, 75, 100].map((p) => (
+            <text
+              key={p}
+              x={W - PR + 6}
+              y={gyR(p)}
+              dy="0.35em"
+              fontSize={10}
+              fill="var(--tyre-wet)"
+            >
+              {p}%
+            </text>
+          ))}
+          {sess.map(({ s, t }, i) => {
+            const isRace = s.session_id === "R";
+            const w = Math.max(3, gx(t + hoursOf(s.session_id) * 36e5) - gx(t));
+            return (
+              <g key={s.session_id}>
+                <rect
+                  x={gx(t)}
+                  y={PT}
+                  width={w}
+                  height={H - PT - PB}
+                  fill="var(--foreground)"
+                  opacity={isRace ? 0.16 : 0.06}
+                />
+                <text
+                  x={gx(t)}
+                  y={lifted[i] ? PT - 18 : PT - 8}
+                  fontSize={10}
+                  fill="var(--muted-foreground)"
+                >
+                  {s.session_id}
+                </text>
+              </g>
+            );
+          })}
+          {hr.map((h) => (
+            <rect
+              key={h.t}
+              x={gx(h.t) - bw / 2}
+              y={gyR(h.r)}
+              width={bw}
+              height={gyR(0) - gyR(h.r)}
+              fill="var(--tyre-wet)"
+              opacity={0.4}
               onPointerEnter={tip.show(
-                `${s.session_id} track temperature: ${trackText(track)}`,
+                <>
+                  {new Date(h.t).toUTCString().slice(0, 22)} UTC
+                  <br />
+                  {h.a.toFixed(1)}°C · {h.r.toFixed(0)}% rain
+                </>,
               )}
               onPointerLeave={tip.hide}
-            >
-              {track.min != null ? (
-                <line
-                  x1={cx}
-                  x2={cx}
-                  y1={gyT(track.max)}
-                  y2={gyT(track.min)}
-                  stroke="var(--warning)"
-                  strokeWidth={3}
-                  strokeLinecap="round"
-                />
-              ) : (
-                <circle
-                  cx={cx}
-                  cy={gyT(track.max)}
-                  r={3.5}
-                  fill="var(--warning)"
-                />
-              )}
-              <text
-                x={cx + 6}
-                y={gyT(track.max)}
-                dy="0.35em"
-                fontSize={10}
-                fill="var(--warning)"
+            />
+          ))}
+          <path
+            d={hr
+              .map(
+                (h, i) =>
+                  `${i ? "L" : "M"}${gx(h.t).toFixed(1)},${gyT(h.a).toFixed(1)}`,
+              )
+              .join("")}
+            fill="none"
+            stroke="var(--foreground)"
+            strokeWidth={1.6}
+          />
+          {sess.map(({ s, track }, i) => {
+            if (!track) return null;
+            const cx = dotX[i]!;
+            const lx = leftLabel[i] ? cx - 6 : cx + 6;
+            const anchor = leftLabel[i] ? "end" : "start";
+            return (
+              <g
+                key={s.session_id}
+                onPointerEnter={tip.show(
+                  `${s.session_id} track temperature: ${trackText(track)}`,
+                )}
+                onPointerLeave={tip.hide}
               >
-                {track.max.toFixed(0)}°
-              </text>
-              {track.min != null && (
+                {track.min != null ? (
+                  <line
+                    x1={cx}
+                    x2={cx}
+                    y1={gyT(track.max)}
+                    y2={gyT(track.min)}
+                    stroke="var(--warning)"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <circle
+                    cx={cx}
+                    cy={gyT(track.max)}
+                    r={3.5}
+                    fill="var(--warning)"
+                  />
+                )}
                 <text
-                  x={cx + 6}
-                  y={gyT(track.min)}
+                  x={lx}
+                  y={gyT(track.max)}
                   dy="0.35em"
+                  textAnchor={anchor}
                   fontSize={10}
                   fill="var(--warning)"
                 >
-                  {track.min.toFixed(0)}°
+                  {track.max.toFixed(0)}°
                 </text>
-              )}
-            </g>
-          );
-        })}
-        {hr
-          .filter((h) => new Date(h.t).getUTCHours() === 12)
-          .map((h) => (
-            <text
-              key={h.t}
-              x={gx(h.t)}
-              y={H - 8}
-              textAnchor="middle"
-              fontSize={10}
-              fill="var(--muted-foreground)"
-            >
-              {new Date(h.t).toLocaleDateString("en-GB", {
-                weekday: "short",
-                timeZone: "UTC",
-              })}
-            </text>
-          ))}
-      </svg>
+                {track.min != null && (
+                  <text
+                    x={lx}
+                    y={gyT(track.min)}
+                    textAnchor={anchor}
+                    dy="0.35em"
+                    fontSize={10}
+                    fill="var(--warning)"
+                  >
+                    {track.min.toFixed(0)}°
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          {hr
+            .filter((h) => new Date(h.t).getUTCHours() === 12)
+            .map((h) => (
+              <text
+                key={h.t}
+                x={gx(h.t)}
+                y={H - 8}
+                textAnchor="middle"
+                fontSize={10}
+                fill="var(--muted-foreground)"
+              >
+                {new Date(h.t).toLocaleDateString("en-GB", {
+                  weekday: "short",
+                  timeZone: "UTC",
+                })}
+              </text>
+            ))}
+        </svg>
+      </div>
 
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[520px] border-collapse text-sm tnum">
+        <table className="w-full border-collapse text-sm tnum sm:min-w-[520px]">
           <thead>
             <tr className="label-caps text-left">
-              {[
-                "Session",
-                "Air avg",
-                "Track min–max",
-                "Humidity avg",
-                "Wind avg",
-                "Wet laps",
-              ].map((c) => (
+              {(
+                [
+                  ["Session"],
+                  ["Air avg"],
+                  ["Track min–max"],
+                  ["Humidity avg", true],
+                  ["Wind avg", true],
+                  ["Wet laps"],
+                ] as const
+              ).map(([c, wide]) => (
                 <th
                   key={c}
-                  className="whitespace-nowrap border-b border-border px-2 py-1.5 font-semibold"
+                  className={cn(
+                    "whitespace-nowrap border-b border-border px-2 py-1.5 font-semibold",
+                    wide && SHOW.wide,
+                  )}
                 >
                   {c}
                 </th>
@@ -326,7 +360,7 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                 >
                   <td className="font-display font-bold">
                     {s.session_id}{" "}
-                    <span className="font-sans text-[11px] font-normal text-muted-foreground">
+                    <span className="font-sans text-[11px] font-normal text-muted-foreground max-sm:hidden">
                       {NAME[s.session_id]}
                     </span>
                   </td>
@@ -338,8 +372,10 @@ export function WeatherView({ weather }: { weather: WeatherDoc }) {
                         : "—"}
                   </td>
                   <td className="text-warning">{trackText(track)}</td>
-                  <td>{ob ? pct(ob.humidity_mean, 0) : "—"}</td>
-                  <td>
+                  <td className={SHOW.wide}>
+                    {ob ? pct(ob.humidity_mean, 0) : "—"}
+                  </td>
+                  <td className={SHOW.wide}>
                     {ob
                       ? `${ob.wind_speed_ms_mean.toFixed(1)} m/s`
                       : fc

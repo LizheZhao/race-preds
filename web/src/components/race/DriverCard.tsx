@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { FinishingOrderDoc, ResultsDoc } from "@/data/types";
-import { TYRE } from "./Strategy";
+import { tyreFill } from "./Strategy";
 import { pct, useRace } from "./context";
 import { lapFmt, medianPosition, plural, teamAbbr } from "./format";
 import { useTip } from "./Tip";
@@ -146,7 +146,7 @@ export function DriverCard({
                 key={i}
                 style={{
                   flex: s.end_lap - s.start_lap + 1,
-                  background: TYRE[s.compound],
+                  ...tyreFill(s.compound),
                 }}
                 onPointerEnter={tip.show(
                   <>

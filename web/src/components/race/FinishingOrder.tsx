@@ -56,11 +56,13 @@ export function FinishingOrderView({
             {
               key: "trend",
               label: "Prediction trend",
+              short: "Trend",
               disabled: trend.length < 2,
             },
             {
               key: "sessions",
               label: "Session results",
+              short: "Sessions",
               disabled: sessions.length < 2,
             },
           ]}

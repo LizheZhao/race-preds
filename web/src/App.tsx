@@ -164,7 +164,7 @@ export function App() {
             title="Tyre strategy"
             prediction
             subtitle="Plans ranked by expected race time"
-            className="lg:col-span-7"
+            className="lg:col-span-7 lg:self-stretch"
             section={sec("strategy")}
             fetchError={fetchErrors.strategy}
             hasData={!!pred("strategy") || loadingSnap}
@@ -180,7 +180,7 @@ export function App() {
             id="risk"
             title="Safety car & red flag risk"
             prediction
-            className="lg:col-span-5"
+            className="lg:col-span-5 lg:self-stretch"
             section={sec("race_incidents")}
             fetchError={fetchErrors.race_incidents}
             hasData={!!pred("race_incidents") || loadingSnap}

@@ -23,52 +23,52 @@ colors:
   tyre-wet: "#1268c9"
 typography:
   verdict-display:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(4.5rem, 9vw, 7rem)"
     fontWeight: 900
     lineHeight: 0.8
     fontVariation: "'wdth' 62"
   display:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(2.5rem, 5.5vw, 4.5rem)"
     fontWeight: 900
     lineHeight: 0.9
     letterSpacing: "-0.01em"
     fontVariation: "'wdth' 62"
   headline:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "clamp(2.5rem, 5vw, 4rem)"
     fontWeight: 900
     lineHeight: 1
     fontVariation: "'wdth' 62"
   numeral:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.875rem"
     fontWeight: 900
     lineHeight: 1
     fontFeature: "'tnum'"
     fontVariation: "'wdth' 62"
   title:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 800
     lineHeight: 1
     letterSpacing: "0.05em"
     fontVariation: "'wdth' 68"
   body:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.625
     fontFeature: "'tnum'"
   label:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.72rem"
     fontWeight: 700
     letterSpacing: "0.12em"
     fontVariation: "'wdth' 75"
   stamp:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Archivo Variable, ui-sans-serif, system-ui, sans-serif"
     fontWeight: 900
     lineHeight: 1.1
     letterSpacing: "0.12em"
@@ -188,7 +188,7 @@ A cool off-white laminate and a near-black ink carry the page; one saturated ult
 **Body Font:** Archivo at 100% width
 **Label Font:** Archivo at 75% width, uppercase
 
-**Known gap:** Archivo is still loaded from the Google Fonts CDN (`wdth,wght@62..125,400..900`) rather than self-hosted with the site.
+Archivo is self-hosted with the site through `@fontsource-variable/archivo` (`standard.css`: weight 100-900, width 62-125%, family name `Archivo Variable`); only the Latin subsets download. Nothing loads from a font CDN.
 
 **Character:** One family doing all the work through its width axis: heavy, narrow 62-68% lettering for names, codes and numerals, like the stamped type on a pass; normal width for sentences so they stay readable. All numbers are tabular.
 
@@ -247,7 +247,7 @@ The last row of every prediction section: 1px top rule, laminate at 60% over the
 PENDING and NO SNAPSHOT (subtle ink), VOID (marshal red), STALE (ochre, in the section header, with a yellow-tinted notice box below), WON and BEATEN in the verdict. A section in any of these states keeps its frame and title; the body becomes a centred stamp with one line of explanation.
 
 ### Segmented Control
-A 1px ink-bordered group of uppercase 68%-width buttons (700, 0.875rem, 0.06em tracking, 6px 12px). The pressed option inverts to ink with laminate text; others hover to 8% ink; disabled options fall to 30%. Pressed state is exposed with `aria-pressed`.
+A 1px ink-bordered group of uppercase 68%-width buttons (700, 0.875rem, 0.06em tracking, 6px 12px). The pressed option inverts to ink with laminate text; others hover to 8% ink; disabled options fall to 30%. Pressed state is exposed with `aria-pressed`. Below 640px the group spans the column, options share it equally (8px side padding) and show their short label (Trend, Quali, Drivers) with the full label as the accessible name.
 
 ### Popover and Tooltip
 White, 1px ink border, square, 12px text. Popovers hold the uncalibrated-model note and the backtest; the cursor tooltip follows the pointer on charts and works on tap.

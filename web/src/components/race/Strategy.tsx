@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { CSSProperties } from "react";
 import type { Compound, StrategyDoc } from "@/data/types";
 import { useTip } from "./Tip";
 
@@ -17,6 +18,21 @@ export const TYRE: Record<Compound, string> = {
   INTERMEDIATE: "var(--tyre-inter)",
   WET: "var(--tyre-wet)",
 };
+/** Fill for a compound swatch or stint. The hard tyre is white, so it carries an ink edge on the white card. */
+export const tyreFill = (c: Compound): CSSProperties => ({
+  background: TYRE[c],
+  boxShadow:
+    c === "HARD"
+      ? "inset 0 0 0 1px color-mix(in oklab, var(--foreground) 55%, transparent)"
+      : undefined,
+});
+
+/** Stroke for a compound drawn as a line: white would vanish, so the hard tyre is drawn in ink. */
+const TYRE_LINE: Record<Compound, string> = {
+  ...TYRE,
+  HARD: "var(--foreground)",
+};
+
 export const INITIAL: Record<Compound, string> = {
   SOFT: "S",
   MEDIUM: "M",
@@ -39,10 +55,7 @@ export function CompoundLegend({ doc }: { doc: StrategyDoc }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
       {(["SOFT", "MEDIUM", "HARD"] as const).map((c) => (
         <span key={c} className="flex items-center gap-1.5">
-          <span
-            className="size-2.5 rounded-full"
-            style={{ background: TYRE[c] }}
-          />
+          <span className="size-2.5 rounded-full" style={tyreFill(c)} />
           {doc.compounds_available?.[c] ? (
             <>
               <span className="font-semibold">
@@ -94,77 +107,75 @@ export function StrategyView({ doc }: { doc: StrategyDoc }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[520px]">
-          {opts.map((o, i) => (
-            <div
-              key={o.id}
-              className="grid h-[46px] grid-cols-[110px_minmax(0,1fr)_72px] items-start gap-3.5 pt-1.5"
-            >
-              <span className="font-display text-sm font-semibold leading-4">
-                {planName(o)}
-              </span>
-              <div className="relative h-4">
-                {o.stints.map((s, k) => (
+      <div>
+        {opts.map((o, i) => (
+          <div
+            key={o.id}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3.5 gap-y-2 pt-1.5 pb-6 sm:h-[46px] sm:grid-cols-[110px_minmax(0,1fr)_72px] sm:pb-0"
+          >
+            <span className="font-display text-sm font-semibold leading-4">
+              {planName(o)}
+            </span>
+            <div className="relative col-span-2 row-start-2 h-4 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+              {o.stints.map((s, k) => (
+                <span
+                  key={k}
+                  className="absolute inset-y-0"
+                  style={{
+                    left: `${x(s.start_lap)}%`,
+                    width: `${x(s.end_lap + 1) - x(s.start_lap)}%`,
+                    ...tyreFill(s.compound),
+                  }}
+                  onPointerEnter={tip.show(
+                    <>
+                      {s.compound} · laps {s.start_lap}–{s.end_lap}
+                    </>,
+                  )}
+                  onPointerLeave={tip.hide}
+                />
+              ))}
+              {o.pit_windows.map((p) => (
+                <span key={p.stop}>
                   <span
-                    key={k}
-                    className="absolute inset-y-0"
+                    className="hatch absolute -inset-y-1 border border-foreground/45"
                     style={{
-                      left: `${x(s.start_lap)}%`,
-                      width: `${x(s.end_lap + 1) - x(s.start_lap)}%`,
-                      background: TYRE[s.compound],
+                      left: `${x(p.earliest_lap)}%`,
+                      width: `${x(p.latest_lap + 1) - x(p.earliest_lap)}%`,
                     }}
                     onPointerEnter={tip.show(
                       <>
-                        {s.compound} · laps {s.start_lap}–{s.end_lap}
+                        Stop {p.stop}: laps {p.earliest_lap}–{p.latest_lap}
                       </>,
                     )}
                     onPointerLeave={tip.hide}
                   />
-                ))}
-                {o.pit_windows.map((p) => (
-                  <span key={p.stop}>
-                    <span
-                      className="hatch absolute -inset-y-1 border border-foreground/45"
-                      style={{
-                        left: `${x(p.earliest_lap)}%`,
-                        width: `${x(p.latest_lap + 1) - x(p.earliest_lap)}%`,
-                      }}
-                      onPointerEnter={tip.show(
-                        <>
-                          Stop {p.stop}: laps {p.earliest_lap}–{p.latest_lap}
-                        </>,
-                      )}
-                      onPointerLeave={tip.hide}
-                    />
-                    <span
-                      className="pointer-events-none absolute top-[22px] -translate-x-1/2 whitespace-nowrap text-[11px] text-muted-foreground tnum"
-                      style={{
-                        left: `${(x(p.earliest_lap) + x(p.latest_lap + 1)) / 2}%`,
-                      }}
-                    >
-                      L{p.earliest_lap}–{p.latest_lap}
-                    </span>
+                  <span
+                    className="pointer-events-none absolute top-[22px] -translate-x-1/2 whitespace-nowrap text-[11px] text-muted-foreground tnum"
+                    style={{
+                      left: `${(x(p.earliest_lap) + x(p.latest_lap + 1)) / 2}%`,
+                    }}
+                  >
+                    L{p.earliest_lap}–{p.latest_lap}
                   </span>
-                ))}
-              </div>
-              <span className="text-right text-sm leading-4 tnum">
-                {i === 0 ? (
-                  <span className="font-bold">Fastest</span>
-                ) : (
-                  `+${o.expected_time_delta_s.toFixed(1)} s`
-                )}
-              </span>
+                </span>
+              ))}
             </div>
-          ))}
-          <div className="mr-[86px] ml-[124px] mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground tnum">
-            <span>Lap 1</span>
-            <span className="flex items-center gap-1.5">
-              <span className="hatch inline-block h-3 w-3 border border-foreground/45" />
-              pit window
+            <span className="col-start-2 row-start-1 text-right text-sm leading-4 tnum sm:col-start-3">
+              {i === 0 ? (
+                <span className="font-bold">Fastest</span>
+              ) : (
+                `+${o.expected_time_delta_s.toFixed(1)} s`
+              )}
             </span>
-            <span>Lap {L}</span>
           </div>
+        ))}
+        <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground tnum sm:mr-[86px] sm:ml-[124px]">
+          <span>Lap 1</span>
+          <span className="flex items-center gap-1.5">
+            <span className="hatch inline-block h-3 w-3 border border-foreground/45" />
+            pit window
+          </span>
+          <span>Lap {L}</span>
         </div>
       </div>
 
@@ -191,12 +202,14 @@ function Degradation({ doc }: { doc: StrategyDoc }) {
 
   return (
     <div className="mt-5">
-      <p className="label-caps mb-2">Degradation · lap delta vs tyre age</p>
+      <p className="label-caps mb-2">
+        Degradation · lap delta vs tyre age in laps
+      </p>
       <div className="h-[210px]">
         <ResponsiveContainer>
           <LineChart
             data={data}
-            margin={{ top: 10, right: 70, bottom: 0, left: -6 }}
+            margin={{ top: 10, right: 58, bottom: 0, left: -6 }}
           >
             <CartesianGrid vertical={false} stroke="var(--border)" />
             <XAxis
@@ -204,13 +217,6 @@ function Degradation({ doc }: { doc: StrategyDoc }) {
               tickLine={false}
               axisLine={false}
               tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
-              label={{
-                value: "laps",
-                position: "insideBottomRight",
-                offset: -2,
-                fill: "var(--muted-foreground)",
-                fontSize: 10,
-              }}
             />
             <YAxis
               tickLine={false}
@@ -241,7 +247,7 @@ function Degradation({ doc }: { doc: StrategyDoc }) {
                 key={d.compound}
                 type="monotone"
                 dataKey={d.compound}
-                stroke={TYRE[d.compound]}
+                stroke={TYRE_LINE[d.compound]}
                 strokeWidth={2}
                 dot={false}
                 connectNulls
@@ -263,7 +269,7 @@ function Degradation({ doc }: { doc: StrategyDoc }) {
                       dy="0.35em"
                       fontSize={11}
                       fontWeight={600}
-                      fill={TYRE[d.compound]}
+                      fill="var(--foreground)"
                     >
                       {NAME[d.compound]}
                     </text>

@@ -3,18 +3,24 @@ import { cn } from "@/lib/utils";
 import { useRace } from "./context";
 
 export type Align = "left" | "right";
+/** Columns shown only from the `sm` breakpoint up (`wide`) or only below it (`narrow`). */
+export type Show = "wide" | "narrow";
+export const SHOW: Record<Show, string> = {
+  wide: "max-sm:hidden",
+  narrow: "sm:hidden",
+};
 
 /** Plain table whose rows can pin a driver. Cells never wrap. */
 export function ResultsTable({
   head,
   children,
 }: {
-  head: { label: string; align?: Align }[];
+  head: { label: string; align?: Align; show?: Show }[];
   children: ReactNode;
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] border-collapse text-sm tnum">
+      <table className="w-full border-collapse text-sm tnum sm:min-w-[560px]">
         <thead>
           <tr>
             {head.map((h) => (
@@ -23,6 +29,7 @@ export function ResultsTable({
                 className={cn(
                   "label-caps whitespace-nowrap border-b border-border px-2 py-1.5 font-semibold",
                   h.align === "right" ? "text-right" : "text-left",
+                  h.show && SHOW[h.show],
                 )}
               >
                 {h.label}
@@ -90,7 +97,9 @@ export function NameCell({
         />
         <b className="font-semibold">{name}</b>
         {sub && (
-          <span className="ml-2 text-[11px] text-muted-foreground">{sub}</span>
+          <span className="ml-2 text-[11px] text-muted-foreground max-sm:hidden">
+            {sub}
+          </span>
         )}
       </span>
     </td>

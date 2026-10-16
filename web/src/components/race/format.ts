@@ -31,8 +31,8 @@ export const gainClass = (g: number | null) =>
   g == null || g === 0
     ? "text-muted-foreground"
     : g > 0
-      ? "text-foreground"
-      : "text-primary";
+      ? "text-gain"
+      : "text-flag-red";
 
 const TEAM_ABBR: Record<string, string> = {
   mercedes: "MER",

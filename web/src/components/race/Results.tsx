@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { useRace } from "./context";
 import { gainClass, gainLabel, lapFmt, placesGained } from "./format";
 import { Seg } from "./Seg";
-import { DriverRow, NameCell, ResultsTable } from "./ResultsTable";
+import { DriverRow, NameCell, ResultsTable, SHOW } from "./ResultsTable";
 import { DriversStandings, TeamsStandings } from "./Standings";
 
 type Tab = "race" | "sprint" | "qualifying" | "drivers" | "teams";
@@ -14,6 +14,13 @@ const LABEL: Record<Tab, string> = {
   qualifying: "Qualifying",
   drivers: "Drivers' standings",
   teams: "Teams' standings",
+};
+const SHORT: Record<Tab, string> = {
+  race: "Race",
+  sprint: "Sprint",
+  qualifying: "Quali",
+  drivers: "Drivers",
+  teams: "Teams",
 };
 
 /** Session classifications and the championship, one table at a time. */
@@ -38,7 +45,11 @@ export function ResultsView({ doc }: { doc: ResultsDoc }) {
           label="Session"
           value={active ?? "race"}
           onChange={setTab}
-          options={tabs.map((t) => ({ key: t, label: LABEL[t] }))}
+          options={tabs.map((t) => ({
+            key: t,
+            label: LABEL[t],
+            short: SHORT[t],
+          }))}
         />
       </div>
       <div key={active} className="stage-fade">
@@ -65,10 +76,11 @@ function ClassTable({ rows }: { rows: RaceRow[] }) {
       head={[
         { label: "Pos" },
         { label: "Driver" },
-        ...["Grid", "+/−", "Laps", "Status", "Pts"].map((label) => ({
-          label,
-          align: "right" as const,
-        })),
+        { label: "Grid", align: "right" },
+        { label: "+/−", align: "right" },
+        { label: "Laps", align: "right", show: "wide" },
+        { label: "Status", align: "right", show: "wide" },
+        { label: "Pts", align: "right" },
       ]}
     >
       {sorted.map((r) => {
@@ -85,8 +97,8 @@ function ClassTable({ rows }: { rows: RaceRow[] }) {
             />
             <td className={muted}>{r.grid != null ? `P${r.grid}` : "Pit"}</td>
             <td className={cn("text-right", gainClass(g))}>{gainLabel(g)}</td>
-            <td className={muted}>{r.laps}</td>
-            <td className={cn(muted, "text-xs")}>{r.status}</td>
+            <td className={cn(muted, SHOW.wide)}>{r.laps}</td>
+            <td className={cn(muted, "text-xs", SHOW.wide)}>{r.status}</td>
             <td className="text-right">{r.points || ""}</td>
           </DriverRow>
         );
@@ -106,10 +118,11 @@ function QualiTable({ rows }: { rows: QualiRow[] }) {
       head={[
         { label: "Pos" },
         { label: "Driver" },
-        ...["Q1", "Q2", "Q3", "Gap"].map((label) => ({
-          label,
-          align: "right" as const,
-        })),
+        { label: "Q1", align: "right", show: "wide" },
+        { label: "Q2", align: "right", show: "wide" },
+        { label: "Q3", align: "right", show: "wide" },
+        { label: "Best", align: "right", show: "narrow" },
+        { label: "Gap", align: "right" },
       ]}
     >
       {sorted.map((r) => {
@@ -122,9 +135,10 @@ function QualiTable({ rows }: { rows: QualiRow[] }) {
               name={drivers.get(r.driver_id)?.last_name ?? r.driver_id}
               sub={teamOf(r.driver_id)?.name}
             />
-            <td className={muted}>{lapFmt(r.q1_s)}</td>
-            <td className={muted}>{lapFmt(r.q2_s)}</td>
-            <td className="text-right">{lapFmt(r.q3_s)}</td>
+            <td className={cn(muted, SHOW.wide)}>{lapFmt(r.q1_s)}</td>
+            <td className={cn(muted, SHOW.wide)}>{lapFmt(r.q2_s)}</td>
+            <td className={cn("text-right", SHOW.wide)}>{lapFmt(r.q3_s)}</td>
+            <td className={cn("text-right", SHOW.narrow)}>{lapFmt(b)}</td>
             <td className={muted}>
               {r.position === 1
                 ? "pole"

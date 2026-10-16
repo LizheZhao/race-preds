@@ -3,11 +3,14 @@ import { cn } from "@/lib/utils";
 import { gainClass, gainLabel, medianPosition, placesGained } from "./format";
 import { pct, useRace } from "./context";
 import { useTip } from "./Tip";
+import { useWidth } from "./useWidth";
 
 const ROW = 22;
 const CELL = 18;
+const MIN_CELL = 8;
 const GAP = 2;
 const BAR_PX = 28;
+const STATS_PX = 232 + 52;
 const GAIN_TIP =
   "Grid slot minus the most likely finish. ▲2 means the model expects this driver to gain 2 places from where they start. ▼ means expected to lose places.";
 
@@ -23,6 +26,7 @@ export function Heatmap({
 }) {
   const { drivers, colorOf, highlight, toggleHighlight } = useRace();
   const tip = useTip();
+  const [ref, width] = useWidth<HTMLDivElement>();
   const rows = [...doc.drivers].sort(
     (a, b) =>
       (a.expected_position_if_classified ?? Infinity) -
@@ -31,20 +35,26 @@ export function Heatmap({
   const n = Math.max(0, ...rows.map((r) => r.position_probs.length));
   const max = Math.max(1e-4, ...rows.flatMap((r) => r.position_probs));
   const byId = new Map((result ?? []).map((r) => [r.driver_id, r]));
-  const cols = [
-    "26px",
-    "78px",
-    `${n * (CELL + GAP)}px`,
-    "repeat(4, 58px)",
-    "52px",
-  ].join(" ");
-  const minWidth = 26 + 78 + n * (CELL + GAP) + 232 + 52;
+  // Narrow screens drop the stat columns and shrink the cells so every position stays in view.
+  const full = 26 + 78 + n * (CELL + GAP) + STATS_PX;
+  const compact = width > 0 && width < full;
+  const cell = compact
+    ? Math.max(MIN_CELL, Math.min(CELL, Math.floor((width - 92) / n) - GAP))
+    : CELL;
+  const cols = (
+    compact
+      ? ["22px", "70px", `${n * (cell + GAP)}px`]
+      : ["26px", "78px", `${n * (cell + GAP)}px`, "repeat(4, 58px)", "52px"]
+  ).join(" ");
+  const minWidth = compact ? 92 + n * (cell + GAP) : full;
+  const tick = (k: number) =>
+    cell >= 14 || k === 0 || (k + 1) % 5 === 0 ? k + 1 : "";
   const head =
     "flex items-end pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
   const right = "justify-end pr-2";
 
   return (
-    <div className="overflow-x-auto">
+    <div ref={ref} className="overflow-x-auto">
       {tip.node}
       <div style={{ minWidth }}>
         <div className="grid h-6" style={{ gridTemplateColumns: cols }}>
@@ -54,30 +64,33 @@ export function Heatmap({
             className={cn(head, "tnum")}
             style={{
               display: "grid",
-              gridTemplateColumns: `repeat(${n}, ${CELL}px)`,
+              gridTemplateColumns: `repeat(${n}, ${cell}px)`,
               gap: GAP,
             }}
           >
             {Array.from({ length: n }, (_, k) => (
               <span key={k} className="text-center">
-                {k + 1}
+                {tick(k)}
               </span>
             ))}
           </span>
-          {["Win", "Podium", "Points", "DNF"].map((l) => (
-            <span key={l} className={cn(head, right)}>
-              {l}
+          {!compact &&
+            ["Win", "Podium", "Points", "DNF"].map((l) => (
+              <span key={l} className={cn(head, right)}>
+                {l}
+              </span>
+            ))}
+          {!compact && (
+            <span className={cn(head, right)}>
+              <span
+                className="cursor-help border-b border-dotted border-muted-foreground"
+                onPointerEnter={tip.show(GAIN_TIP)}
+                onPointerLeave={tip.hide}
+              >
+                Gain
+              </span>
             </span>
-          ))}
-          <span className={cn(head, right)}>
-            <span
-              className="cursor-help border-b border-dotted border-muted-foreground"
-              onPointerEnter={tip.show(GAIN_TIP)}
-              onPointerLeave={tip.hide}
-            >
-              Gain
-            </span>
-          </span>
+          )}
         </div>
         {rows.map((r, i) => {
           const id = r.driver_id;
@@ -121,9 +134,11 @@ export function Heatmap({
                 <span className="font-display text-[13px] font-semibold">
                   {d?.code ?? id}
                 </span>
-                <span className="ml-1.5 text-[11px] text-muted-foreground tnum">
-                  {d?.number}
-                </span>
+                {!compact && (
+                  <span className="ml-1.5 text-[11px] text-muted-foreground tnum">
+                    {d?.number}
+                  </span>
+                )}
                 {res && rp == null && (
                   <span className="ml-1.5 text-[11px] font-semibold text-result">
                     {res.classified_as === "R" ? "DNF" : res.classified_as}
@@ -133,7 +148,7 @@ export function Heatmap({
               <span
                 className="grid"
                 style={{
-                  gridTemplateColumns: `repeat(${n}, ${CELL}px)`,
+                  gridTemplateColumns: `repeat(${n}, ${cell}px)`,
                   gap: GAP,
                 }}
               >
@@ -162,44 +177,47 @@ export function Heatmap({
                           "relative z-10 outline-2 -outline-offset-1 outline-result",
                       )}
                       style={{
-                        height: CELL,
+                        height: cell >= 14 ? CELL : cell + 6,
                         background: `color-mix(in oklab, var(--primary) ${level}%, transparent)`,
                       }}
                     />
                   );
                 })}
               </span>
-              {(
-                [
-                  ["Win", r.p_win],
-                  ["Podium", r.p_podium],
-                  ["Points", r.p_points],
-                  ["DNF", r.p_dnf],
-                ] as const
-              ).map(([l, v]) => (
-                <span
-                  key={l}
-                  className="flex items-center justify-end gap-1.5 pr-2"
-                  onPointerEnter={tip.show(
-                    <>
-                      {name} · {l}: {pct(v)} {noun}
-                    </>,
-                  )}
-                  onPointerLeave={tip.hide}
-                >
-                  <i
-                    className={cn(
-                      "block h-1 rounded-sm",
-                      l === "DNF" ? "bg-flag-red" : "bg-primary",
+              {!compact &&
+                (
+                  [
+                    ["Win", r.p_win],
+                    ["Podium", r.p_podium],
+                    ["Points", r.p_points],
+                    ["DNF", r.p_dnf],
+                  ] as const
+                ).map(([l, v]) => (
+                  <span
+                    key={l}
+                    className="flex items-center justify-end gap-1.5 pr-2"
+                    onPointerEnter={tip.show(
+                      <>
+                        {name} · {l}: {pct(v)} {noun}
+                      </>,
                     )}
-                    style={{ width: Math.max(2, v * BAR_PX) }}
-                  />
-                  <span className={num}>{Math.round(v * 100)}</span>
+                    onPointerLeave={tip.hide}
+                  >
+                    <i
+                      className={cn(
+                        "block h-1 rounded-sm",
+                        l === "DNF" ? "bg-flag-red" : "bg-primary",
+                      )}
+                      style={{ width: Math.max(2, v * BAR_PX) }}
+                    />
+                    <span className={num}>{Math.round(v * 100)}</span>
+                  </span>
+                ))}
+              {!compact && (
+                <span className={cn(num, "pr-2 text-right", gainClass(gain))}>
+                  {gainLabel(gain)}
                 </span>
-              ))}
-              <span className={cn(num, "pr-2 text-right", gainClass(gain))}>
-                {gainLabel(gain)}
-              </span>
+              )}
             </div>
           );
         })}
