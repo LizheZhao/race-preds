@@ -48,9 +48,9 @@ model scores, as designed.
    - ~~dry run steps 1–2~~ done 2026-10-13 in CI (R17, and R18's Thursday build);
      step 3, a quiet scheduled run, comes Thursday 2026-10-15
    - let the Thursday R18 build be the first real publish
-   - merge `phase2` into `main`, then upload `finishing_order` v5 and `qualifying` v4 as
-     the `models` release (`registry export <section> --version N --upload`); not before,
-     since `main` can't load them (Phase 3 plan, step 5)
+   - ~~merge `phase2` into `main`, then upload `finishing_order` v5 and `qualifying` v4 as
+     the `models` release~~ done 2026-10-16; the next publish scores them (Phase 3 plan,
+     step 5)
    - redeploy the bundle with the 2026-10-15 ingest fix (after `databricks auth login
      --profile race-preds`; the CLI's refresh token expired that day). F1 has blocked the
      live timing archive since 2026-10-15; if that lasts to 2026-10-23, every R18 session
@@ -1037,18 +1037,18 @@ Each step ends in its own check. Don't start the next step until it passes.
   - Publish uses a bundle only when its `trained_through` is before the round being
     published. A replay never scores a round with a model that saw its result.
   - Without a bundle, or without `gold.features` rows for the stage, publish scores the
-    baseline as before. No `models` release exists yet, so the live site is unchanged.
+    baseline as before. The `models` release exists since 2026-10-16 (below).
   - Version 1 is trained through R17 (2026-10-11). Version 2 is trained before R17 and
     passed the check: every R17 stage published `strength-pl v2` and `check_round` held.
     Its probabilities are flat (pole sitter 11.7% to win, behind P2), the ordering
     weakness from step 4. No `champion` alias is set.
   - 2026-10-16: `finishing_order` v5 (`strength-pl-stage`) and `qualifying` v4
     (`strength-pl-quali`), both trained through R17 (2026-10-11), are registered and
-    exported to `models/`, **not uploaded**. `main`, which the scheduled dispatcher runs,
-    can't load them (`StrengthPLStage` and `QualiStrengthPL` exist only on `phase2`), so
-    a `models` release before `phase2` merges would turn the live `finishing_order` card
-    to `error`. RPS: v5 0.1277 vs `grid-order` 0.146 on the 2026 walk-forward before Q
-    (0.1204 vs 0.1421 after Q); v4 0.076 vs `quali-season-average` 0.0941 before Q.
+    released as the `models` asset (`models-v1.tar.gz`) once `phase2` was merged into
+    `main` (`cae527f`); before that merge `main` couldn't load them, since
+    `StrengthPLStage` and `QualiStrengthPL` were only on `phase2`. A fresh `registry
+    download` returns both. RPS on the 2026 walk-forward: v5 0.1277 vs `grid-order` 0.146
+    before Q (0.1204 vs 0.1421 after Q); v4 0.076 vs `quali-season-average` 0.0941 before Q.
 
 #### Step 5b: features for the live round (before any champion goes live)
 
