@@ -2,6 +2,7 @@ import type { FinishingOrderDoc, RaceRow } from "@/data/types";
 import { cn } from "@/lib/utils";
 import { predictedOrder, scorecard } from "./compare";
 import { pct, probNoun, useRace } from "./context";
+import { STAGE_LABEL } from "./stages";
 
 /** The one question the page answers first: who the model favours, and whether it came true. */
 export function Verdict({
@@ -25,6 +26,10 @@ export function Verdict({
   const card = result ? scorecard(doc, result) : null;
   const won = card ? card.winner === fav.driver_id : null;
   const top3 = predictedOrder(doc).slice(0, 3);
+  const when =
+    stageLabel === STAGE_LABEL.pre_weekend
+      ? "before the weekend"
+      : `after ${stageLabel}`;
 
   return (
     <section
@@ -36,13 +41,8 @@ export function Verdict({
           <span className="xcond text-[clamp(4.5rem,9vw,7rem)] leading-[0.8] font-black">
             {code(fav.driver_id)}
           </span>
-          <span className="flex flex-col">
-            <span className="xcond text-[clamp(2.5rem,5vw,4rem)] leading-none font-black text-primary tnum">
-              {pct(fav.p_win)}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              favourite · win {noun} after {stageLabel}
-            </span>
+          <span className="xcond text-[clamp(2.5rem,5vw,4rem)] leading-none font-black text-primary tnum">
+            {pct(fav.p_win)}
           </span>
           {won != null && (
             <span
@@ -57,9 +57,7 @@ export function Verdict({
         </div>
         <p className="mt-4 max-w-[60ch] text-base leading-relaxed md:text-lg">
           {card
-            ? won
-              ? `${name}${team ? ` (${team.name})` : ""} went into the race as the model's favourite and won it.`
-              : `${name} was the model's favourite; ${card.winner ? `${drivers.get(card.winner)?.last_name ?? card.winner} won` : "the race has no classified winner"}.`
+            ? `${name}${team ? ` (${team.name})` : ""} was the model's favourite race winner ${when}.`
             : `${name}${team ? ` (${team.name})` : ""} leads the predicted order, ahead of ${top3
                 .slice(1)
                 .map((id) => code(id))

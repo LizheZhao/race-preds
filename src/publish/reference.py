@@ -1,6 +1,6 @@
 """
-reference data from outside the lakehouse: FastF1 schedule and entry list, Ergast
-(jolpica) circuit, standings and history, Open-Meteo weather, circuit geometry
+reference data: FastF1 schedule, the entry list (from the lakehouse's bronze results),
+Ergast (jolpica) circuit, standings and history, Open-Meteo weather, circuit geometry
 
 everything is "as of" the round being published: history stops at the previous round,
 so a replay of a past weekend sees what was knowable before it. Results are cached for
@@ -20,6 +20,7 @@ from fastf1.ergast import Ergast
 from fastf1.exceptions import ErgastInvalidRequestError
 
 from src.config import CIRCUIT_DIR, STORY_DIR, TYRE_DIR
+from src.publish import lakehouse as lh
 from src.results import collect_pages
 
 RACE_DISTANCE_KM = 305  # FIA minimum race distance; race laps = the fewest laps covering it
@@ -172,41 +173,42 @@ def race_laps(circuit_id: str, before_season: int, length_km: float) -> int:
 
 
 @cache
-def _session_results(season: int, rnd: int, session_name: str) -> pd.DataFrame:
-    session = fastf1.get_session(season, rnd, session_name)
-    session.load(laps=False, telemetry=False, weather=False, messages=False)
-    return session.results.reset_index(drop=True)
-
-
-@cache
 def _ergast_driver_ids(season: int) -> dict[str, str]:
     """driver code -> Ergast driverId for everyone entered in the season so far"""
     drivers = _retry(_ergast().get_driver_info, season=season)
     return dict(zip(drivers["driverCode"], drivers["driverId"]))
 
 
+def _blank(col: pd.Series) -> pd.Series:
+    return col.fillna("").isin(("", "nan"))
+
+
 @cache
-def entry_list(season: int, rnd: int, session_name: str | None = None) -> pd.DataFrame:
+def entry_list(season: int, rnd: int, session_id: str | None = None) -> pd.DataFrame:
     """
-    the field: the classification of `session_name` this weekend, or of the previous round's
-    race when None (before a session has run, or after FP1 only, where rookies stand in).
-    While a weekend is in progress FastF1 has no Ergast ids yet; they come from the previous
-    round (driver code, team name) and the season's Ergast driver list. Known gap: a season
-    opener has no previous round
+    the field: the classification of `session_id` this weekend, or of the previous round's
+    race when None (before a session has run, or after FP1 only, where rookies stand in);
+    empty when the lakehouse does not hold the session.
+    Read from bronze.results, not FastF1: the runner can't reach F1 live timing, and FastF1's
+    Ergast fallback has no practice or sprint qualifying classification and no team colours.
+    While a weekend is in progress the session has no Ergast ids yet; they come from the
+    previous round (driver code, team name) and the season's Ergast driver list, and so does
+    a missing team colour. Known gap: a season opener has no previous round
     """
-    if session_name is None and rnd == 1:
+    if session_id is None and rnd == 1:
         raise LookupError("no previous round to take the season opener's entry list from")
-    r = _session_results(season, rnd - 1, "Race") if session_name is None else _session_results(season, rnd, session_name)
-    r = r.copy()
-    if ((r["DriverId"] == "") | (r["TeamId"] == "")).any() and rnd > 1:
-        prev = _session_results(season, rnd - 1, "Race")
+    r = lh.entrants(season, rnd - 1, "R") if session_id is None else lh.entrants(season, rnd, session_id)
+    r = r.sort_values(["Position", "Abbreviation"], na_position="last").reset_index(drop=True)
+    if (_blank(r["DriverId"]) | _blank(r["TeamId"]) | _blank(r["TeamColor"])).any() and rnd > 1:
+        prev = lh.entrants(season, rnd - 1, "R")
         driver_ids = {**_ergast_driver_ids(season), **dict(zip(prev["Abbreviation"], prev["DriverId"]))}
-        team_ids = dict(zip(prev["TeamName"], prev["TeamId"]))
-        r["DriverId"] = r["DriverId"].where(r["DriverId"] != "", r["Abbreviation"].map(driver_ids))
-        r["TeamId"] = r["TeamId"].where(r["TeamId"] != "", r["TeamName"].map(team_ids))
-    missing = r.loc[r["DriverId"].fillna("").eq("") | r["TeamId"].fillna("").eq(""), "Abbreviation"].tolist()
+        team_ids, colors = dict(zip(prev["TeamName"], prev["TeamId"])), dict(zip(prev["TeamId"], prev["TeamColor"]))
+        r["DriverId"] = r["DriverId"].where(~_blank(r["DriverId"]), r["Abbreviation"].map(driver_ids))
+        r["TeamId"] = r["TeamId"].where(~_blank(r["TeamId"]), r["TeamName"].map(team_ids))
+        r["TeamColor"] = r["TeamColor"].where(~_blank(r["TeamColor"]), r["TeamId"].map(colors))
+    missing = r.loc[_blank(r["DriverId"]) | _blank(r["TeamId"]), "Abbreviation"].tolist()
     if missing:
-        raise LookupError(f"{season} R{rnd} {session_name or 'previous race'}: no Ergast ids for {missing}")
+        raise LookupError(f"{season} R{rnd} {session_id or 'previous race'}: no Ergast ids for {missing}")
     return pd.DataFrame({
         "driver_id": r["DriverId"], "code": r["Abbreviation"], "number": r["DriverNumber"].astype(int),
         "first_name": r["FirstName"], "last_name": r["LastName"], "team_id": r["TeamId"],

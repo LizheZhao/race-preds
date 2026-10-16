@@ -67,11 +67,16 @@ def _num(value) -> float | None:
 
 
 def entries(ctx: Context) -> pd.DataFrame:
-    """the field as known at the stage: the latest session run this weekend except FP1 (rookies
-    stand in there), before that the previous round's race"""
-    names = {s["session_id"]: s["session_name"] for s in ctx.sessions}
-    run = [sid for sid in ctx.usable if sid != "FP1"]
-    return ref.entry_list(ctx.season, ctx.round, names[run[-1]] if run else None)
+    """the field as known at the stage: the latest session run this weekend that the lakehouse
+    holds, except FP1 (rookies stand in there), before that the previous round's race"""
+    for sid in reversed([sid for sid in ctx.usable if sid != "FP1"]):
+        roster = ref.entry_list(ctx.season, ctx.round, sid)
+        if len(roster):
+            return roster
+    roster = ref.entry_list(ctx.season, ctx.round)
+    if roster.empty:
+        raise LookupError(f"{ctx.season} R{ctx.round - 1} race is not in the lakehouse, no entry list")
+    return roster
 
 
 def _ids(ctx: Context, frame: pd.DataFrame) -> pd.DataFrame:
@@ -269,11 +274,13 @@ def _strategies(stints: pd.DataFrame) -> list[schema.DriverStrategy]:
 
 
 def _practice(ctx: Context) -> list[schema.PracticeSession]:
-    """each practice session run so far, drivers ranked by best lap and those without a timed lap last"""
+    """each practice session run so far, the field's drivers ranked by best lap and those without a timed
+    lap last; FP1 stand-ins, and at FP1 a driver new since the last race, are not in the field"""
     ran = [sid for sid in ("FP1", "FP2", "FP3") if sid in ctx.usable]
     if not ran:
         return []
-    laps = _ids(ctx, lh.practice_laps(ctx.season, ctx.round, ran)).dropna(subset=["driver_id"])
+    laps = _ids(ctx, lh.practice_laps(ctx.season, ctx.round, ran))
+    laps = laps[laps["driver_id"].isin(entries(ctx)["driver_id"])]
     sessions = []
     for sid in ran:
         ranked = laps[laps["session_id"] == sid].sort_values(["best_lap_rank", "driver_id"], na_position="last")

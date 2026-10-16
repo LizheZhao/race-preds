@@ -48,6 +48,9 @@ model scores, as designed.
    - ~~dry run steps 1–2~~ done 2026-10-13 in CI (R17, and R18's Thursday build);
      step 3, a quiet scheduled run, comes Thursday 2026-10-15
    - let the Thursday R18 build be the first real publish
+   - ~~merge `phase2` into `main`, then upload `finishing_order` v5 and `qualifying` v4 as
+     the `models` release~~ done 2026-10-16; the next publish scores them (Phase 3 plan,
+     step 5)
    - redeploy the bundle with the 2026-10-15 ingest fix (after `databricks auth login
      --profile race-preds`; the CLI's refresh token expired that day). F1 has blocked the
      live timing archive since 2026-10-15; if that lasts to 2026-10-23, every R18 session
@@ -315,10 +318,16 @@ failed run.
   - Silver takes them from any session of the same round, so on a weekend in progress
     they are null (checked: 2026 R17 FP1 and SQ had 22 empty ids on race day). `driver`,
     the three-letter code, is always set.
-  - Publish does not depend on them. It takes the field from FastF1, fills missing ids by
+  - Publish does not depend on them. It takes the field from `bronze.results` of the
+    latest session run (not FP1), else the previous round's race, fills missing ids by
     driver code and team name from the previous round and the season's Ergast driver
-    list, then maps silver rows by code. Checked on 2026 R17 sprint qualifying, whose 22
-    FastF1 ids were empty.
+    list, and a missing team colour by team id from the previous round. It then maps
+    silver rows by code. Checked on 2026 R17 sprint qualifying, whose 22 FastF1 ids were
+    empty.
+  - Publish used to load the field from FastF1 (2026-10-16). Without live timing (always on
+    the GitHub runner, and during F1's block) FastF1 falls back to Ergast, which has no
+    practice or sprint qualifying classification and no team colours: the R17 replay
+    published no SQ snapshot and grey teams.
 - **Fuel correction.** `lap_time_fuel_corr_s = lap_time_s - 0.03 s/kg × fuel_kg`, with the
   start fuel burned linearly to zero over the session's laps.
   - Start fuel is 110 kg to 2025 and **70 kg from 2026, an approximation**: the 2026
@@ -1028,11 +1037,18 @@ Each step ends in its own check. Don't start the next step until it passes.
   - Publish uses a bundle only when its `trained_through` is before the round being
     published. A replay never scores a round with a model that saw its result.
   - Without a bundle, or without `gold.features` rows for the stage, publish scores the
-    baseline as before. No `models` release exists yet, so the live site is unchanged.
+    baseline as before. The `models` release exists since 2026-10-16 (below).
   - Version 1 is trained through R17 (2026-10-11). Version 2 is trained before R17 and
     passed the check: every R17 stage published `strength-pl v2` and `check_round` held.
     Its probabilities are flat (pole sitter 11.7% to win, behind P2), the ordering
     weakness from step 4. No `champion` alias is set.
+  - 2026-10-16: `finishing_order` v5 (`strength-pl-stage`) and `qualifying` v4
+    (`strength-pl-quali`), both trained through R17 (2026-10-11), are registered and
+    released as the `models` asset (`models-v1.tar.gz`) once `phase2` was merged into
+    `main` (`cae527f`); before that merge `main` couldn't load them, since
+    `StrengthPLStage` and `QualiStrengthPL` were only on `phase2`. A fresh `registry
+    download` returns both. RPS on the 2026 walk-forward: v5 0.1277 vs `grid-order` 0.146
+    before Q (0.1204 vs 0.1421 after Q); v4 0.076 vs `quali-season-average` 0.0941 before Q.
 
 #### Step 5b: features for the live round (before any champion goes live)
 
@@ -1100,8 +1116,8 @@ with its own baseline as the bar.
   with no retirements; `registry train qualifying` registers it. Partial snapshot, RPS against
   `quali-season-average`: better at every stage of the 2026 walk-forward (0.081 vs 0.096
   before practice) and of the 2024 split (pooled there, 0.121 vs 0.131 pre-weekend); worse
-  at 2023 FP2 and FP3 (3 rounds). Publish has no champion path for qualifying yet
-  (`documents.qualifying` scores only the baseline).
+  at 2023 FP2 and FP3 (3 rounds). Since 2026-10-16 `documents.qualifying` scores the
+  champion until sprint qualifying has run, the baseline after it.
 
 **Target.** Steps 1–3 before R20; a `finishing_order` champion live for R21 or R22. The
 off-season covers step 7.
