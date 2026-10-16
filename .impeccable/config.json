@@ -227,6 +227,15 @@
         ],
         "createdAt": "2026-10-15T12:07:06.688Z",
         "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/r17-layout/index.html"
+        ],
+        "createdAt": "2026-10-16T16:17:21.794Z",
+        "reason": "Claude: throwaway layout mock; Google Fonts 'Archivo' is the same face DESIGN.md names as 'Archivo Variable' (self-hosted in web/)"
       }
     ]
   }
