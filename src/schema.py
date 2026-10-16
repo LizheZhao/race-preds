@@ -27,7 +27,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import (AwareDatetime, BaseModel, ConfigDict, Field, ValidationError,
                       computed_field, model_validator)
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 # Slack for probability sums coming out of Monte Carlo runs and float arithmetic.
 PROB_TOL = 1e-6
@@ -405,6 +405,8 @@ class ObservedWeather(Strict):
     humidity_mean: Fraction
     wind_speed_ms_mean: float = Field(ge=0)
     rain_share: Fraction  # share of samples with Rainfall == True
+    # share of timed laps on INTERMEDIATE or WET; catches a damp track the rain sensor misses
+    wet_tyre_share: Fraction | None = None
 
 
 class SessionWeather(Strict):
@@ -415,10 +417,10 @@ class SessionWeather(Strict):
 
 
 class Climatology(Strict):
-    """Historical prior for this circuit, from FastF1 observed weather in past seasons."""
+    """Historical prior for this circuit, from the earlier races here the lakehouse holds."""
 
     seasons: list[int]
-    wet_race_share: Fraction  # share of those races with any rainfall
+    wet_race_share: Fraction  # share of those races with any rainfall or 5% of laps on wet tyres
     air_temp_c_mean: float
     track_temp_c_mean: float
 
@@ -599,6 +601,22 @@ class SprintDoc(FinishingOrderDoc):
 # ---------------------------------------------------------------- race_incidents/<stage>.json
 
 
+class Neutralisation(Strict):
+    """One period of a race under the safety car, the virtual safety car or a red flag, in the
+    leader's laps. Every lap the status was active in counts, so an SC deployed late in lap 12
+    and in for laps 13-16 is 12-16."""
+
+    kind: Literal["SC", "VSC", "RED"]
+    start_lap: int = Field(ge=1)
+    end_lap: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.end_lap < self.start_lap:
+            raise ValueError("end_lap before start_lap")
+        return self
+
+
 class LapWindow(Strict):
     start_lap: int = Field(ge=1)
     end_lap: int = Field(ge=1)
@@ -610,6 +628,7 @@ class CircuitIncidentHistory(Strict):
     safety_cars: int = Field(ge=0)
     vscs: int = Field(ge=0)
     red_flags: int = Field(ge=0)
+    periods: list[Neutralisation] = []  # in lap order; empty in documents before 1.1
 
 
 class RaceIncidentsDoc(Document):
@@ -673,11 +692,21 @@ class StrategyOption(Strict):
         return self
 
 
+class PitLoss(Strict):
+    """Green-flag stops at this circuit: in-lap plus out-lap against twice the driver's median lap."""
+
+    pit_loss_s: float = Field(gt=0)  # median over the stops
+    stops: int = Field(ge=1)
+    seasons: list[int]
+
+
 class DegradationCurve(Strict):
     compound: Compound
     tyre_life: list[int]  # laps on the tyre
     lap_delta_s: list[float]  # lap time loss vs a fresh tyre, fuel-corrected
-    source_sessions: list[SessionId]  # e.g. ["FP2"] long runs
+    source_sessions: list[SessionId]  # e.g. ["FP2"] long runs; empty for a prior
+    seasons: list[int] = []  # seasons of the sessions it was measured on
+    stints: int | None = Field(default=None, ge=1)  # long runs behind a measured curve
 
     @model_validator(mode="after")
     def _check(self):
@@ -691,10 +720,13 @@ class StrategyDoc(Document):
     model: ModelInfo
     race_laps: int = Field(gt=0)
     pit_loss_s: float = Field(gt=0)  # time lost per stop, pit lane entry to exit
+    pit_loss_measured: PitLoss | None = None  # None: pit_loss_s is a prior, not measured here
     # Pirelli allocation, e.g. {"SOFT": "C5"}. Not in FastF1 -- None when unknown.
     compounds_available: dict[DryCompound, str] | None = None
     options: list[StrategyOption] = Field(min_length=1)  # best first
-    degradation: list[DegradationCurve] = []
+    degradation: list[DegradationCurve] = []  # the curves the options are planned with
+    # measured on long runs: this weekend's practice and sprint, and earlier races here
+    measured_degradation: list[DegradationCurve] = []
 
     @model_validator(mode="after")
     def _check(self):
@@ -780,23 +812,32 @@ class DriverStrategy(Strict):
 class DriverPace(Strict):
     driver_id: DriverId
     lap_times_s: list[float]  # clean green-flag race laps, in lap order
+    compounds: list[Compound] = []  # the tyre of each of those laps; empty in documents before 1.1
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.compounds and len(self.compounds) != len(self.lap_times_s):
+            raise ValueError(f"{self.driver_id}: one compound per lap time")
+        return self
 
 
 class ResultsDoc(Document):
     """Actual outcomes, filled in session by session. Also the ground truth for grading snapshots."""
 
     ARTIFACT = "results"
+    sprint_qualifying: list[QualiRow] | None = None  # q1_s..q3_s hold SQ1..SQ3
     qualifying: list[QualiRow] | None = None
     sprint: list[RaceRow] | None = None
     race: list[RaceRow] | None = None
     race_incidents: IncidentCounts | None = None
+    race_neutralisations: list[Neutralisation] | None = None  # in lap order
     race_strategies: list[DriverStrategy] | None = None
     race_pace: list[DriverPace] | None = None
 
     @model_validator(mode="after")
     def _check(self):
-        for label, rows in (("qualifying", self.qualifying), ("sprint", self.sprint), ("race", self.race),
-                            ("race pace", self.race_pace)):
+        for label, rows in (("sprint qualifying", self.sprint_qualifying), ("qualifying", self.qualifying),
+                            ("sprint", self.sprint), ("race", self.race), ("race pace", self.race_pace)):
             if rows:
                 _unique([r.driver_id for r in rows], f"{label} driver ids")
         for s in self.race_strategies or []:
@@ -878,7 +919,7 @@ def check_round(directory: Path) -> list[str]:
 
     if "results" in docs:
         res = docs["results"]
-        rows = [*(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or []),
+        rows = [*(res.sprint_qualifying or []), *(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or []),
                 *(res.race_pace or [])]
         unknown = {r.driver_id for r in rows} - drivers
         if unknown:

@@ -20,6 +20,8 @@ from src.laps import QUICKLAP_THRESHOLD
 BRONZE = "race_preds.bronze"
 SILVER = "race_preds.silver"
 KEY = ["season", "round", "session_id"]
+# how FastF1 leaves an Ergast id it could not match: empty, or the string "nan"
+MISSING_IDS = ("", "nan")
 
 # Fuel correction from a prior, not estimated: fuel burn and tyre age both rise with the
 # lap number and cannot be separated from lap times alone. Assumes the car starts with its
@@ -37,10 +39,11 @@ def _where(season: int, rnd: int, session_id: str) -> str:
 def _round_ids(spark: SparkSession, season: int, rnd: int) -> DataFrame:
     """driver code -> Ergast driver_id / constructor_id, from every session of the round"""
     results = spark.table(f"{BRONZE}.results").where((F.col("season") == season) & (F.col("round") == rnd))
+    known = lambda c: F.when(~F.col(c).isin(*MISSING_IDS), F.col(c))  # null stays null
     return (results
-            .where(F.col("DriverId").isNotNull() & (F.col("DriverId") != ""))
+            .where(known("DriverId").isNotNull())
             .groupBy(F.col("Abbreviation").alias("driver"))
-            .agg(F.max("DriverId").alias("driver_id"), F.max("TeamId").alias("constructor_id")))
+            .agg(F.max("DriverId").alias("driver_id"), F.max(known("TeamId")).alias("constructor_id")))
 
 
 def _start_fuel_kg() -> Column:

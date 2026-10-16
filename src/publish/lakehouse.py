@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 from src.config import ROOT
 from src.sessions import SESSION_IDS
 
+COMPOUNDS = "('SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET')"
+
 
 @cache
 def _connection():
@@ -38,6 +40,12 @@ def _in(session_ids: Iterable[str]) -> str:
     if unknown:
         raise ValueError(f"unknown session ids {sorted(unknown)}")
     return "(" + ", ".join(f"'{i}'" for i in ids) + ")" if ids else "(NULL)"
+
+
+def _rounds(rounds: Iterable[tuple[int, int]]) -> str:
+    """SQL condition matching the given (season, round) pairs; FALSE for none"""
+    where = " OR ".join(f"(season = {int(s)} AND round = {int(r)})" for s, r in rounds)
+    return f"({where})" if where else "FALSE"
 
 
 def session_rows(season: int, rnd: int, session_ids: Iterable[str]) -> pd.DataFrame:
@@ -72,24 +80,26 @@ def race_stints(season: int, rnd: int) -> pd.DataFrame:
 
 
 def race_pace(season: int, rnd: int) -> pd.DataFrame:
-    """clean green-flag race laps (driver, driver_id, lap_number, lap_time_s) in lap order"""
-    return query("""SELECT driver, driver_id, lap_number, lap_time_s FROM race_preds.silver.laps
-                    WHERE season = :season AND round = :rnd AND session_id = 'R'
-                      AND is_clean AND NOT is_deleted AND track_status = '1' AND lap_time_s IS NOT NULL
-                    ORDER BY driver, lap_number""",
+    """clean green-flag race laps with a known compound (driver, driver_id, lap_number, lap_time_s,
+    compound) in lap order"""
+    return query(f"""SELECT driver, driver_id, lap_number, lap_time_s, compound FROM race_preds.silver.laps
+                     WHERE season = :season AND round = :rnd AND session_id = 'R'
+                       AND is_clean AND NOT is_deleted AND track_status = '1' AND lap_time_s IS NOT NULL
+                       AND compound IN {COMPOUNDS}
+                     ORDER BY driver, lap_number""",
                  season=season, rnd=rnd)
 
 
 def top_speed(rounds: Iterable[tuple[int, int]], session_ids: Iterable[str] | None = None) -> pd.DataFrame:
     """the fastest speed-trap lap (driver, season, session_id, speed_st_kph) over the given rounds and sessions,
     with first_season, the earliest season those rounds have laps for"""
-    where = " OR ".join(f"(season = {int(s)} AND round = {int(r)})" for s, r in rounds)
-    if not where:
+    rounds = list(rounds)
+    if not rounds:
         return pd.DataFrame(columns=["driver", "season", "session_id", "speed_st_kph", "first_season"])
     sessions = f"AND session_id IN {_in(session_ids)}" if session_ids is not None else ""
     return query(f"""SELECT driver, season, session_id, speed_st_kph, MIN(season) OVER () AS first_season
                      FROM race_preds.silver.laps
-                     WHERE ({where}) {sessions} AND speed_st_kph IS NOT NULL
+                     WHERE {_rounds(rounds)} {sessions} AND speed_st_kph IS NOT NULL
                      ORDER BY speed_st_kph DESC LIMIT 1""")
 
 
@@ -104,3 +114,48 @@ def processed(season: int, rnd: int) -> pd.DataFrame:
     """ops.processed_sessions rows of one round (empty before the first job ever ran)"""
     return query("""SELECT * FROM race_preds.ops.processed_sessions
                     WHERE season = :season AND round = :rnd""", season=season, rnd=rnd)
+
+
+def race_flags(rounds: Iterable[tuple[int, int]]) -> pd.DataFrame:
+    """one row per race lap (season, round, lap_number, sc, vsc, red): the leader's lap flags, or
+    any driver's where silver has no P1 row for the lap"""
+    flag = lambda col: (f"COALESCE(MAX(CASE WHEN position = 1 THEN CAST({col} AS INT) END), "
+                        f"MAX(CAST({col} AS INT))) > 0")
+    return query(f"""SELECT season, round, lap_number,
+                            {flag("has_sc")} AS sc, {flag("has_vsc")} AS vsc, {flag("has_red")} AS red
+                     FROM race_preds.silver.laps
+                     WHERE session_id = 'R' AND {_rounds(rounds)} AND lap_number IS NOT NULL
+                     GROUP BY season, round, lap_number""")
+
+
+def long_run_laps(sessions: Iterable[tuple[int, int, str]]) -> pd.DataFrame:
+    """clean timed laps of the given (season, round, session_id) sessions, the input of
+    aggregates.degradation"""
+    where = " OR ".join(f"(season = {int(s)} AND round = {int(r)} AND session_id IN {_in([sid])})"
+                        for s, r, sid in sessions)
+    return query(f"""SELECT season, round, session_id, driver, stint, stint_lap, compound, tyre_life,
+                            lap_time_s, lap_time_fuel_corr_s
+                     FROM race_preds.silver.laps
+                     WHERE ({where or "FALSE"}) AND is_clean AND NOT is_deleted AND NOT is_generated
+                       AND lap_time_s IS NOT NULL""")
+
+
+def pit_laps(rounds: Iterable[tuple[int, int]]) -> pd.DataFrame:
+    """every race lap of the given rounds with what aggregates.pit_stops needs"""
+    return query(f"""SELECT season, round, driver, lap_number, lap_time_s, track_status,
+                            is_in_lap, is_out_lap, is_clean, is_deleted
+                     FROM race_preds.silver.laps
+                     WHERE session_id = 'R' AND {_rounds(rounds)} AND lap_number IS NOT NULL""")
+
+
+def compound_laps(rounds: Iterable[tuple[int, int]], session_ids: Iterable[str]) -> pd.DataFrame:
+    """timed laps per (season, round, session_id, compound) of the given sessions of the given rounds"""
+    return query(f"""SELECT season, round, session_id, compound, COUNT(*) AS laps
+                     FROM race_preds.silver.laps
+                     WHERE {_rounds(rounds)} AND session_id IN {_in(session_ids)} AND lap_time_s IS NOT NULL
+                     GROUP BY season, round, session_id, compound""")
+
+
+def race_sessions(rounds: Iterable[tuple[int, int]]) -> pd.DataFrame:
+    """gold.session rows of the races of the given rounds"""
+    return query(f"""SELECT * FROM race_preds.gold.session WHERE session_id = 'R' AND {_rounds(rounds)}""")

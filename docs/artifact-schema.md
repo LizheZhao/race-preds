@@ -104,9 +104,33 @@ has to preserve the previous path when it writes `stale`.
 ## Decisions worth knowing
 
 **Results carry the evidence behind a prediction.** `results.race_pace` lists each driver's
-clean green-flag race laps in lap order, for pace charts. `weather.sessions[].observed`
-has `track_temp_c_min` next to the max; it is null when the track sensor gave no usable
-reading (FastF1 reports a dropped sensor as 0.0 °C).
+clean green-flag race laps in lap order, for pace charts, with the compound of each lap in
+`compounds` (since 1.1), so a wet start can be split from the dry laps.
+`results.sprint_qualifying` is the SQ classification (`q1_s`..`q3_s` hold SQ1..SQ3), and
+`results.race_neutralisations` lists every SC, VSC and red-flag period of the race in the
+leader's laps; every lap the status was active in counts, so a period covers the lap it was
+called in. Periods of one kind on consecutive laps merge, so two safety cars on back-to-back
+laps make one period and the list can be shorter than `race_incidents.safety_cars`. `weather.sessions[].observed` has `track_temp_c_min` next to the max; it is null
+when the track sensor gave no usable reading (FastF1 reports a dropped sensor as 0.0 °C).
+`wet_tyre_share` is the share of laps run on intermediates or wets, which catches a damp
+track the rain sensor misses.
+
+**Circuit history comes from the lakehouse, and says how deep it goes.** Everything
+measured "here" pools the earlier races at this circuit that the lakehouse holds (2022 on
+once the backfill is complete), and names the seasons it used: `weather.climatology`
+(a race counts as wet with any rainfall or 5% of laps on wet tyres),
+`race_incidents.circuit_history[].periods`, `strategy.pit_loss_measured` (median green-flag
+stop: in-lap plus out-lap against twice the driver's median clean lap; for now the options
+are still planned with the prior in `pit_loss_s`) and
+`strategy.measured_degradation`. The measured curves fit lap delta against tyre age per
+dry compound on long runs (five clean laps or more) from this weekend's practice and sprint
+and the earlier races here, with one intercept per stint; practice laps get the race fuel
+prior, so they are comparable. Every season counts the same, 2026's new rules included, and a
+compound whose fit gets faster with age is left out rather than clamped. `strategy.degradation` stays the curve the options were
+planned with; while that is a prior, its `source_sessions` is empty.
+
+**Standings follow the race.** `event.standings` is after the previous round until the
+race has run and Ergast has published it, then after this round; `after_round` says which.
 
 **Curated circuit knowledge lives in committed reference files, with its source.**
 `event.circuit.story` (designer, notable moments) and `corners[].name` / `name_origin` come

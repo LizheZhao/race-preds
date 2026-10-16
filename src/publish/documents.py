@@ -15,6 +15,7 @@ import pandas as pd
 from src import schema
 from src.config import FIRST_TIMING_SEASON
 from src.models import baselines, registry
+from src.publish import aggregates as agg
 from src.publish import lakehouse as lh
 from src.publish import reference as ref
 from src.sessions import get_session_stage, get_sessions
@@ -83,6 +84,21 @@ def _results(ctx: Context, session_id: str) -> pd.DataFrame:
     return _ids(ctx, lh.results(ctx.season, ctx.round, session_id))
 
 
+def _earlier_here(ctx: Context) -> list[tuple[int, int]]:
+    """(season, round) of every race at this round's circuit before it, as far back as timing data goes"""
+    circuit_id = ref.circuit_row(ctx.season, ctx.round)["circuitId"]
+    return [(s, r) for s, r in ref.rounds_at(circuit_id, range(FIRST_TIMING_SEASON, ctx.season + 1))
+            if (s, r) < (ctx.season, ctx.round)]
+
+
+def _periods(flags: pd.DataFrame) -> dict[tuple[int, int], list[schema.Neutralisation]]:
+    """neutralisation periods per (season, round), in lap order"""
+    periods = agg.neutralisations(flags).sort_values(["season", "round", "start_lap", "kind"])
+    return {(int(s), int(r)): [schema.Neutralisation(kind=p.kind, start_lap=p.start_lap, end_lap=p.end_lap)
+                               for p in g.itertuples()]
+            for (s, r), g in periods.groupby(["season", "round"])}
+
+
 # ---------------------------------------------------------------- event
 
 
@@ -90,7 +106,7 @@ def event(ctx: Context) -> schema.EventDoc:
     ev, row = ref.event(ctx.season, ctx.round), ref.circuit_row(ctx.season, ctx.round)
     geometry = ref.circuit_geometry(ctx.season, ctx.round, row["circuitId"])
     roster = entries(ctx)
-    drivers_st, teams_st = ref.standings(ctx.season, ctx.round - 1)
+    after_round, drivers_st, teams_st = _standings(ctx)
 
     team_rank = {t: i for i, t in enumerate(teams_st["constructorId"])} if len(teams_st) else {}
     teams = roster.drop_duplicates("team_id").sort_values("team_id", key=lambda s: s.map(lambda t: team_rank.get(t, 99)))
@@ -127,11 +143,20 @@ def event(ctx: Context) -> schema.EventDoc:
                                last_name=d.last_name, team_id=d.team_id, headshot_url=d.headshot_url)
                  for d in roster.itertuples()],
         standings=schema.Standings(
-            after_round=ctx.round - 1 if ctx.round > 1 else None,
+            after_round=after_round or None,
             drivers=[schema.DriverStanding(driver_id=r.driverId, position=int(r.position), points=float(r.points),
                                            wins=int(r.wins)) for r in drivers_st.itertuples()],
             teams=[schema.TeamStanding(team_id=r.constructorId, position=int(r.position), points=float(r.points),
                                        wins=int(r.wins)) for r in teams_st.itertuples()]))
+
+
+def _standings(ctx: Context) -> tuple[int, pd.DataFrame, pd.DataFrame]:
+    """standings after this round once the race has run and Ergast has them, else after the previous one"""
+    if "R" in ctx.usable:
+        drivers, teams = ref.standings(ctx.season, ctx.round)
+        if len(drivers):
+            return ctx.round, drivers, teams
+    return ctx.round - 1, *ref.standings(ctx.season, ctx.round - 1)
 
 
 def _speed_mark(rows: pd.DataFrame) -> schema.SpeedMark | None:
@@ -144,9 +169,7 @@ def _speed_mark(rows: pd.DataFrame) -> schema.SpeedMark | None:
 
 def _speed_trap(ctx: Context, circuit_id: str) -> schema.SpeedTrap:
     """this weekend's sessions so far, and every earlier race weekend here the lakehouse holds"""
-    earlier = [(s, r) for s, r in ref.rounds_at(circuit_id, range(FIRST_TIMING_SEASON, ctx.season + 1))
-               if (s, r) < (ctx.season, ctx.round)]
-    record = lh.top_speed(earlier)
+    record = lh.top_speed(_earlier_here(ctx))
     return schema.SpeedTrap(weekend=_speed_mark(lh.top_speed([(ctx.season, ctx.round)], ctx.usable)),
                             record=_speed_mark(record),
                             record_since=None if record.empty else int(record.iloc[0]["first_season"]))
@@ -168,6 +191,8 @@ def weather(ctx: Context) -> schema.WeatherDoc:
     hourly = ref.hourly_weather(float(row["lat"]), float(row["long"]), first.date(), race_start.date())
     hourly = hourly[(hourly["time_utc"] >= first) & (hourly["time_utc"] <= race_start + pd.Timedelta(hours=3))]
     observed = lh.session_rows(ctx.season, ctx.round, ctx.usable).set_index("session_id") if ctx.usable else pd.DataFrame()
+    wet = agg.wet_tyre_share(lh.compound_laps([(ctx.season, ctx.round)], ctx.usable)) if ctx.usable else None
+    wet = {} if wet is None else dict(zip(wet["session_id"], wet["wet_tyre_share"]))
 
     sessions = []
     for s, start in zip(ctx.sessions, starts):
@@ -179,7 +204,7 @@ def weather(ctx: Context) -> schema.WeatherDoc:
                 air_temp_c_mean=float(o["air_temp_mean"]), track_temp_c_max=float(o["track_temp_max"]),
                 track_temp_c_min=coldest if coldest and coldest > 0 else None,
                 humidity_mean=float(o["humidity_mean"]) / 100, wind_speed_ms_mean=float(o["wind_speed_mean"]),
-                rain_share=float(o["rain_frac"]))
+                rain_share=float(o["rain_frac"]), wet_tyre_share=_num(wet.get(s["session_id"])))
         else:
             w = hourly[(hourly["time_utc"] >= start.floor("h")) & (hourly["time_utc"] < start + FORECAST_WINDOW)]
             if len(w):
@@ -195,7 +220,18 @@ def weather(ctx: Context) -> schema.WeatherDoc:
             time_utc=r.time_utc.to_pydatetime(), air_temp_c=float(r.temperature_2m),
             p_rain=float(r.precipitation_probability) / 100, rain_mm=float(r.precipitation),
             wind_speed_ms=float(r.wind_speed_10m), wind_dir_deg=float(r.wind_direction_10m) % 360,
-            humidity=float(r.relative_humidity_2m) / 100) for r in hourly.itertuples()])
+            humidity=float(r.relative_humidity_2m) / 100) for r in hourly.itertuples()],
+        climatology=_climatology(ctx))
+
+
+def _climatology(ctx: Context) -> schema.Climatology | None:
+    """the earlier races here the lakehouse holds"""
+    races = lh.race_sessions(_earlier_here(ctx))
+    if races.empty:
+        return None
+    wet = agg.wet_tyre_share(lh.compound_laps(list(zip(races["season"], races["round"])), ["R"]))
+    races = races.merge(wet.drop(columns="session_id"), on=["season", "round"], how="left")
+    return schema.Climatology(**agg.climatology(races))
 
 
 # ---------------------------------------------------------------- results
@@ -214,7 +250,8 @@ def _race_rows(res: pd.DataFrame) -> list[schema.RaceRow]:
 
 def _race_pace(ctx: Context) -> list[schema.DriverPace]:
     laps = _ids(ctx, lh.race_pace(ctx.season, ctx.round)).dropna(subset=["driver_id"])
-    return [schema.DriverPace(driver_id=d, lap_times_s=g["lap_time_s"].astype(float).tolist())
+    return [schema.DriverPace(driver_id=d, lap_times_s=g["lap_time_s"].astype(float).tolist(),
+                              compounds=g["compound"].tolist())
             for d, g in laps.groupby("driver_id", sort=True)]
 
 
@@ -234,16 +271,18 @@ def _strategies(stints: pd.DataFrame) -> list[schema.DriverStrategy]:
 def results(ctx: Context) -> schema.ResultsDoc | None:
     """actual outcomes of the sessions run so far; None before the first results session"""
     parts = {}
-    if "Q" in ctx.usable:
-        q = _results(ctx, "Q").sort_values("position")
-        parts["qualifying"] = [schema.QualiRow(driver_id=r.driver_id, position=int(r.position), q1_s=_num(r.q1_s),
-                                               q2_s=_num(r.q2_s), q3_s=_num(r.q3_s)) for r in q.itertuples()]
+    for sid, part in (("SQ", "sprint_qualifying"), ("Q", "qualifying")):
+        if sid in ctx.usable:
+            q = _results(ctx, sid).dropna(subset=["position"]).sort_values("position")
+            parts[part] = [schema.QualiRow(driver_id=r.driver_id, position=int(r.position), q1_s=_num(r.q1_s),
+                                           q2_s=_num(r.q2_s), q3_s=_num(r.q3_s)) for r in q.itertuples()]
     if "S" in ctx.usable:
         parts["sprint"] = _race_rows(_results(ctx, "S"))
     if "R" in ctx.usable:
         parts["race"] = _race_rows(_results(ctx, "R"))
         r = lh.session_rows(ctx.season, ctx.round, ["R"]).iloc[0]
         parts["race_incidents"] = schema.IncidentCounts(safety_cars=int(r["sc_n"]), vscs=int(r["vsc_n"]), red_flags=int(r["red_n"]))
+        parts["race_neutralisations"] = _periods(lh.race_flags([(ctx.season, ctx.round)])).get((ctx.season, ctx.round), [])
         parts["race_strategies"] = _strategies(_ids(ctx, lh.race_stints(ctx.season, ctx.round)))
         parts["race_pace"] = _race_pace(ctx)
     return schema.ResultsDoc(meta=ctx.meta("results"), **parts) if parts else None
@@ -438,8 +477,9 @@ def _circuit_history(ctx: Context, races: pd.DataFrame) -> list[schema.CircuitIn
     """the earlier races in the lakehouse held at this round's circuit, newest first"""
     here = set(ref.rounds_at(ref.circuit_row(ctx.season, ctx.round)["circuitId"], races["season"].unique()))
     rows = races[[(s, r) in here for s, r in zip(races["season"], races["round"])]]
+    periods = _periods(lh.race_flags(list(zip(rows["season"], rows["round"]))))
     return [schema.CircuitIncidentHistory(season=int(r.season), safety_cars=int(r.sc_n), vscs=int(r.vsc_n),
-                                          red_flags=int(r.red_n))
+                                          red_flags=int(r.red_n), periods=periods.get((int(r.season), int(r.round)), []))
             for r in rows.sort_values(["season", "round"], ascending=False).itertuples()]
 
 
@@ -452,14 +492,23 @@ def race_incidents(ctx: Context) -> schema.RaceIncidentsDoc:
                                    circuit_history=_circuit_history(ctx, races), **rates)
 
 
+def _long_run_sessions(ctx: Context) -> list[tuple[int, int, str]]:
+    """this weekend's practice and sprint so far, and every earlier race here"""
+    weekend = [(ctx.season, ctx.round, sid) for sid in ctx.usable if sid in ("FP1", "FP2", "FP3", "S")]
+    return weekend + [(s, r, "R") for s, r in _earlier_here(ctx)]
+
+
 def strategy(ctx: Context) -> schema.StrategyDoc:
     laps = race_laps(ctx)
-    plan = baselines.strategy(laps)
+    measured = agg.pit_loss(lh.pit_laps(_earlier_here(ctx)))
+    plan = baselines.strategy(laps)  # plans on the prior pit loss; the measured one is reported beside it
     return schema.StrategyDoc(
         meta=ctx.meta("strategy"), model=ctx.model("tyre-prior-stint-plan", ["compound_pace_prior", "degradation_prior"]),
-        race_laps=laps, pit_loss_s=plan["pit_loss_s"], compounds_available=ref.tyre_allocation(ctx.season, ctx.round),
+        race_laps=laps, pit_loss_s=plan["pit_loss_s"], pit_loss_measured=measured,
+        compounds_available=ref.tyre_allocation(ctx.season, ctx.round),
         options=[{k: v for k, v in o.items() if k != "time"} for o in plan["options"]],
-        degradation=plan["degradation"])
+        degradation=plan["degradation"],
+        measured_degradation=agg.degradation(lh.long_run_laps(_long_run_sessions(ctx))))
 
 
 class Prediction(NamedTuple):

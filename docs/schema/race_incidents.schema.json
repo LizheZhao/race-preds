@@ -21,6 +21,14 @@
           "minimum": 0,
           "title": "Red Flags",
           "type": "integer"
+        },
+        "periods": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Neutralisation"
+          },
+          "title": "Periods",
+          "type": "array"
         }
       },
       "required": [
@@ -64,7 +72,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "1.0.0",
+          "default": "1.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -242,6 +250,38 @@
         "calibrated"
       ],
       "title": "ModelInfo",
+      "type": "object"
+    },
+    "Neutralisation": {
+      "additionalProperties": false,
+      "description": "One period of a race under the safety car, the virtual safety car or a red flag, in the\nleader's laps. Every lap the status was active in counts, so an SC deployed late in lap 12\nand in for laps 13-16 is 12-16.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "SC",
+            "VSC",
+            "RED"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "start_lap": {
+          "minimum": 1,
+          "title": "Start Lap",
+          "type": "integer"
+        },
+        "end_lap": {
+          "minimum": 1,
+          "title": "End Lap",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "start_lap",
+        "end_lap"
+      ],
+      "title": "Neutralisation",
       "type": "object"
     }
   },

@@ -220,9 +220,11 @@ def standings(season: int, after_round: int) -> tuple[pd.DataFrame, pd.DataFrame
     """driver and constructor standings after a round (empty before the opener)"""
     if after_round < 1:
         return pd.DataFrame(), pd.DataFrame()
-    drivers = _retry(_ergast().get_driver_standings, season=season, round=after_round).content[0]
-    teams = _retry(_ergast().get_constructor_standings, season=season, round=after_round).content[0]
-    return drivers, teams
+    drivers = _retry(_ergast().get_driver_standings, season=season, round=after_round).content
+    teams = _retry(_ergast().get_constructor_standings, season=season, round=after_round).content
+    if not drivers or not teams:  # Ergast has not published the round yet
+        return pd.DataFrame(), pd.DataFrame()
+    return drivers[0], teams[0]
 
 
 @cache
