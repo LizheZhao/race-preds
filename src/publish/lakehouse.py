@@ -69,6 +69,14 @@ def results(season: int, rnd: int, session_id: str) -> pd.DataFrame:
                  season=season, rnd=rnd)
 
 
+def entrants(season: int, rnd: int, session_id: str) -> pd.DataFrame:
+    """bronze.results of one session as FastF1 gave it, with the fields silver drops (names, team
+    colour, headshot); empty if the session is not in the lakehouse"""
+    return query(f"""SELECT * FROM race_preds.bronze.results
+                     WHERE season = :season AND round = :rnd AND session_id IN {_in([session_id])}""",
+                 season=season, rnd=rnd)
+
+
 def practice_laps(season: int, rnd: int, session_ids: Iterable[str]) -> pd.DataFrame:
     """best lap and its rank per driver (session_id, driver, driver_id, best_lap, best_lap_rank) of the
     given sessions; both are null for a driver with no timed lap"""

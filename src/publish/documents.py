@@ -67,11 +67,16 @@ def _num(value) -> float | None:
 
 
 def entries(ctx: Context) -> pd.DataFrame:
-    """the field as known at the stage: the latest session run this weekend except FP1 (rookies
-    stand in there), before that the previous round's race"""
-    names = {s["session_id"]: s["session_name"] for s in ctx.sessions}
-    run = [sid for sid in ctx.usable if sid != "FP1"]
-    return ref.entry_list(ctx.season, ctx.round, names[run[-1]] if run else None)
+    """the field as known at the stage: the latest session run this weekend that the lakehouse
+    holds, except FP1 (rookies stand in there), before that the previous round's race"""
+    for sid in reversed([sid for sid in ctx.usable if sid != "FP1"]):
+        roster = ref.entry_list(ctx.season, ctx.round, sid)
+        if len(roster):
+            return roster
+    roster = ref.entry_list(ctx.season, ctx.round)
+    if roster.empty:
+        raise LookupError(f"{ctx.season} R{ctx.round - 1} race is not in the lakehouse, no entry list")
+    return roster
 
 
 def _ids(ctx: Context, frame: pd.DataFrame) -> pd.DataFrame:

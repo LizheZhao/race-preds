@@ -318,10 +318,16 @@ failed run.
   - Silver takes them from any session of the same round, so on a weekend in progress
     they are null (checked: 2026 R17 FP1 and SQ had 22 empty ids on race day). `driver`,
     the three-letter code, is always set.
-  - Publish does not depend on them. It takes the field from FastF1, fills missing ids by
+  - Publish does not depend on them. It takes the field from `bronze.results` of the
+    latest session run (not FP1), else the previous round's race, fills missing ids by
     driver code and team name from the previous round and the season's Ergast driver
-    list, then maps silver rows by code. Checked on 2026 R17 sprint qualifying, whose 22
-    FastF1 ids were empty.
+    list, and a missing team colour by team id from the previous round. It then maps
+    silver rows by code. Checked on 2026 R17 sprint qualifying, whose 22 FastF1 ids were
+    empty.
+  - Publish used to load the field from FastF1 (2026-10-16). Without live timing (always on
+    the GitHub runner, and during F1's block) FastF1 falls back to Ergast, which has no
+    practice or sprint qualifying classification and no team colours: the R17 replay
+    published no SQ snapshot and grey teams.
 - **Fuel correction.** `lap_time_fuel_corr_s = lap_time_s - 0.03 s/kg × fuel_kg`, with the
   start fuel burned linearly to zero over the session's laps.
   - Start fuel is 110 kg to 2025 and **70 kg from 2026, an approximation**: the 2026
