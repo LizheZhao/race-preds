@@ -296,12 +296,11 @@ facts = S.FactsDoc(meta=meta("facts"), facts=[
 ])
 write("2025/16/facts.json", facts)
 
-# ---------------------------------------------------------------- results (practice only so far)
+# ---------------------------------------------------------------- results
 practice_rng = np.random.default_rng(1601)
 
 
 def practice_session(session_id, no_lap=()):
-    """drivers ranked by a synthetic best lap; those in `no_lap` set no time and come last"""
     laps = 81.0 - 0.25 * strength + practice_rng.normal(0, 0.15, n)
     timed = sorted((l, d) for l, d in zip(laps, ids) if d not in no_lap)
     rows = [S.PracticeRow(driver_id=d, position=i, best_lap_s=round(float(l), 3)) for i, (l, d) in enumerate(timed, 1)]

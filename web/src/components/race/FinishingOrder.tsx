@@ -38,7 +38,7 @@ export function FinishingOrderView({
   stageLabel: string;
   /** One column per stage: the predicted race order, then the result. */
   trend: BumpColumn[];
-  /** One column per session: what it classified. */
+  /** The championship going in, then one column per session: what it classified. */
   sessionResults: BumpColumn[];
   results?: ResultsDoc | undefined;
   tiles: StageTile[];

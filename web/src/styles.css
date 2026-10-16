@@ -157,7 +157,7 @@
     transparent 1.5px 5px
   );
 }
-/* A stage that ran but published nothing: plate grey, striped, never clickable. */
+/* A stage that ran but published nothing. */
 @utility hatch-muted {
   background-image: repeating-linear-gradient(
     135deg,

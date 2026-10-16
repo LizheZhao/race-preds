@@ -92,7 +92,6 @@ const practice = (id: "FP1" | "FP2" | "FP3") =>
     byPosition,
   );
 
-/** Where each session of a weekend keeps its classification. */
 const CLASSIFICATION: Record<SessionId, Reader> = {
   FP1: practice("FP1"),
   FP2: practice("FP2"),

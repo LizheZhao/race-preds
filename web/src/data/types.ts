@@ -30,7 +30,6 @@ export type SessionId = Ev.Session["id"];
 
 export type ModelInfo = Fo.ModelInfo;
 export type FinishingOrderDoc = Fo.FinishingOrderDoc;
-/** Every published finishing-order snapshot of a round, by the stage it was made at. */
 export type FinishingSnapshots = Partial<Record<Stage, FinishingOrderDoc>>;
 export type QualifyingDoc = Qu.QualifyingDoc;
 export type SprintQualifyingDoc = Sq.SprintQualifyingDoc;

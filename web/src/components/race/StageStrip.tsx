@@ -111,7 +111,6 @@ export function StageStrip({
   );
 }
 
-/** A zone number: band blue when a snapshot exists, outlined when not, punched through when viewed. */
 function ZoneMark({
   n,
   state,

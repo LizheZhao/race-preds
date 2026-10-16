@@ -18,7 +18,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
 
 export const RACE: Stage = "R";
 
-/** The one test for "has not happened yet, seen from `reference`", used by every chart column and strip tile. */
+/** True when `stage` has not happened yet, seen from `reference`. */
 export const isAfter = (
   order: readonly Stage[],
   stage: Stage,
