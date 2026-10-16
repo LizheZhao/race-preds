@@ -29,3 +29,8 @@ outputs/
 web/node_modules/
 web/dist/
 web/public/data/
+
+# Impeccable scratch: direction mocks, question pages, review screenshots
+.impeccable/mocks/
+.impeccable/questions/
+.impeccable/review/
