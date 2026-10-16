@@ -10,7 +10,9 @@ The repo has three parts:
 1. **Lakehouse**: ingest FastF1 / Jolpica / Open-Meteo, then Spark ETL into Delta tables
    on Databricks (bronze → silver → gold).
 2. **Models**: finishing order, qualifying, race incidents (SC/VSC/red flag), tyre
-   strategy. They are trained and scored on Databricks and tracked in MLflow.
+   strategy. Each is trained in pandas on a snapshot of `gold.features`, by hand for now
+   (a Monday Databricks job is Phase 3 step 6), and registered in MLflow / Unity Catalog
+   on Databricks. Publish scores the exported model on the GitHub runner, without Spark.
 3. **Dashboard**: a static front end that reads JSON documents conforming to
    `src/schema.py` (see `docs/artifact-schema.md`). Live at
    https://lizhezhao.github.io/race-preds/.
