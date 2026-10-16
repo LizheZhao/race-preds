@@ -66,6 +66,17 @@ Dependencies live in a single top-level `requirements.txt` (plain pip/uv, no ext
 groups). `uv` is installed on this machine; the system `python3` is 3.9, so always create
 the venv with an explicit `--python 3.12`.
 
+On this machine the venv lives outside the repo at `~/.venvs/race-preds`, and `.venv` in
+each checkout is a symlink to it. Don't create a fresh `.venv` in a worktree. Credentials
+go in `.env` at the repo root (`cp .env.example .env`), kept only in the main checkout.
+
+Worktrees: the main session normally works in the main checkout without one. Subagent
+worktrees branch from the local `HEAD` (`worktree.baseRef` in `.claude/settings.json`),
+and `.worktreeinclude` copies `.env` into them. A local SessionStart hook (in
+`.claude/settings.local.json`, not committed) links `.env` and `.venv` into any checkout
+that lacks them and puts the venv on `PATH`. Work done in a worktree lands on its own
+branch; merge it back into the branch the main checkout is on.
+
 Run Jupyter **from the repo root**, not from `nb/` — notebooks resolve `ROOT` by checking
 whether `Path.cwd().name == "nb"`, but imports are cleanest from the root:
 

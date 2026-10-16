@@ -1,7 +1,5 @@
 {
-  "hooks": {
-    "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/link-env.sh\"" } ] }
-    ]
+  "worktree": {
+    "baseRef": "head"
   }
 }
