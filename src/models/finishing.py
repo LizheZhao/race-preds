@@ -80,8 +80,19 @@ def _fit_stages(rows: pd.DataFrame, target: str = "y_finish") -> dict:
 def stage_key(rows: pd.DataFrame) -> pd.Series:
     """the stage model a row belongs to: its stage, or None on the 2021-23 sprint formats. Those
     ran Q before the sprint, so FP2, SQ and S there hold what Q holds today; the pooled model
-    trains on and scores them"""
+    trains on and scores them. Rows without event_format count as today's formats"""
+    if "event_format" not in rows:
+        return rows["stage"]
     return rows["stage"].where(~rows["event_format"].isin(OLD_SPRINT_FORMATS), None)
+
+
+def _unseen_missing(model, x: pd.DataFrame) -> np.ndarray:
+    """rows missing a feature the model never saw missing in training: its imputer has no
+    indicator for it, so the gap would be filled with the median (a Q-stage entrant without
+    a grid would start mid-field)"""
+    missing = x.isna().to_numpy()
+    missing[:, model.steps[0][1].indicator_.features_] = False
+    return missing.any(axis=1)
 
 
 class StrengthPL:
@@ -95,8 +106,8 @@ class StrengthPL:
         self.dnf = (make_pipeline(SimpleImputer(strategy="median", keep_empty_features=True), LogisticRegression(C=1.0))
                     .fit(done[DNF_FEATURES], y) if y.nunique() == 2 else float(y.mean()))
 
-    def _strength_for(self, stage: str | None):
-        return self.strength, self.temperature
+    def _strength(self, g: pd.DataFrame) -> np.ndarray:
+        return -self.strength.predict(g[STRENGTH_FEATURES]) / self.temperature
 
     def _p_dnf(self, g: pd.DataFrame) -> np.ndarray:
         return (self.dnf.predict_proba(g[DNF_FEATURES])[:, 1] if not isinstance(self.dnf, float)
@@ -107,26 +118,34 @@ class StrengthPL:
         out = []
         for stage, g in rows.groupby("stage"):
             g = g.sort_values("driver_id")
-            model, temperature = self._strength_for(stage_key(g).iat[0])
-            strength = -model.predict(g[STRENGTH_FEATURES]) / temperature
             out += [{"stage": stage, "driver_id": d, "probs": p}
-                    for d, p in zip(g["driver_id"], simulate(strength, self._p_dnf(g), rng))]
+                    for d, p in zip(g["driver_id"], simulate(self._strength(g), self._p_dnf(g), rng))]
         return pd.DataFrame(out)
 
 
 class StrengthPLStage(StrengthPL):
     """strength-pl with a strength model and temperature per stage (stage_key); a stage with
-    fewer than MIN_STAGE_ROUNDS training rounds uses the stage before it, then the pooled model"""
+    fewer than MIN_STAGE_ROUNDS training rounds uses the stage before it, then the pooled model.
+    A row missing a feature its stage model never saw missing is scored by the pooled model"""
     name = "strength-pl-stage"
 
     def fit(self, train: pd.DataFrame) -> None:
         super().fit(train)
         self.stages = _fit_stages(train[train["y_classified"] == True])
 
-    def _strength_for(self, stage: str | None):
+    def _strength(self, g: pd.DataFrame) -> np.ndarray:
+        stage = stage_key(g).iat[0]
         while stage not in self.stages and stage in STAGE_FALLBACK:
             stage = STAGE_FALLBACK[stage]
-        return self.stages.get(stage, (self.strength, self.temperature))
+        if stage not in self.stages:
+            return super()._strength(g)
+        model, temperature = self.stages[stage]
+        x = g[STRENGTH_FEATURES]
+        strength = -model.predict(x) / temperature
+        unseen = _unseen_missing(model, x)
+        if unseen.any():
+            strength[unseen] = super()._strength(g[unseen])
+        return strength
 
 
 class QualiStrengthPL(StrengthPLStage):
