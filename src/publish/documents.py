@@ -268,9 +268,27 @@ def _strategies(stints: pd.DataFrame) -> list[schema.DriverStrategy]:
     return out
 
 
+def _practice(ctx: Context) -> list[schema.PracticeSession]:
+    """each practice session run so far, drivers ranked by best lap and those without a timed lap last"""
+    ran = [sid for sid in ("FP1", "FP2", "FP3") if sid in ctx.usable]
+    if not ran:
+        return []
+    laps = _ids(ctx, lh.practice_laps(ctx.season, ctx.round, ran)).dropna(subset=["driver_id"])
+    sessions = []
+    for sid in ran:
+        ranked = laps[laps["session_id"] == sid].sort_values(["best_lap_rank", "driver_id"], na_position="last")
+        if len(ranked):
+            sessions.append(schema.PracticeSession(session_id=sid, rows=[
+                schema.PracticeRow(driver_id=r.driver_id, position=i, best_lap_s=_num(r.best_lap))
+                for i, r in enumerate(ranked.itertuples(), 1)]))
+    return sessions
+
+
 def results(ctx: Context) -> schema.ResultsDoc | None:
-    """actual outcomes of the sessions run so far; None before the first results session"""
+    """actual outcomes of the sessions run so far; None before the first session with a classification"""
     parts = {}
+    if practice := _practice(ctx):
+        parts["practice"] = practice
     for sid, part in (("SQ", "sprint_qualifying"), ("Q", "qualifying")):
         if sid in ctx.usable:
             q = _results(ctx, sid).dropna(subset=["position"]).sort_values("position")

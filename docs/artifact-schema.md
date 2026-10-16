@@ -68,8 +68,8 @@ What a conventional weekend publishes:
 | when | stage | new or updated |
 |---|---|---|
 | Thu | `pre_weekend` | event, weather, facts, all four predictions (priors only: form, circuit history) |
-| Fri after FP1/FP2 | `FP1`, `FP2` | predictions re-run with practice pace; strategy gets its first real degradation curves |
-| Sat after FP3 | `FP3` | predictions |
+| Fri after FP1/FP2 | `FP1`, `FP2` | results (practice classification); predictions re-run with practice pace; strategy gets its first real degradation curves |
+| Sat after FP3 | `FP3` | results (practice); predictions |
 | Sat after Q | `Q` | results (qualifying); finishing_order now has `grid_position`; qualifying section goes to history |
 | Sun after R | `R` | results (race, incidents, strategies used) |
 | every few hours | unchanged | weather (forecasts move on their own clock, not with sessions) |
@@ -93,7 +93,7 @@ missing panel:
 |---|---|---|
 | `ready` | yes | the panel |
 | `stale` | yes, last good version | the panel plus `message` as a warning |
-| `pending` | no | "Available after `available_from`", e.g. results before Q |
+| `pending` | no | "Available after `available_from`", e.g. results before FP1 |
 | `error` | no | `message`, and no fallback exists |
 | `not_applicable` | no | nothing, e.g. a sprint panel on a conventional weekend |
 
@@ -106,6 +106,9 @@ has to preserve the previous path when it writes `stale`.
 **Results carry the evidence behind a prediction.** `results.race_pace` lists each driver's
 clean green-flag race laps in lap order, for pace charts, with the compound of each lap in
 `compounds` (since 1.1), so a wet start can be split from the dry laps.
+`results.practice` (since 1.2) lists each practice session run so far with its drivers ranked
+by best lap (`position`, `best_lap_s`); a driver with no timed lap comes last with a null
+`best_lap_s`, and only this weekend's entrants appear.
 `results.sprint_qualifying` is the SQ classification (`q1_s`..`q3_s` hold SQ1..SQ3), and
 `results.race_neutralisations` lists every SC, VSC and red-flag period of the race in the
 leader's laps; every lap the status was active in counts, so a period covers the lap it was

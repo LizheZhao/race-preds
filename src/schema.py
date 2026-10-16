@@ -27,7 +27,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import (AwareDatetime, BaseModel, ConfigDict, Field, ValidationError,
                       computed_field, model_validator)
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 # Slack for probability sums coming out of Monte Carlo runs and float arithmetic.
 PROB_TOL = 1e-6
@@ -798,6 +798,23 @@ class RaceRow(Strict):
         return self
 
 
+class PracticeRow(Strict):
+    driver_id: DriverId
+    position: int = Field(ge=1)  # by best lap; drivers without a timed lap come last
+    best_lap_s: float | None = None
+
+
+class PracticeSession(Strict):
+    session_id: Literal["FP1", "FP2", "FP3"]
+    rows: list[PracticeRow]
+
+    @model_validator(mode="after")
+    def _check(self):
+        _unique([r.driver_id for r in self.rows], f"{self.session_id} driver ids")
+        _unique([r.position for r in self.rows], f"{self.session_id} positions")
+        return self
+
+
 class IncidentCounts(Strict):
     safety_cars: int = Field(ge=0)
     vscs: int = Field(ge=0)
@@ -825,6 +842,7 @@ class ResultsDoc(Document):
     """Actual outcomes, filled in session by session. Also the ground truth for grading snapshots."""
 
     ARTIFACT = "results"
+    practice: list[PracticeSession] | None = None  # in session order; ranked by best lap
     sprint_qualifying: list[QualiRow] | None = None  # q1_s..q3_s hold SQ1..SQ3
     qualifying: list[QualiRow] | None = None
     sprint: list[RaceRow] | None = None
@@ -840,6 +858,7 @@ class ResultsDoc(Document):
                             ("sprint", self.sprint), ("race", self.race), ("race pace", self.race_pace)):
             if rows:
                 _unique([r.driver_id for r in rows], f"{label} driver ids")
+        _unique([p.session_id for p in self.practice or []], "practice sessions")
         for s in self.race_strategies or []:
             _check_stints(s.stints)
         return self
@@ -919,7 +938,7 @@ def check_round(directory: Path) -> list[str]:
 
     if "results" in docs:
         res = docs["results"]
-        rows = [*(res.sprint_qualifying or []), *(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or []),
+        rows = [*(r for p in res.practice or [] for r in p.rows), *(res.sprint_qualifying or []), *(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or []),
                 *(res.race_pace or [])]
         unknown = {r.driver_id for r in rows} - drivers
         if unknown:

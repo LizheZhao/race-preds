@@ -296,6 +296,23 @@ facts = S.FactsDoc(meta=meta("facts"), facts=[
 ])
 write("2025/16/facts.json", facts)
 
+# ---------------------------------------------------------------- results (practice only so far)
+practice_rng = np.random.default_rng(1601)
+
+
+def practice_session(session_id, no_lap=()):
+    """drivers ranked by a synthetic best lap; those in `no_lap` set no time and come last"""
+    laps = 81.0 - 0.25 * strength + practice_rng.normal(0, 0.15, n)
+    timed = sorted((l, d) for l, d in zip(laps, ids) if d not in no_lap)
+    rows = [S.PracticeRow(driver_id=d, position=i, best_lap_s=round(float(l), 3)) for i, (l, d) in enumerate(timed, 1)]
+    rows += [S.PracticeRow(driver_id=d, position=len(rows) + i) for i, d in enumerate(no_lap, 1)]
+    return S.PracticeSession(session_id=session_id, rows=rows)
+
+
+results = S.ResultsDoc(meta=meta("results"), practice=[practice_session("FP1", no_lap=("colapinto",)),
+                                                      practice_session("FP2")])
+write("2025/16/results.json", results)
+
 # ---------------------------------------------------------------- manifest + index
 upd = GENERATED
 manifest = S.RaceManifest(
@@ -312,7 +329,7 @@ manifest = S.RaceManifest(
         "strategy": S.SectionStatus(status="ready", path="strategy/FP2.json", stage="FP2", updated_at=upd),
         "facts": S.SectionStatus(status="stale", path="facts.json", stage="FP2", updated_at=upd - timedelta(hours=3),
                                  message="Fun facts could not be refreshed after FP2; showing the latest set."),
-        "results": S.SectionStatus(status="pending", available_from="Q"),
+        "results": S.SectionStatus(status="ready", path="results.json", stage="FP2", updated_at=upd),
     },
 )
 write("2025/16/manifest.json", manifest)

@@ -43,8 +43,8 @@ def _generated_at(path: Path, artifact: str) -> datetime:
 
 
 def _results_from(order: list[str]) -> str:
-    """first stage whose session produces results: Q on a conventional weekend, S on a sprint one"""
-    return next(s for s in order if s in ("S", "Q", "R"))
+    """first stage whose session produces results: FP1, the first practice classification"""
+    return next(s for s in order if s != "pre_weekend")
 
 
 def _publish_round(ctx: Context, work: Path) -> dict[str, schema.SectionStatus]:

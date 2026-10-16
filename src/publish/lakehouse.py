@@ -69,6 +69,15 @@ def results(season: int, rnd: int, session_id: str) -> pd.DataFrame:
                  season=season, rnd=rnd)
 
 
+def practice_laps(season: int, rnd: int, session_ids: Iterable[str]) -> pd.DataFrame:
+    """best lap and its rank per driver (session_id, driver, driver_id, best_lap, best_lap_rank) of the
+    given sessions; both are null for a driver with no timed lap"""
+    return query(f"""SELECT session_id, driver, driver_id, best_lap, best_lap_rank
+                     FROM race_preds.gold.driver_session
+                     WHERE season = :season AND round = :rnd AND session_id IN {_in(session_ids)}""",
+                 season=season, rnd=rnd)
+
+
 def race_stints(season: int, rnd: int) -> pd.DataFrame:
     """first and last lap of every stint each driver ran in the race"""
     return query("""SELECT driver, driver_id, stint, first(compound) AS compound,
