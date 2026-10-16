@@ -106,11 +106,14 @@ export function CircuitView({ event }: { event: EventDoc }) {
         )}
         {c.corners.map((k) => {
           const on = hover === k.number;
+          // Only a named corner reacts; the others have nothing to show yet.
           return (
             <g
               key={`${k.number}${k.letter ?? ""}`}
-              onPointerEnter={() => setHover(k.number)}
-              onPointerLeave={() => setHover(null)}
+              {...(k.name && {
+                onPointerEnter: () => setHover(k.number),
+                onPointerLeave: () => setHover(null),
+              })}
               className="cursor-default"
             >
               <circle
