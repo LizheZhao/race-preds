@@ -152,12 +152,15 @@ def climatology(races: pd.DataFrame) -> dict | None:
     """
     races: gold.session rows of earlier races here, with `wet_tyre_share` joined on
     -> seasons, wet race share (any rainfall, or WET_RACE_SHARE of laps on wet tyres) and
-    mean air and track temperature; None when there is no earlier race
+    mean air and track temperature; None when there is no earlier race, or no usable
+    temperature reading in any of them
     """
     if races.empty:
         return None
     wet = (races["rain_frac"].fillna(0) > 0) | (races["wet_tyre_share"].fillna(0) >= WET_RACE_SHARE)
-    track = races["track_temp_mean"].where(races["track_temp_mean"] > 0)  # a dropped sensor reads 0.0
+    air = races["air_temp_mean"].mean()
+    track = races["track_temp_mean"].where(races["track_temp_mean"] > 0).mean()  # a dropped sensor reads 0.0
+    if pd.isna(air) or pd.isna(track):
+        return None
     return {"seasons": sorted(int(s) for s in races["season"].unique()), "wet_race_share": float(wet.mean()),
-            "air_temp_c_mean": round(float(races["air_temp_mean"].mean()), 1),
-            "track_temp_c_mean": round(float(track.mean()), 1)}
+            "air_temp_c_mean": round(float(air), 1), "track_temp_c_mean": round(float(track), 1)}
