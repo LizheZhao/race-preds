@@ -6,8 +6,14 @@ bar its replacement has to beat (docs/pipeline-plan.md, Part 2). Pure functions,
 probabilities: an ordering becomes a position matrix by mixing the permutation with the
 uniform matrix, P = (1 - eps) * perm + eps / n. Every row and every column sums to 1, as
 the schema requires for qualifying; finishing order scales each row by (1 - p_dnf)
+
+tyres: lap delta vs tyre age is a curve, not a line (linear wear, an accelerating term and
+a cliff near the end of the compound's life, see COMPOUNDS). Stint times sum that same
+curve, so a plan's cost and the published degradation curve agree
 """
+from functools import cache
 from itertools import product
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -19,8 +25,22 @@ PRIOR_RACES = 10
 PRIOR_P_SC, PRIOR_P_VSC, PRIOR_P_RED, PRIOR_SC_PER_RACE = 0.55, 0.45, 0.10, 0.9
 START_WINDOW_LAPS = 5  # first lap window, where first-lap incidents bunch
 
-# tyre prior: pace vs MEDIUM (s/lap), degradation (s/lap per lap of tyre age), longest stint
-COMPOUNDS = {"SOFT": (-0.5, 0.10, 22), "MEDIUM": (0.0, 0.06, 32), "HARD": (0.35, 0.04, 45)}
+
+class Tyre(NamedTuple):
+    pace: float  # s/lap vs MEDIUM on a fresh tyre
+    wear: float  # linear loss, s/lap per lap of age
+    accel: float  # quadratic loss, s/lap per lap of age squared
+    cliff: float  # loss past 85% of the usable life, s/lap per lap squared
+    life: int  # longest stint
+
+
+# tyre prior: the lap delta at age a (1 = fresh) is
+#   wear * (a - 1) + accel * (a - 1)^2 + cliff * max(0, a - 0.85 * life)^2
+# linear wear, an accelerating term, then a cliff near the end of the compound's life
+COMPOUNDS = {"SOFT": Tyre(-0.5, 0.08, 0.0020, 0.020, 22),
+             "MEDIUM": Tyre(0.0, 0.05, 0.0008, 0.012, 32),
+             "HARD": Tyre(0.35, 0.035, 0.0004, 0.008, 45)}
+CLIFF_START = 0.85
 PIT_LOSS_S = 22.0
 PIT_WINDOW_S = 1.0  # a pit lap is in the window when it costs at most this much over the best
 MAX_OPTIONS = 4
@@ -96,9 +116,21 @@ def race_incidents(history: pd.DataFrame, race_laps: int) -> dict:
 # ---------------------------------------------------------------- strategy
 
 
+def _lap_delta(compound: str, age: int) -> float:
+    t = COMPOUNDS[compound]
+    return t.wear * (age - 1) + t.accel * (age - 1) ** 2 + t.cliff * max(0.0, age - CLIFF_START * t.life) ** 2
+
+
+@cache
+def _stint_times(compound: str) -> np.ndarray:
+    """_stint_times(c)[n] = time of an n-lap stint relative to MEDIUM fresh pace: the published curve, summed"""
+    laps = np.arange(1, COMPOUNDS[compound].life + 1)
+    per_lap = COMPOUNDS[compound].pace + np.array([_lap_delta(compound, a) for a in laps])
+    return np.concatenate([[0.0], np.cumsum(per_lap)])
+
+
 def _stint_time(compound: str, laps: int) -> float:
-    pace, deg, _ = COMPOUNDS[compound]
-    return laps * pace + deg * laps * (laps - 1) / 2
+    return float(_stint_times(compound)[laps])
 
 
 def _plans() -> list[tuple[str, ...]]:
@@ -109,7 +141,7 @@ def _plans() -> list[tuple[str, ...]]:
 
 def _best_split(seq: tuple[str, ...], race_laps: int):
     """stint lengths minimising race time, within each compound's longest stint"""
-    caps = [COMPOUNDS[c][2] for c in seq]
+    caps = [COMPOUNDS[c].life for c in seq]
     best, best_lengths, costs = None, None, {}
     if len(seq) == 2:
         candidates = ((a, race_laps - a) for a in range(1, race_laps))
@@ -145,7 +177,7 @@ def strategy(race_laps: int) -> dict:
     found.sort(key=lambda o: o["time"])
     best = found[0]["time"]
     options = [{**o, "expected_time_delta_s": round(o["time"] - best, 3)} for o in found[:MAX_OPTIONS]]
-    degradation = [{"compound": c, "tyre_life": list(range(1, cap + 1)),
-                    "lap_delta_s": [round(deg * (life - 1), 4) for life in range(1, cap + 1)], "source_sessions": []}
-                   for c, (_, deg, cap) in COMPOUNDS.items()]
+    degradation = [{"compound": c, "tyre_life": list(range(1, t.life + 1)),
+                    "lap_delta_s": [round(_lap_delta(c, a), 4) for a in range(1, t.life + 1)], "source_sessions": []}
+                   for c, t in COMPOUNDS.items()]
     return {"pit_loss_s": PIT_LOSS_S, "options": options, "degradation": degradation}

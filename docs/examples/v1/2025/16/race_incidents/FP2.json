@@ -1,6 +1,6 @@
 {
   "meta": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.2.0",
     "artifact": "race_incidents",
     "season": 2025,
     "round": 16,
@@ -57,31 +57,70 @@
       "season": 2024,
       "safety_cars": 0,
       "vscs": 1,
-      "red_flags": 0
+      "red_flags": 0,
+      "periods": [
+        {
+          "kind": "VSC",
+          "start_lap": 38,
+          "end_lap": 39
+        }
+      ]
     },
     {
       "season": 2023,
       "safety_cars": 0,
       "vscs": 0,
-      "red_flags": 0
+      "red_flags": 0,
+      "periods": []
     },
     {
       "season": 2022,
       "safety_cars": 1,
       "vscs": 1,
-      "red_flags": 0
+      "red_flags": 0,
+      "periods": [
+        {
+          "kind": "VSC",
+          "start_lap": 46,
+          "end_lap": 46
+        },
+        {
+          "kind": "SC",
+          "start_lap": 47,
+          "end_lap": 53
+        }
+      ]
     },
     {
       "season": 2021,
       "safety_cars": 1,
       "vscs": 0,
-      "red_flags": 0
+      "red_flags": 0,
+      "periods": [
+        {
+          "kind": "SC",
+          "start_lap": 1,
+          "end_lap": 3
+        }
+      ]
     },
     {
       "season": 2020,
       "safety_cars": 1,
       "vscs": 0,
-      "red_flags": 1
+      "red_flags": 1,
+      "periods": [
+        {
+          "kind": "SC",
+          "start_lap": 20,
+          "end_lap": 24
+        },
+        {
+          "kind": "RED",
+          "start_lap": 24,
+          "end_lap": 27
+        }
+      ]
     }
   ]
 }

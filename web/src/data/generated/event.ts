@@ -8,14 +8,15 @@ export type Artifact =
   | "weather"
   | "finishing_order"
   | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
   | "race_incidents"
   | "strategy"
   | "facts"
   | "results";
 export type Season = number;
 export type Round = number | null;
-export type Stage =
-  ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
+export type Stage = ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
 export type GeneratedAt = string;
 export type RunId = string;
 export type Name = string;
@@ -32,28 +33,36 @@ export type RaceLaps = number | null;
 /**
  * @minItems 3
  */
-export type Outline = [
-  [number, number],
-  [number, number],
-  [number, number],
-  ...[number, number][],
-];
+export type Outline = [[number, number], [number, number], [number, number], ...[number, number][]];
 export type Number = number;
 export type Letter = string;
 export type X = number;
 export type Y = number;
+export type Name2 = string | null;
+export type NameOrigin = string | null;
 export type Corners = Corner[];
 export type Season1 = number;
 export type DriverName = string;
 export type TeamName = string;
 export type PastWinners = PastWinner[];
+export type Designer = string | null;
+export type Season2 = number;
+export type Headline = string;
+export type Body = string | null;
+export type Source = string;
+export type Moments = CircuitMoment[];
+export type SpeedKph = number;
+export type DriverCode = string;
+export type Season3 = number;
+export type SessionId = "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R";
+export type RecordSince = number | null;
 export type Id1 = "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R";
-export type Name2 = string;
+export type Name3 = string;
 export type StartUtc = string;
 export type Status = "upcoming" | "live" | "completed" | "cancelled";
 export type Sessions = Session[];
 export type Id2 = string;
-export type Name3 = string;
+export type Name4 = string;
 export type Color = string;
 export type Teams = Team[];
 export type Id3 = string;
@@ -119,6 +128,8 @@ export interface Circuit {
   outline: Outline;
   corners: Corners;
   past_winners?: PastWinners;
+  story?: CircuitStory | null;
+  speed_trap?: SpeedTrap | null;
 }
 /**
  * This interface was referenced by `EventDoc`'s JSON-Schema
@@ -129,6 +140,8 @@ export interface Corner {
   letter?: Letter;
   x: X;
   y: Y;
+  name?: Name2;
+  name_origin?: NameOrigin;
 }
 /**
  * This interface was referenced by `EventDoc`'s JSON-Schema
@@ -140,12 +153,53 @@ export interface PastWinner {
   team_name: TeamName;
 }
 /**
+ * curated in reference/stories/<circuit_id>.json; every claim carries its source
+ *
+ * This interface was referenced by `EventDoc`'s JSON-Schema
+ * via the `definition` "CircuitStory".
+ */
+export interface CircuitStory {
+  designer?: Designer;
+  moments?: Moments;
+}
+/**
+ * This interface was referenced by `EventDoc`'s JSON-Schema
+ * via the `definition` "CircuitMoment".
+ */
+export interface CircuitMoment {
+  season: Season2;
+  headline: Headline;
+  body?: Body;
+  source: Source;
+}
+/**
+ * fastest speed-trap reading (FastF1 SpeedST) this weekend so far, and at this circuit before it
+ *
+ * This interface was referenced by `EventDoc`'s JSON-Schema
+ * via the `definition` "SpeedTrap".
+ */
+export interface SpeedTrap {
+  weekend?: SpeedMark | null;
+  record?: SpeedMark | null;
+  record_since?: RecordSince;
+}
+/**
+ * This interface was referenced by `EventDoc`'s JSON-Schema
+ * via the `definition` "SpeedMark".
+ */
+export interface SpeedMark {
+  speed_kph: SpeedKph;
+  driver_code: DriverCode;
+  season: Season3;
+  session_id: SessionId;
+}
+/**
  * This interface was referenced by `EventDoc`'s JSON-Schema
  * via the `definition` "Session".
  */
 export interface Session {
   id: Id1;
-  name: Name2;
+  name: Name3;
   start_utc: StartUtc;
   status: Status;
 }
@@ -155,7 +209,7 @@ export interface Session {
  */
 export interface Team {
   id: Id2;
-  name: Name3;
+  name: Name4;
   color: Color;
 }
 /**

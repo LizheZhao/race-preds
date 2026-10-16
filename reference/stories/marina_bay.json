@@ -1,0 +1,55 @@
+{
+ "designer": "KBR, modifying an original concept by Hermann Tilke",
+ "moments": [
+  {
+   "season": 2008,
+   "headline": "First Formula 1 night race",
+   "body": "Marina Bay hosted the sport's first night race under floodlights, won by Fernando Alonso for Renault.",
+   "source": "https://www.formula1.com/en/racing/2026/Singapore/Circuit.html"
+  },
+  {
+   "season": 2008,
+   "headline": "Crashgate: Piquet's crash hands Alonso victory",
+   "body": "Renault later admitted Nelson Piquet Jr crashed deliberately to help Alonso, who won from 15th on the grid.",
+   "source": "https://www.formula1.com/en/latest/article/moments-in-time-the-singapore-grand-prix.EkbLahNFlbNLF23He5jwU"
+  },
+  {
+   "season": 2013,
+   "headline": "Singapore Sling chicane replaced at Turn 10",
+   "body": "The left-right-left chicane at Turn 10 was replaced by a single left-hander.",
+   "source": "https://www.autosport.com/f1/news/109966/f1-drivers-back-singapore-changes"
+  },
+  {
+   "season": 2023,
+   "headline": "Float section dropped, circuit shrinks to 19 corners",
+   "body": "The Turn 16 to 19 section became one long straight, cutting the lap from 23 to 19 corners while the Float was redeveloped.",
+   "source": "https://www.formula1.com/en/latest/article.singapore-grand-prix-set-to-feature-revised-track-layout-in-2023.6KsrU6hQw3hxrVJ6zKeJ74.html"
+  },
+  {
+   "season": 2024,
+   "headline": "First Singapore Grand Prix without a safety car",
+   "body": "Lando Norris won from pole in a race with no safety car, a first in the event's history.",
+   "source": "https://singaporegp.sg/news/2024/papaya-rules-again"
+  }
+ ],
+ "corners": [
+  {
+   "number": 1,
+   "name": "Sheares",
+   "origin": "After the Benjamin Sheares Bridge overhead, named for Singapore's second president.",
+   "source": "https://www.oneshift.com/articles/news/new-corner-names-for-singapore-grand-prix-circuit/"
+  },
+  {
+   "number": 7,
+   "name": "Memorial",
+   "origin": "Close to the monument honouring civilian victims of the Second World War.",
+   "source": "https://www.oneshift.com/articles/news/new-corner-names-for-singapore-grand-prix-circuit/"
+  },
+  {
+   "number": 10,
+   "name": "Singapore Sling",
+   "origin": "After Singapore's best-known cocktail, said to originate at Raffles Hotel's Long Bar.",
+   "source": "https://www.oneshift.com/articles/news/new-corner-names-for-singapore-grand-prix-circuit/"
+  }
+ ]
+}

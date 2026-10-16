@@ -1,6 +1,6 @@
 {
   "meta": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.2.0",
     "artifact": "weather",
     "season": 2025,
     "round": 16,
@@ -22,9 +22,11 @@
       "observed": {
         "air_temp_c_mean": 23.1,
         "track_temp_c_max": 36.5,
+        "track_temp_c_min": 29.0,
         "humidity_mean": 0.52,
         "wind_speed_ms_mean": 1.8,
-        "rain_share": 0.0
+        "rain_share": 0.0,
+        "wet_tyre_share": 0.0
       }
     },
     {
@@ -38,9 +40,11 @@
       "observed": {
         "air_temp_c_mean": 26.4,
         "track_temp_c_max": 44.0,
+        "track_temp_c_min": 31.5,
         "humidity_mean": 0.52,
         "wind_speed_ms_mean": 1.8,
-        "rain_share": 0.0
+        "rain_share": 0.0,
+        "wet_tyre_share": 0.0
       }
     },
     {

@@ -1,154 +1,202 @@
 import { useRace } from "./context";
 import { useTip } from "./Tip";
+import { useWidth } from "./useWidth";
 
 export interface BumpColumn {
   label: string;
-  /** Driver ids, best first. Drivers missing from a column skip it. */
-  order: string[];
-  /** Drivers drawn dashed and labelled with `outLabel` in this column (e.g. retirements). */
+  /** Driver ids, best first, or null when the stage has no data. Drivers missing from a column skip it. */
+  order: string[] | null;
+  /** Drivers drawn dashed into this column and labelled with `outLabel` (retirements, pit-lane starts). */
   out?: Set<string>;
   outLabel?: (id: string) => string;
+  /** Column holds the actual outcome of the race the prediction is for. */
+  result?: boolean;
+  /** Column comes after the stage being viewed: drawn grey. */
+  future?: boolean;
+  /** Column is the viewed stage: tinted, with a primary header. */
+  selected?: boolean;
+  tip?: string;
 }
 
-/** Ranks per column joined by one line per driver; the biggest overall movers stand out. */
+const ROW = 22;
+const TOP = 26;
+const LABEL_W = 84;
+const TINT_HALF = 34;
+const FUTURE = "var(--input)";
+
+/** One line per driver across the columns, at the container's real pixel width. */
 export function BumpChart({ columns }: { columns: BumpColumn[] }) {
   const { drivers, colorOf, highlight, toggleHighlight } = useRace();
   const tip = useTip();
-  const first = columns[0]!;
+  const [ref, width] = useWidth<HTMLDivElement>();
   const last = columns[columns.length - 1]!;
-  const ids = [...new Set(columns.flatMap((c) => c.order))];
-  const n = Math.max(...columns.map((c) => c.order.length));
-
-  const H = 22 * n + 30,
-    W = Math.max(520, 140 * (columns.length - 1) + 180),
-    L = 90,
-    R = W - 90;
-  const x = (i: number) => L + ((R - L) * i) / (columns.length - 1);
-  const y = (rank: number) => 20 + ((rank - 1) / Math.max(1, n - 1)) * (H - 40);
-  const rank = (c: BumpColumn, id: string) => {
-    const i = c.order.indexOf(id);
-    return i < 0 ? null : i + 1;
-  };
-
-  const change = (id: string) => {
-    const a = rank(first, id),
-      b = rank(last, id);
-    return a == null || b == null ? 0 : a - b;
-  };
-  const big =
-    ids.map((id) => Math.abs(change(id))).sort((a, b) => b - a)[
-      Math.min(4, ids.length - 1)
-    ] ?? 0;
+  const n = Math.max(0, ...columns.map((c) => c.order?.length ?? 0));
+  const W = Math.max(520, width);
+  const H = TOP + n * ROW + 6;
+  const step = (W - 2 * LABEL_W) / Math.max(1, columns.length - 1);
+  const xs = columns.map((_, i) => LABEL_W + i * step);
+  const half = Math.min(TINT_HALF, step / 2 - 2);
+  const y = (i: number) => TOP + i * ROW + ROW / 2;
+  const code = (id: string) => drivers.get(id)?.code ?? id;
+  const ids = [
+    ...new Set([
+      ...(last.order ?? []),
+      ...columns.flatMap((c) => c.order ?? []),
+    ]),
+  ].sort((a, b) => Number(highlight === a) - Number(highlight === b));
+  const labelAt = (c: BumpColumn, k: number, id: string) =>
+    c.out?.has(id) ? (c.outLabel?.(id) ?? "out") : `P${k + 1}`;
+  const muted = (c: BumpColumn) => c.future || !c.order;
+  const headFill = (c: BumpColumn) =>
+    c.selected
+      ? "var(--primary)"
+      : muted(c)
+        ? "var(--subtle)"
+        : c.result
+          ? "var(--result)"
+          : "var(--muted-foreground)";
 
   return (
-    <div className="-mx-1 overflow-x-auto">
+    <div ref={ref} className="overflow-x-auto">
       {tip.node}
       <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full min-w-[480px]"
-        style={{ height: "auto" }}
+        width={W}
+        height={H}
+        className="block"
+        role="img"
+        aria-label="Positions by session"
       >
         {columns.map((c, i) => (
           <g key={c.label}>
+            {(c.selected || c.future) && (
+              <rect
+                x={xs[i]! - half}
+                y={2}
+                width={2 * half}
+                height={H - 4}
+                fill={
+                  c.selected
+                    ? "color-mix(in oklab, var(--primary) 8%, transparent)"
+                    : "color-mix(in oklab, var(--subtle) 7%, transparent)"
+                }
+              />
+            )}
             <text
-              x={x(i)}
-              y={10}
+              x={xs[i]}
+              y={14}
               textAnchor="middle"
+              fontSize={12}
+              fontWeight={600}
               className="font-display"
-              fontSize={10}
-              fill="var(--muted-foreground)"
+              fill={headFill(c)}
+              opacity={muted(c) && !c.selected ? 0.65 : 1}
+              onPointerEnter={c.tip ? tip.show(c.tip) : undefined}
+              onPointerLeave={c.tip ? tip.hide : undefined}
+              textDecoration={c.tip ? "underline dotted" : undefined}
             >
               {c.label}
             </text>
-            <line
-              x1={x(i)}
-              x2={x(i)}
-              y1={16}
-              y2={H - 14}
-              stroke="var(--border)"
-            />
+            {!c.order && (
+              <>
+                <line
+                  x1={xs[i]}
+                  x2={xs[i]}
+                  y1={TOP}
+                  y2={H - 6}
+                  stroke={FUTURE}
+                  strokeDasharray="4 4"
+                />
+                <text
+                  transform={`rotate(-90 ${xs[i]} ${H / 2})`}
+                  x={xs[i]}
+                  y={H / 2}
+                  dy="0.35em"
+                  textAnchor="middle"
+                  fontSize={11}
+                  fill="var(--subtle)"
+                  stroke="var(--card)"
+                  strokeWidth={4}
+                  paintOrder="stroke"
+                >
+                  no data
+                </text>
+              </>
+            )}
           </g>
         ))}
         {ids.map((id) => {
-          const code = drivers.get(id)?.code ?? id;
-          const d = change(id);
-          const strong = Math.abs(d) >= big && Math.abs(d) > 0;
-          const dim = highlight ? highlight !== id : !strong;
-          const points = columns
-            .map((c, i) => ({ c, i, r: rank(c, id) }))
-            .filter(
-              (p): p is { c: BumpColumn; i: number; r: number } => p.r != null,
-            );
-          const label = (c: BumpColumn, r: number) =>
-            c.out?.has(id) ? (c.outLabel?.(id) ?? "out") : `P${r}`;
-          const a = rank(first, id),
-            b = rank(last, id);
+          const on = highlight === id;
+          const off = highlight != null && !on;
+          const pts = columns.flatMap((c, i) => {
+            const k = c.order?.indexOf(id) ?? -1;
+            return k < 0 ? [] : [{ c, i, k }];
+          });
+          const trail = pts
+            .map((p) => `${p.c.label} ${labelAt(p.c, p.k, id)}`)
+            .join(" → ");
+          const tone = (c: BumpColumn) =>
+            c.future ? (on ? "var(--subtle)" : FUTURE) : colorOf(id);
           return (
             <g
               key={id}
-              onClick={() => toggleHighlight(id)}
               className="cursor-pointer"
+              onClick={() => toggleHighlight(id)}
               onPointerEnter={tip.show(
                 <>
-                  {code}:{" "}
-                  {points
-                    .map((p) => `${p.c.label} ${label(p.c, p.r)}`)
-                    .join(" → ")}
+                  <b>{code(id)}</b> {trail}
                 </>,
               )}
               onPointerLeave={tip.hide}
-              opacity={dim ? 0.25 : 1}
             >
-              {points.slice(1).map((p, k) => {
-                const q = points[k]!;
+              {pts.slice(1).map((p, j) => {
+                const q = pts[j]!;
+                const mx = (xs[q.i]! + xs[p.i]!) / 2;
                 return (
-                  <line
+                  <path
                     key={p.i}
-                    x1={x(q.i)}
-                    y1={y(q.r)}
-                    x2={x(p.i)}
-                    y2={y(p.r)}
-                    stroke={colorOf(id)}
-                    strokeWidth={strong || highlight === id ? 2.5 : 1.25}
-                    strokeDasharray={p.c.out?.has(id) ? "3 3" : undefined}
+                    d={`M${xs[q.i]},${y(q.k)} C${mx},${y(q.k)} ${mx},${y(p.k)} ${xs[p.i]},${y(p.k)}`}
+                    fill="none"
+                    stroke={tone(p.c)}
+                    strokeWidth={on ? 3.5 : p.c.future ? 1 : 1.6}
+                    opacity={off ? 0.12 : on ? 1 : 0.6}
+                    strokeDasharray={p.c.out?.has(id) ? "4 3" : undefined}
                   />
                 );
               })}
-              {points.map((p) => (
-                <circle
-                  key={p.i}
-                  cx={x(p.i)}
-                  cy={y(p.r)}
-                  r={3}
-                  fill={colorOf(id)}
-                />
-              ))}
-              {a != null && (
-                <text
-                  x={L - 8}
-                  y={y(a)}
-                  dy="0.35em"
-                  textAnchor="end"
-                  fontSize={10}
-                  fill="var(--foreground)"
-                  className="font-display tnum"
-                >
-                  {code} {label(first, a)}
-                </text>
-              )}
-              {b != null && (
-                <text
-                  x={R + 8}
-                  y={y(b)}
-                  dy="0.35em"
-                  fontSize={10}
-                  fill="var(--foreground)"
-                  className="font-display tnum"
-                >
-                  {label(last, b)} {code}
-                  {strong ? ` ${d > 0 ? "▲" : "▼"}${Math.abs(d)}` : ""}
-                </text>
-              )}
+              {pts.map((p, j) => {
+                const first = j === 0;
+                const end = j === pts.length - 1;
+                return (
+                  <g key={p.i} opacity={off ? 0.2 : 1}>
+                    <circle
+                      cx={xs[p.i]}
+                      cy={y(p.k)}
+                      r={on ? 4.5 : p.c.future ? 2 : 3}
+                      fill={tone(p.c)}
+                    />
+                    {(first || end) && (
+                      <text
+                        x={xs[p.i]! + (first ? -10 : 10)}
+                        y={y(p.k)}
+                        dy="0.35em"
+                        textAnchor={first ? "end" : "start"}
+                        fontSize={12}
+                        fontWeight={on ? 700 : 500}
+                        fill={
+                          p.c.future && !on
+                            ? "var(--subtle)"
+                            : "var(--foreground)"
+                        }
+                        className="tnum"
+                      >
+                        {first
+                          ? `${code(id)}  ${labelAt(p.c, p.k, id)}`
+                          : `${labelAt(p.c, p.k, id)}  ${code(id)}`}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
             </g>
           );
         })}

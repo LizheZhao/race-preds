@@ -8,14 +8,15 @@ export type Artifact =
   | "weather"
   | "finishing_order"
   | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
   | "race_incidents"
   | "strategy"
   | "facts"
   | "results";
 export type Season = number;
 export type Round = number | null;
-export type Stage =
-  ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
+export type Stage = ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
 export type GeneratedAt = string;
 export type RunId = string;
 export type Name = string;
@@ -42,6 +43,10 @@ export type Season1 = number;
 export type SafetyCars = number;
 export type Vscs = number;
 export type RedFlags = number;
+export type Kind = "SC" | "VSC" | "RED";
+export type StartLap1 = number;
+export type EndLap1 = number;
+export type Periods = Neutralisation[];
 export type CircuitHistory = CircuitIncidentHistory[];
 
 export interface RaceIncidentsDoc {
@@ -109,4 +114,18 @@ export interface CircuitIncidentHistory {
   safety_cars: SafetyCars;
   vscs: Vscs;
   red_flags: RedFlags;
+  periods?: Periods;
+}
+/**
+ * One period of a race under the safety car, the virtual safety car or a red flag, in the
+ * leader's laps. Every lap the status was active in counts, so an SC deployed late in lap 12
+ * and in for laps 13-16 is 12-16.
+ *
+ * This interface was referenced by `RaceIncidentsDoc`'s JSON-Schema
+ * via the `definition` "Neutralisation".
+ */
+export interface Neutralisation {
+  kind: Kind;
+  start_lap: StartLap1;
+  end_lap: EndLap1;
 }

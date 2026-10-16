@@ -19,7 +19,9 @@ such as this file and `docs/*.md` is fine when asked.
    Spark ETL into Delta bronze → silver → gold on Databricks (Free Edition). Spark is
    used deliberately even though the lap data is small.
 2. **Models**: finishing order, qualifying, race incidents (SC/VSC/red flag) and tyre
-   strategy are trained and scored on Databricks and tracked in MLflow.
+   strategy are trained in pandas on a snapshot of `gold.features` (by hand for now; a
+   Monday Databricks job is planned) and registered in MLflow / Unity Catalog on
+   Databricks. Publish scores the exported model on the GitHub runner, without Spark.
 3. **Dashboard**: a publish step turns the predictions into static JSON that validates
    against `src/schema.py`. A static front end only reads that JSON.
 
@@ -65,6 +67,17 @@ uv pip install -r requirements.txt
 Dependencies live in a single top-level `requirements.txt` (plain pip/uv, no extras
 groups). `uv` is installed on this machine; the system `python3` is 3.9, so always create
 the venv with an explicit `--python 3.12`.
+
+On this machine the venv lives outside the repo at `~/.venvs/race-preds`, and `.venv` in
+each checkout is a symlink to it. Don't create a fresh `.venv` in a worktree. Credentials
+go in `.env` at the repo root (`cp .env.example .env`), kept only in the main checkout.
+
+Worktrees: the main session normally works in the main checkout without one. Subagent
+worktrees branch from the local `HEAD` (`worktree.baseRef` in `.claude/settings.json`),
+and `.worktreeinclude` copies `.env` into them. A local SessionStart hook (in
+`.claude/settings.local.json`, not committed) links `.env` and `.venv` into any checkout
+that lacks them and puts the venv on `PATH`. Work done in a worktree lands on its own
+branch; merge it back into the branch the main checkout is on.
 
 Run Jupyter **from the repo root**, not from `nb/` — notebooks resolve `ROOT` by checking
 whether `Path.cwd().name == "nb"`, but imports are cleanest from the root:
@@ -168,6 +181,9 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   `read_session()` reads it back without FastF1. No Databricks imports. In a job, keep
   the FastF1 cache on local temp disk: SQLite does not work on a Volume. Columns that
   can be all-empty need a type in `FIXED_TYPES`, or ingest refuses to write them.
+  FastF1 swallows HTTP errors, so ingest watches its requests: a refused or failed
+  archive request raises `ArchiveRequestFailed` (recorded `failed`), and only a missing
+  file raises `SessionNotAvailable` (`not_available`).
 - `etl/bronze.py` (pipeline, Spark only, no FastF1): `load_session(spark, session_dir)`
   replaces one session in the `race_preds.bronze.*` Delta tables. Runs as the second
   task of `process_session`; needs a Databricks Spark session, so it cannot run locally.

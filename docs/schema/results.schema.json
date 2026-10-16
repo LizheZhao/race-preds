@@ -1,5 +1,43 @@
 {
   "$defs": {
+    "DriverPace": {
+      "additionalProperties": false,
+      "properties": {
+        "driver_id": {
+          "pattern": "^[a-z0-9_]+$",
+          "title": "Driver Id",
+          "type": "string"
+        },
+        "lap_times_s": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Lap Times S",
+          "type": "array"
+        },
+        "compounds": {
+          "default": [],
+          "items": {
+            "enum": [
+              "SOFT",
+              "MEDIUM",
+              "HARD",
+              "INTERMEDIATE",
+              "WET"
+            ],
+            "type": "string"
+          },
+          "title": "Compounds",
+          "type": "array"
+        }
+      },
+      "required": [
+        "driver_id",
+        "lap_times_s"
+      ],
+      "title": "DriverPace",
+      "type": "object"
+    },
     "DriverStrategy": {
       "additionalProperties": false,
       "properties": {
@@ -55,7 +93,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "1.0.0",
+          "default": "1.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -67,6 +105,8 @@
             "weather",
             "finishing_order",
             "qualifying",
+            "sprint_qualifying",
+            "sprint",
             "race_incidents",
             "strategy",
             "facts",
@@ -132,6 +172,98 @@
         "run_id"
       ],
       "title": "Meta",
+      "type": "object"
+    },
+    "Neutralisation": {
+      "additionalProperties": false,
+      "description": "One period of a race under the safety car, the virtual safety car or a red flag, in the\nleader's laps. Every lap the status was active in counts, so an SC deployed late in lap 12\nand in for laps 13-16 is 12-16.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "SC",
+            "VSC",
+            "RED"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "start_lap": {
+          "minimum": 1,
+          "title": "Start Lap",
+          "type": "integer"
+        },
+        "end_lap": {
+          "minimum": 1,
+          "title": "End Lap",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "start_lap",
+        "end_lap"
+      ],
+      "title": "Neutralisation",
+      "type": "object"
+    },
+    "PracticeRow": {
+      "additionalProperties": false,
+      "properties": {
+        "driver_id": {
+          "pattern": "^[a-z0-9_]+$",
+          "title": "Driver Id",
+          "type": "string"
+        },
+        "position": {
+          "minimum": 1,
+          "title": "Position",
+          "type": "integer"
+        },
+        "best_lap_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Best Lap S"
+        }
+      },
+      "required": [
+        "driver_id",
+        "position"
+      ],
+      "title": "PracticeRow",
+      "type": "object"
+    },
+    "PracticeSession": {
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "enum": [
+            "FP1",
+            "FP2",
+            "FP3"
+          ],
+          "title": "Session Id",
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/PracticeRow"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "session_id",
+        "rows"
+      ],
+      "title": "PracticeSession",
       "type": "object"
     },
     "QualiRow": {
@@ -294,6 +426,36 @@
     "meta": {
       "$ref": "#/$defs/Meta"
     },
+    "practice": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/PracticeSession"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Practice"
+    },
+    "sprint_qualifying": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/QualiRow"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sprint Qualifying"
+    },
     "qualifying": {
       "anyOf": [
         {
@@ -350,6 +512,21 @@
       ],
       "default": null
     },
+    "race_neutralisations": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Neutralisation"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Race Neutralisations"
+    },
     "race_strategies": {
       "anyOf": [
         {
@@ -364,6 +541,21 @@
       ],
       "default": null,
       "title": "Race Strategies"
+    },
+    "race_pace": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/DriverPace"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Race Pace"
     }
   },
   "required": [

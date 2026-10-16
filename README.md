@@ -24,7 +24,20 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-Plain `python3 -m venv .venv && pip install -r requirements.txt` works too.
+Plain `python3 -m venv .venv && pip install -r requirements.txt` works too. To keep the
+venv outside the repo, create it elsewhere and link it in: tools only look for `.venv`.
+
+```bash
+uv venv --python 3.12 ~/.venvs/race-preds
+ln -s ~/.venvs/race-preds .venv
+```
+
+Databricks credentials go in a local `.env`, which is gitignored. The pipeline
+(`src/dispatch`, `src/publish`, `src/models/registry.py`) reads it:
+
+```bash
+cp .env.example .env    # then fill in DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_HTTP_PATH
+```
 
 Run Jupyter from the repo root so notebooks in `nb/` can `from src.config import ...`:
 

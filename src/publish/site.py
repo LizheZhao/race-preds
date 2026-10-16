@@ -22,9 +22,6 @@ from src.publish import documents as docs
 from src.publish import reference as ref
 from src.publish.documents import Context
 
-# snapshot sections stop updating once their session has run: qualifying at Q, the race
-# predictions at R; after that the last snapshot before it stays up
-LAST_SNAPSHOT_BEFORE = {"qualifying": "Q", "finishing_order": "R", "race_incidents": "R", "strategy": "R"}
 ROUND_SECTIONS = {"event": docs.event, "weather": docs.weather, "facts": docs.facts, "results": docs.results}
 
 
@@ -34,10 +31,6 @@ class PublishError(Exception):
 
 def _message(exc: Exception) -> str:
     return f"Not refreshed: {type(exc).__name__}"[:200]
-
-
-def _snapshot_stages(order: list[str], section: str) -> list[str]:
-    return order[:order.index(LAST_SNAPSHOT_BEFORE[section])]
 
 
 def _existing(round_dir: Path, section: str, stages: list[str]) -> list[str]:
@@ -50,8 +43,8 @@ def _generated_at(path: Path, artifact: str) -> datetime:
 
 
 def _results_from(order: list[str]) -> str:
-    """first stage whose session produces results: Q on a conventional weekend, S on a sprint one"""
-    return next(s for s in order if s in ("S", "Q", "R"))
+    """first stage whose session produces results: FP1, the first practice classification"""
+    return next(s for s in order if s != "pre_weekend")
 
 
 def _publish_round(ctx: Context, work: Path) -> dict[str, schema.SectionStatus]:
@@ -86,26 +79,28 @@ def _publish_round(ctx: Context, work: Path) -> dict[str, schema.SectionStatus]:
         sections[name] = schema.SectionStatus(status="ready", path=schema.section_path(name, ctx.stage),
                                               stage=ctx.stage, updated_at=ctx.now)
 
-    for name, build in docs.SNAPSHOTS.items():
-        stages = _snapshot_stages(order, name)
+    for name, pred in docs.PREDICTIONS.items():
+        if pred.session not in order:
+            sections[name] = schema.SectionStatus(status="not_applicable")
+            continue
+        # snapshots are the stages before the session it predicts
+        stages = order[:order.index(pred.session)]
         if ctx.stage in stages:
             earlier = _existing(work, name, stages[:stages.index(ctx.stage)])
             try:
-                doc = build(ctx)
+                doc = pred.build(ctx)
             except Exception as exc:
-                status = fallback(name, exc)
-                sections[name] = status
+                sections[name] = fallback(name, exc)
                 continue
             write(schema.section_path(name, ctx.stage), doc)
             sections[name] = schema.SectionStatus(status="ready", path=schema.section_path(name, ctx.stage),
                                                   stage=ctx.stage, updated_at=ctx.now, history=earlier)
             continue
 
-        # past the section's last snapshot: the last one before the session stays up
         done = _existing(work, name, stages)
-        if name == "qualifying":
+        if not pred.kept_after:
             sections[name] = schema.SectionStatus(status="not_applicable", history=done,
-                                                  message="Qualifying has run. The result is in the results panel.")
+                                                  message="The session has run. Earlier predictions are kept as history.")
         elif done:
             path = work / schema.section_path(name, done[-1])
             sections[name] = schema.SectionStatus(status="ready", path=schema.section_path(name, done[-1]),

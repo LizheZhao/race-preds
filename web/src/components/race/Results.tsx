@@ -1,141 +1,154 @@
+import { useState } from "react";
 import type { QualiRow, RaceRow, ResultsDoc } from "@/data/types";
 import { cn } from "@/lib/utils";
 import { useRace } from "./context";
+import { gainClass, gainLabel, lapFmt, placesGained } from "./format";
+import { Seg } from "./Seg";
+import { DriverRow, NameCell, ResultsTable, SHOW } from "./ResultsTable";
+import { DriversStandings, TeamsStandings } from "./Standings";
 
-/** Actual outcomes: the race once it has run, otherwise the latest classified session. */
+type Tab = "race" | "sprint" | "qualifying" | "drivers" | "teams";
+const LABEL: Record<Tab, string> = {
+  race: "Race",
+  sprint: "Sprint",
+  qualifying: "Qualifying",
+  drivers: "Drivers' standings",
+  teams: "Teams' standings",
+};
+const SHORT: Record<Tab, string> = {
+  race: "Race",
+  sprint: "Sprint",
+  qualifying: "Quali",
+  drivers: "Drivers",
+  teams: "Teams",
+};
+
+/** Session classifications and the championship, one table at a time. */
 export function ResultsView({ doc }: { doc: ResultsDoc }) {
-  const incidents = doc.race_incidents;
+  const { event } = useRace();
+  const tabs = (
+    [
+      doc.race && "race",
+      doc.sprint && "sprint",
+      doc.qualifying && "qualifying",
+      event && "drivers",
+      event && "teams",
+    ] as (Tab | undefined | null | false | "")[]
+  ).filter((t): t is Tab => !!t);
+  const [tab, setTab] = useState<Tab>(tabs[0] ?? "race");
+  const active = tabs.includes(tab) ? tab : tabs[0];
+
   return (
-    <div className="space-y-5">
-      {incidents && (
-        <p className="text-xs text-muted-foreground tnum">
-          {incidents.safety_cars} safety car
-          {incidents.safety_cars === 1 ? "" : "s"} · {incidents.vscs} VSC ·{" "}
-          {incidents.red_flags} red flag{incidents.red_flags === 1 ? "" : "s"}
-        </p>
-      )}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {doc.race && <RaceTable title="Race" rows={doc.race} />}
-        {doc.sprint && <RaceTable title="Sprint" rows={doc.sprint} />}
-        {doc.qualifying && <QualiTable rows={doc.qualifying} />}
+    <div>
+      <div className="mb-3">
+        <Seg
+          label="Session"
+          value={active ?? "race"}
+          onChange={setTab}
+          options={tabs.map((t) => ({
+            key: t,
+            label: LABEL[t],
+            short: SHORT[t],
+          }))}
+        />
+      </div>
+      <div key={active} className="stage-fade">
+        {active === "race" && doc.race && <ClassTable rows={doc.race} />}
+        {active === "sprint" && doc.sprint && <ClassTable rows={doc.sprint} />}
+        {active === "qualifying" && doc.qualifying && (
+          <QualiTable rows={doc.qualifying} />
+        )}
+        {active === "drivers" && event && <DriversStandings event={event} />}
+        {active === "teams" && event && <TeamsStandings event={event} />}
       </div>
     </div>
   );
 }
 
-function RaceTable({ title, rows }: { title: string; rows: RaceRow[] }) {
+function ClassTable({ rows }: { rows: RaceRow[] }) {
+  const { drivers, teamOf, colorOf } = useRace();
   const sorted = [...rows].sort(
     (a, b) => (a.position ?? Infinity) - (b.position ?? Infinity),
   );
+  const muted = "text-right text-muted-foreground";
   return (
-    <Table head={title} cols={["Grid", "Pts"]}>
-      {sorted.map((r) => (
-        <Row
-          key={r.driver_id}
-          driverId={r.driver_id}
-          pos={r.position != null ? String(r.position) : r.classified_as}
-          cells={[
-            r.grid != null ? `P${r.grid}` : "Pit",
-            r.points ? String(r.points) : "",
-          ]}
-          note={r.position == null ? r.status : undefined}
-        />
-      ))}
-    </Table>
+    <ResultsTable
+      head={[
+        { label: "Pos" },
+        { label: "Driver" },
+        { label: "Grid", align: "right" },
+        { label: "+/−", align: "right" },
+        { label: "Laps", align: "right", show: "wide" },
+        { label: "Status", align: "right", show: "wide" },
+        { label: "Pts", align: "right" },
+      ]}
+    >
+      {sorted.map((r) => {
+        const g = placesGained(r.grid ?? null, r.position ?? null);
+        return (
+          <DriverRow key={r.driver_id} driverId={r.driver_id}>
+            <td className="w-10 text-muted-foreground">
+              {r.position ?? r.classified_as}
+            </td>
+            <NameCell
+              color={colorOf(r.driver_id)}
+              name={drivers.get(r.driver_id)?.last_name ?? r.driver_id}
+              sub={teamOf(r.driver_id)?.name}
+            />
+            <td className={muted}>{r.grid != null ? `P${r.grid}` : "Pit"}</td>
+            <td className={cn("text-right", gainClass(g))}>{gainLabel(g)}</td>
+            <td className={cn(muted, SHOW.wide)}>{r.laps}</td>
+            <td className={cn(muted, "text-xs", SHOW.wide)}>{r.status}</td>
+            <td className="text-right">{r.points || ""}</td>
+          </DriverRow>
+        );
+      })}
+    </ResultsTable>
   );
 }
 
 function QualiTable({ rows }: { rows: QualiRow[] }) {
+  const { drivers, teamOf, colorOf } = useRace();
   const sorted = [...rows].sort((a, b) => a.position - b.position);
   const best = (r: QualiRow) => r.q3_s ?? r.q2_s ?? r.q1_s ?? null;
+  const pole = sorted[0] ? best(sorted[0]) : null;
+  const muted = "text-right text-muted-foreground";
   return (
-    <Table head="Qualifying" cols={["Best", ""]}>
+    <ResultsTable
+      head={[
+        { label: "Pos" },
+        { label: "Driver" },
+        { label: "Q1", align: "right", show: "wide" },
+        { label: "Q2", align: "right", show: "wide" },
+        { label: "Q3", align: "right", show: "wide" },
+        { label: "Best", align: "right", show: "narrow" },
+        { label: "Gap", align: "right" },
+      ]}
+    >
       {sorted.map((r) => {
-        const t = best(r);
+        const b = best(r);
         return (
-          <Row
-            key={r.driver_id}
-            driverId={r.driver_id}
-            pos={String(r.position)}
-            cells={[
-              t != null
-                ? `${Math.floor(t / 60)}:${(t % 60).toFixed(3).padStart(6, "0")}`
-                : "—",
-              "",
-            ]}
-          />
+          <DriverRow key={r.driver_id} driverId={r.driver_id}>
+            <td className="w-10 text-muted-foreground">{r.position}</td>
+            <NameCell
+              color={colorOf(r.driver_id)}
+              name={drivers.get(r.driver_id)?.last_name ?? r.driver_id}
+              sub={teamOf(r.driver_id)?.name}
+            />
+            <td className={cn(muted, SHOW.wide)}>{lapFmt(r.q1_s)}</td>
+            <td className={cn(muted, SHOW.wide)}>{lapFmt(r.q2_s)}</td>
+            <td className={cn("text-right", SHOW.wide)}>{lapFmt(r.q3_s)}</td>
+            <td className={cn("text-right", SHOW.narrow)}>{lapFmt(b)}</td>
+            <td className={muted}>
+              {r.position === 1
+                ? "pole"
+                : b != null && pole != null
+                  ? `+${(b - pole).toFixed(3)}`
+                  : "—"}
+            </td>
+          </DriverRow>
         );
       })}
-    </Table>
-  );
-}
-
-function Table({
-  head,
-  cols,
-  children,
-}: {
-  head: string;
-  cols: string[];
-  children: React.ReactNode;
-}) {
-  return (
-    <table className="w-full text-sm tnum">
-      <thead>
-        <tr className="label-caps text-left">
-          <th className="pb-2 font-semibold" colSpan={2}>
-            {head}
-          </th>
-          {cols.map((c, i) => (
-            <th key={i} className="pb-2 text-right font-semibold">
-              {c}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>{children}</tbody>
-    </table>
-  );
-}
-
-function Row({
-  driverId,
-  pos,
-  cells,
-  note,
-}: {
-  driverId: string;
-  pos: string;
-  cells: string[];
-  note?: string | undefined;
-}) {
-  const { drivers, colorOf, highlight, toggleHighlight } = useRace();
-  const d = drivers.get(driverId);
-  return (
-    <tr
-      onClick={() => toggleHighlight(driverId)}
-      className={cn(
-        "cursor-pointer border-t border-border transition-opacity",
-        highlight != null && highlight !== driverId && "opacity-35",
-        highlight === driverId && "bg-foreground/5",
-      )}
-    >
-      <td className="w-8 py-1.5 text-muted-foreground">{pos}</td>
-      <td className="py-1.5">
-        <span
-          className="mr-2 inline-block h-3 w-[3px] align-middle"
-          style={{ background: colorOf(driverId) }}
-        />
-        {d?.last_name ?? driverId}
-        {note && (
-          <span className="ml-2 text-xs text-muted-foreground">{note}</span>
-        )}
-      </td>
-      {cells.map((c, i) => (
-        <td key={i} className="py-1.5 text-right text-muted-foreground">
-          {c}
-        </td>
-      ))}
-    </tr>
+    </ResultsTable>
   );
 }

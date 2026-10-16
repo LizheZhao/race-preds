@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T12:06:20+00:00",
+  "title": "Design System: Race Week",
+  "extensions": {
+    "colorMeta": {
+      "laminate": {
+        "role": "neutral",
+        "displayName": "Laminate",
+        "canonical": "oklch(96.6% 0.004 121.6)",
+        "tonalRamp": [
+          "oklch(15% 0.004 121.6)",
+          "oklch(25% 0.004 121.6)",
+          "oklch(38% 0.004 121.6)",
+          "oklch(50% 0.004 121.6)",
+          "oklch(62% 0.004 121.6)",
+          "oklch(74% 0.004 121.6)",
+          "oklch(85% 0.004 121.6)",
+          "oklch(95% 0.004 121.6)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Engraving Ink",
+        "canonical": "oklch(18.6% 0.003 248.0)",
+        "tonalRamp": [
+          "oklch(15% 0.003 248.0)",
+          "oklch(25% 0.003 248.0)",
+          "oklch(38% 0.003 248.0)",
+          "oklch(50% 0.003 248.0)",
+          "oklch(62% 0.003 248.0)",
+          "oklch(74% 0.003 248.0)",
+          "oklch(85% 0.003 248.0)",
+          "oklch(95% 0.003 248.0)"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15% 0.000 89.9)",
+          "oklch(25% 0.000 89.9)",
+          "oklch(38% 0.000 89.9)",
+          "oklch(50% 0.000 89.9)",
+          "oklch(62% 0.000 89.9)",
+          "oklch(74% 0.000 89.9)",
+          "oklch(85% 0.000 89.9)",
+          "oklch(95% 0.000 89.9)"
+        ]
+      },
+      "ultramarine-band": {
+        "role": "primary",
+        "displayName": "Credential Ultramarine",
+        "canonical": "oklch(46.8% 0.256 267.4)",
+        "tonalRamp": [
+          "oklch(15% 0.200 267.4)",
+          "oklch(25% 0.200 267.4)",
+          "oklch(38% 0.200 267.4)",
+          "oklch(50% 0.200 267.4)",
+          "oklch(62% 0.200 267.4)",
+          "oklch(74% 0.200 267.4)",
+          "oklch(85% 0.200 267.4)",
+          "oklch(95% 0.200 267.4)"
+        ]
+      },
+      "band-foreground": {
+        "role": "neutral",
+        "displayName": "Band White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15% 0.000 89.9)",
+          "oklch(25% 0.000 89.9)",
+          "oklch(38% 0.000 89.9)",
+          "oklch(50% 0.000 89.9)",
+          "oklch(62% 0.000 89.9)",
+          "oklch(74% 0.000 89.9)",
+          "oklch(85% 0.000 89.9)",
+          "oklch(95% 0.000 89.9)"
+        ]
+      },
+      "plate-grey": {
+        "role": "neutral",
+        "displayName": "Plate Grey",
+        "canonical": "oklch(93.2% 0.005 117.9)",
+        "tonalRamp": [
+          "oklch(15% 0.005 117.9)",
+          "oklch(25% 0.005 117.9)",
+          "oklch(38% 0.005 117.9)",
+          "oklch(50% 0.005 117.9)",
+          "oklch(62% 0.005 117.9)",
+          "oklch(74% 0.005 117.9)",
+          "oklch(85% 0.005 117.9)",
+          "oklch(95% 0.005 117.9)"
+        ]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "oklch(48.1% 0.009 132.5)",
+        "tonalRamp": [
+          "oklch(15% 0.009 132.5)",
+          "oklch(25% 0.009 132.5)",
+          "oklch(38% 0.009 132.5)",
+          "oklch(50% 0.009 132.5)",
+          "oklch(62% 0.009 132.5)",
+          "oklch(74% 0.009 132.5)",
+          "oklch(85% 0.009 132.5)",
+          "oklch(95% 0.009 132.5)"
+        ]
+      },
+      "subtle-ink": {
+        "role": "neutral",
+        "displayName": "Subtle Ink",
+        "canonical": "oklch(56.4% 0.013 123.6)",
+        "tonalRamp": [
+          "oklch(15% 0.013 123.6)",
+          "oklch(25% 0.013 123.6)",
+          "oklch(38% 0.013 123.6)",
+          "oklch(50% 0.013 123.6)",
+          "oklch(62% 0.013 123.6)",
+          "oklch(74% 0.013 123.6)",
+          "oklch(85% 0.013 123.6)",
+          "oklch(95% 0.013 123.6)"
+        ]
+      },
+      "rule-grey": {
+        "role": "neutral",
+        "displayName": "Rule Grey",
+        "canonical": "oklch(87.9% 0.008 121.6)",
+        "tonalRamp": [
+          "oklch(15% 0.008 121.6)",
+          "oklch(25% 0.008 121.6)",
+          "oklch(38% 0.008 121.6)",
+          "oklch(50% 0.008 121.6)",
+          "oklch(62% 0.008 121.6)",
+          "oklch(74% 0.008 121.6)",
+          "oklch(85% 0.008 121.6)",
+          "oklch(95% 0.008 121.6)"
+        ]
+      },
+      "input-grey": {
+        "role": "neutral",
+        "displayName": "Input Grey",
+        "canonical": "oklch(83.9% 0.008 121.7)",
+        "tonalRamp": [
+          "oklch(15% 0.008 121.7)",
+          "oklch(25% 0.008 121.7)",
+          "oklch(38% 0.008 121.7)",
+          "oklch(50% 0.008 121.7)",
+          "oklch(62% 0.008 121.7)",
+          "oklch(74% 0.008 121.7)",
+          "oklch(85% 0.008 121.7)",
+          "oklch(95% 0.008 121.7)"
+        ]
+      },
+      "flag-yellow": {
+        "role": "secondary",
+        "displayName": "Marshal Yellow",
+        "canonical": "oklch(85.7% 0.175 88.5)",
+        "tonalRamp": [
+          "oklch(15% 0.175 88.5)",
+          "oklch(25% 0.175 88.5)",
+          "oklch(38% 0.175 88.5)",
+          "oklch(50% 0.175 88.5)",
+          "oklch(62% 0.175 88.5)",
+          "oklch(74% 0.175 88.5)",
+          "oklch(85% 0.175 88.5)",
+          "oklch(95% 0.175 88.5)"
+        ]
+      },
+      "flag-red": {
+        "role": "secondary",
+        "displayName": "Marshal Red",
+        "canonical": "oklch(55.0% 0.220 26.6)",
+        "tonalRamp": [
+          "oklch(15% 0.200 26.6)",
+          "oklch(25% 0.200 26.6)",
+          "oklch(38% 0.200 26.6)",
+          "oklch(50% 0.200 26.6)",
+          "oklch(62% 0.200 26.6)",
+          "oklch(74% 0.200 26.6)",
+          "oklch(85% 0.200 26.6)",
+          "oklch(95% 0.200 26.6)"
+        ]
+      },
+      "gain-green": {
+        "role": "secondary",
+        "displayName": "Gain Green",
+        "canonical": "oklch(52.4% 0.130 153.7)",
+        "tonalRamp": [
+          "oklch(15% 0.130 153.7)",
+          "oklch(25% 0.130 153.7)",
+          "oklch(38% 0.130 153.7)",
+          "oklch(50% 0.130 153.7)",
+          "oklch(62% 0.130 153.7)",
+          "oklch(74% 0.130 153.7)",
+          "oklch(85% 0.130 153.7)",
+          "oklch(95% 0.130 153.7)"
+        ]
+      },
+      "stale-ochre": {
+        "role": "neutral",
+        "displayName": "Stale Ochre",
+        "canonical": "oklch(52.8% 0.109 82.4)",
+        "tonalRamp": [
+          "oklch(15% 0.109 82.4)",
+          "oklch(25% 0.109 82.4)",
+          "oklch(38% 0.109 82.4)",
+          "oklch(50% 0.109 82.4)",
+          "oklch(62% 0.109 82.4)",
+          "oklch(74% 0.109 82.4)",
+          "oklch(85% 0.109 82.4)",
+          "oklch(95% 0.109 82.4)"
+        ]
+      },
+      "tyre-soft": {
+        "role": "tertiary",
+        "displayName": "Soft Compound Red",
+        "canonical": "oklch(58.3% 0.220 29.2)",
+        "tonalRamp": [
+          "oklch(15% 0.200 29.2)",
+          "oklch(25% 0.200 29.2)",
+          "oklch(38% 0.200 29.2)",
+          "oklch(50% 0.200 29.2)",
+          "oklch(62% 0.200 29.2)",
+          "oklch(74% 0.200 29.2)",
+          "oklch(85% 0.200 29.2)",
+          "oklch(95% 0.200 29.2)"
+        ]
+      },
+      "tyre-medium": {
+        "role": "tertiary",
+        "displayName": "Medium Compound Yellow",
+        "canonical": "oklch(87.2% 0.172 91.0)",
+        "tonalRamp": [
+          "oklch(15% 0.172 91.0)",
+          "oklch(25% 0.172 91.0)",
+          "oklch(38% 0.172 91.0)",
+          "oklch(50% 0.172 91.0)",
+          "oklch(62% 0.172 91.0)",
+          "oklch(74% 0.172 91.0)",
+          "oklch(85% 0.172 91.0)",
+          "oklch(95% 0.172 91.0)"
+        ]
+      },
+      "tyre-hard": {
+        "role": "tertiary",
+        "displayName": "Hard Compound White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "oklch(15% 0.000 89.9)",
+          "oklch(25% 0.000 89.9)",
+          "oklch(38% 0.000 89.9)",
+          "oklch(50% 0.000 89.9)",
+          "oklch(62% 0.000 89.9)",
+          "oklch(74% 0.000 89.9)",
+          "oklch(85% 0.000 89.9)",
+          "oklch(95% 0.000 89.9)"
+        ]
+      },
+      "tyre-inter": {
+        "role": "tertiary",
+        "displayName": "Intermediate Green",
+        "canonical": "oklch(61.6% 0.171 144.6)",
+        "tonalRamp": [
+          "oklch(15% 0.171 144.6)",
+          "oklch(25% 0.171 144.6)",
+          "oklch(38% 0.171 144.6)",
+          "oklch(50% 0.171 144.6)",
+          "oklch(62% 0.171 144.6)",
+          "oklch(74% 0.171 144.6)",
+          "oklch(85% 0.171 144.6)",
+          "oklch(95% 0.171 144.6)"
+        ]
+      },
+      "tyre-wet": {
+        "role": "tertiary",
+        "displayName": "Wet Compound Blue",
+        "canonical": "oklch(52.6% 0.169 255.9)",
+        "tonalRamp": [
+          "oklch(15% 0.169 255.9)",
+          "oklch(25% 0.169 255.9)",
+          "oklch(38% 0.169 255.9)",
+          "oklch(50% 0.169 255.9)",
+          "oklch(62% 0.169 255.9)",
+          "oklch(74% 0.169 255.9)",
+          "oklch(85% 0.169 255.9)",
+          "oklch(95% 0.169 255.9)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "verdict-display": {
+        "displayName": "Verdict Display",
+        "purpose": "The favourite's driver code; one per page."
+      },
+      "display": {
+        "displayName": "Display",
+        "purpose": "Event name on the credential band; the race clock uses the same cut."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The favourite's score, in ultramarine."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "Scorecard and risk figures."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section names, uppercase."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Verdict sentence and notes, up to 60ch."
+      },
+      "label": {
+        "displayName": "Label Caps",
+        "purpose": "Sub-block headings, table heads, definition terms."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "Data-state marks in a 2px border, rotated -2.5deg."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floating-layer",
+        "value": "var(--tw-shadow) from Tailwind shadow-md / shadow-lg",
+        "purpose": "Popover and cursor tooltip only, always with a 1px ink border. Nothing at rest casts a shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "punch-in",
+        "value": "punch 420ms cubic-bezier(0.16, 1, 0.3, 1); from scale(1.6) opacity 0",
+        "purpose": "The selected zone's punched hole."
+      },
+      {
+        "name": "stage-fade",
+        "value": "stage-fade 360ms cubic-bezier(0.16, 1, 0.3, 1); from opacity 0.35 blur(2px)",
+        "purpose": "Section bodies when the viewed stage changes."
+      },
+      {
+        "name": "state-transition",
+        "value": "200ms",
+        "purpose": "Colour and opacity changes (zone hover, highlight dimming)."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce -> all animation and transition durations 1ms",
+        "purpose": "Respect the user's motion setting."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "container-3xl",
+        "value": "48rem"
+      },
+      {
+        "name": "page-max",
+        "value": "1440px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Credential Band",
+      "kind": "nav",
+      "refersTo": "credential-band",
+      "description": "The ultramarine header: event name, race clock, run barcode.",
+      "html": "<header class=\"ds-band\"><div class=\"ds-band-top\"><span>Race Week</span><a href=\"#\">How it's built</a></div><div class=\"ds-band-main\"><div><h1>Singapore Grand Prix</h1><p>Marina Bay Street Circuit, Singapore · Round 17 · 2026</p></div><div class=\"ds-band-clock\"><span class=\"ds-band-lbl\">Lights out in</span>2d 04:12:09</div></div></header>",
+      "css": ".ds-band{background:var(--band,#2337e6);color:var(--band-foreground,#fff);padding:0 24px 20px;font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);} .ds-band-top{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgb(255 255 255 / .25);font-size:14px} .ds-band-top span{font-stretch:68%;font-weight:900;letter-spacing:.18em;text-transform:uppercase} .ds-band-top a{color:rgb(255 255 255 / .85);text-decoration:underline;text-decoration-color:rgb(255 255 255 / .4);text-underline-offset:3px} .ds-band-top a:hover{color:#fff;text-decoration-color:#fff} .ds-band-main{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding-top:20px} .ds-band h1{margin:0;font-stretch:62%;font-weight:900;font-size:clamp(2.5rem,5.5vw,4.5rem);line-height:.9;letter-spacing:-.01em} .ds-band p{margin:8px 0 0;font-size:14px;color:rgb(255 255 255 / .85)} .ds-band-clock{display:flex;align-items:baseline;gap:8px;font-stretch:62%;font-weight:900;font-size:40px;line-height:1;font-variant-numeric:tabular-nums} .ds-band-lbl{font-stretch:68%;font-size:14px;font-weight:700;letter-spacing:.12em;color:rgb(255 255 255 / .8);text-transform:uppercase}"
+    },
+    {
+      "name": "Zone Strip",
+      "kind": "nav",
+      "refersTo": "zone-punch",
+      "description": "Six weekend stages as access zones: cleared filled, uncleared outlined, viewed punched through.",
+      "html": "<ol class=\"ds-zones\"><li><button class=\"ds-zone\"><span class=\"ds-zmark ds-done\">0</span>Pre</button></li><li><button class=\"ds-zone\"><span class=\"ds-zmark ds-done\">1</span>FP1</button></li><li><button class=\"ds-zone ds-sel\" aria-current=\"step\"><span class=\"ds-zmark ds-punch\">2</span>Quali</button></li><li><button class=\"ds-zone ds-todo\" disabled><span class=\"ds-zmark\">3</span>Race</button></li></ol>",
+      "css": ".ds-zones{display:grid;grid-template-columns:repeat(4,1fr);margin:0;padding:0;list-style:none;background:var(--band,#2337e6);color:#fff;border-top:1px solid rgb(255 255 255 / .25);font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);} .ds-zones li{border-right:1px solid rgb(255 255 255 / .25)} .ds-zone{display:flex;align-items:center;gap:12px;width:100%;padding:10px 16px;background:none;border:0;color:inherit;font:inherit;font-stretch:68%;font-weight:800;font-size:15px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:background-color .2s} .ds-zone:hover{background:rgb(255 255 255 / .1)} .ds-zone:focus-visible{outline:2px solid var(--ring,#2337e6);outline-offset:2px} .ds-zone.ds-sel{background:var(--background,#f3f4f1);color:var(--foreground,#121314)} .ds-zone.ds-todo{color:rgb(255 255 255 / .55);cursor:default} .ds-zmark{display:grid;place-items:center;width:32px;height:32px;flex:none;font-stretch:62%;font-weight:900;font-size:14px;border:1px solid rgb(255 255 255 / .5)} .ds-zmark.ds-done{background:#fff;color:var(--band,#2337e6);border:0} .ds-zmark.ds-punch{border:0;border-radius:50%;background:var(--foreground,#121314);color:var(--background,#f3f4f1);animation:ds-punch 420ms cubic-bezier(.16,1,.3,1)} @keyframes ds-punch{from{transform:scale(1.6);opacity:0}to{transform:none;opacity:1}} @media (prefers-reduced-motion:reduce){.ds-zmark.ds-punch{animation-duration:1ms}}"
+    },
+    {
+      "name": "Run Barcode",
+      "kind": "custom",
+      "refersTo": "credential-band",
+      "description": "The publish run id printed as a barcode, as a credential prints its holder number.",
+      "html": "<div class=\"ds-barcode\"><svg viewBox=\"0 0 60 24\" width=\"84\" height=\"26\" preserveAspectRatio=\"none\" aria-hidden=\"true\"><rect x=\"0\" width=\"2\" height=\"24\"/><rect x=\"4\" width=\"1\" height=\"24\"/><rect x=\"8\" width=\"3\" height=\"24\"/><rect x=\"14\" width=\"1\" height=\"24\"/><rect x=\"18\" width=\"2\" height=\"24\"/><rect x=\"23\" width=\"1\" height=\"24\"/><rect x=\"27\" width=\"3\" height=\"24\"/><rect x=\"33\" width=\"2\" height=\"24\"/><rect x=\"38\" width=\"1\" height=\"24\"/><rect x=\"42\" width=\"3\" height=\"24\"/><rect x=\"48\" width=\"1\" height=\"24\"/><rect x=\"52\" width=\"2\" height=\"24\"/><rect x=\"57\" width=\"3\" height=\"24\"/></svg><span>Run replay-20261011T1600Z</span></div>",
+      "css": ".ds-barcode{display:inline-flex;flex-direction:column;align-items:flex-end;gap:4px;padding:12px;background:var(--band,#2337e6);color:#fff} .ds-barcode svg{fill:currentColor} .ds-barcode span{font-size:11px;letter-spacing:.06em;color:rgb(255 255 255 / .8);font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Verdict",
+      "kind": "custom",
+      "refersTo": "verdict",
+      "description": "The first answer: favourite, model score, and the WON / BEATEN stamp once the race is run.",
+      "html": "<div class=\"ds-verdict\"><span class=\"ds-v-code\">VER</span><span class=\"ds-v-score\"><b>42.2%</b><small>favourite · win model score after Quali</small></span><span class=\"ds-stamp\">Won</span></div>",
+      "css": ".ds-verdict{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;color:var(--foreground,#121314);font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);} .ds-v-code{font-stretch:62%;font-weight:900;font-size:clamp(4.5rem,9vw,7rem);line-height:.8} .ds-v-score{display:flex;flex-direction:column} .ds-v-score b{font-stretch:62%;font-weight:900;font-size:clamp(2.5rem,5vw,4rem);line-height:1;color:var(--primary,#2337e6);font-variant-numeric:tabular-nums} .ds-v-score small{font-size:14px;color:var(--muted-foreground,#5c5f5a)} .ds-stamp{display:inline-block;border:2px solid currentColor;padding:.1rem .45rem .05rem;font-stretch:62%;font-weight:900;letter-spacing:.12em;text-transform:uppercase;line-height:1.1;transform:rotate(-2.5deg);font-size:1.75rem}"
+    },
+    {
+      "name": "Prediction Section",
+      "kind": "card",
+      "refersTo": "prediction-section",
+      "description": "White card for model output: 3px ink head rule, MODEL SCORES chip while uncalibrated, model footer.",
+      "html": "<section class=\"ds-pred\"><header><h2>Race control risk</h2><button class=\"ds-chip\">Model scores</button></header><div class=\"ds-pred-body\"><span class=\"ds-pred-fig\">63%</span> safety car</div><footer class=\"ds-mfoot\"><span>Model <b>league-incident-rates baseline-1</b></span><span>Trained through 2026-10-04</span><button>Backtest</button></footer></section>",
+      "css": ".ds-pred{display:flex;flex-direction:column;background:var(--card,#fff);color:var(--foreground,#121314);border:1px solid var(--border,#d6d8d2);border-top:3px solid var(--foreground,#121314);font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);} .ds-pred header{display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-bottom:1px solid var(--border,#d6d8d2)} .ds-pred h2{margin:0;font-stretch:68%;font-size:1.125rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1} .ds-chip{border:1px solid var(--border,#d6d8d2);background:none;padding:2px 6px;font:inherit;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-foreground,#5c5f5a);cursor:pointer} .ds-chip:hover{border-color:var(--foreground,#121314);color:var(--foreground,#121314)} .ds-chip:focus-visible,.ds-mfoot button:focus-visible{outline:2px solid var(--ring,#2337e6);outline-offset:2px} .ds-pred-body{padding:20px 24px} .ds-pred-fig{font-stretch:62%;font-weight:900;font-size:1.875rem;font-variant-numeric:tabular-nums} .ds-mfoot{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;border-top:1px solid var(--border,#d6d8d2);background:rgb(243 244 241 / .6);padding:10px 24px;font-size:12px;color:var(--muted-foreground,#5c5f5a)} .ds-mfoot b{color:var(--foreground,#121314);font-weight:600} .ds-mfoot button{margin-left:auto;background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--foreground,#121314);text-decoration:underline;text-decoration-color:var(--border,#d6d8d2);text-underline-offset:3px;cursor:pointer} .ds-mfoot button:hover{text-decoration-color:var(--foreground,#121314)}"
+    },
+    {
+      "name": "Context Section",
+      "kind": "card",
+      "refersTo": "context-section",
+      "description": "Observed data and context: no card, laminate ground under a 3px ink rule.",
+      "html": "<section class=\"ds-ctx\"><header><h2>Circuit</h2></header><p class=\"ds-label\">Past winners</p><p class=\"ds-ctx-row\"><span>2025</span> George Russell</p></section>",
+      "css": ".ds-ctx{border-top:3px solid var(--foreground,#121314);padding-top:4px;background:var(--background,#f3f4f1);color:var(--foreground,#121314);font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);} .ds-ctx header{padding:12px 0} .ds-ctx h2{margin:0;font-stretch:68%;font-size:1.125rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;line-height:1} .ds-label{margin:20px 0 8px;font-stretch:75%;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground,#5c5f5a)} .ds-ctx-row{margin:0;padding:8px 0;border-top:1px solid var(--border,#d6d8d2);font-size:14px;font-weight:800} .ds-ctx-row span{display:inline-block;width:48px;font-weight:400;color:var(--muted-foreground,#5c5f5a);font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "State Stamps",
+      "kind": "chip",
+      "refersTo": "stamp-void",
+      "description": "Data states pressed onto the laminate: PENDING, NO SNAPSHOT, VOID, STALE, WON, BEATEN.",
+      "html": "<div class=\"ds-stamps\"><span class=\"ds-st ds-st-sub\">Pending</span><span class=\"ds-st ds-st-red\">Void</span><span class=\"ds-st ds-st-ochre\">Stale</span><span class=\"ds-st\">Won</span><span class=\"ds-st ds-st-red\">Beaten</span></div>",
+      "css": ".ds-stamps{display:flex;flex-wrap:wrap;gap:20px;padding:16px;background:var(--background,#f3f4f1);color:var(--foreground,#121314)} .ds-st{display:inline-block;border:2px solid currentColor;padding:.1rem .45rem .05rem;font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);font-stretch:62%;font-weight:900;font-size:1rem;letter-spacing:.12em;text-transform:uppercase;line-height:1.1;transform:rotate(-2.5deg)} .ds-st-sub{color:var(--subtle,#74776f)} .ds-st-red{color:var(--flag-red,#d40a1c)} .ds-st-ochre{color:var(--warning,#8a6400)}"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "button",
+      "refersTo": "segmented-option-active",
+      "description": "Ink-bordered view switcher; the pressed option inverts to ink.",
+      "html": "<div class=\"ds-seg\" role=\"group\" aria-label=\"View\"><button aria-pressed=\"true\">Vs result</button><button aria-pressed=\"false\">Positions</button><button aria-pressed=\"false\">Trend</button></div>",
+      "css": ".ds-seg{display:inline-flex;border:1px solid var(--foreground,#121314)} .ds-seg button{background:none;border:0;padding:6px 12px;font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);font-stretch:68%;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--foreground,#121314);cursor:pointer;transition:background-color .2s} .ds-seg button:hover{background:rgb(18 19 20 / .08)} .ds-seg button[aria-pressed=true]{background:var(--foreground,#121314);color:var(--background,#f3f4f1)} .ds-seg button:focus-visible{outline:2px solid var(--ring,#2337e6);outline-offset:2px} .ds-seg button:disabled{opacity:.3;cursor:default}"
+    },
+    {
+      "name": "Race Control Flags",
+      "kind": "custom",
+      "refersTo": "flag-yellow",
+      "description": "Marshal-flag swatches beside risk figures: yellow SC, yellow-and-ink VSC, red flag.",
+      "html": "<dl class=\"ds-flags\"><div><span class=\"ds-f ds-f-sc\"></span><dt>Safety car</dt><dd>63%</dd></div><div><span class=\"ds-f ds-f-vsc\"></span><dt>Virtual safety car</dt><dd>46%</dd></div><div><span class=\"ds-f ds-f-red\"></span><dt>Red flag</dt><dd>8%</dd></div></dl>",
+      "css": ".ds-flags{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:0;color:var(--foreground,#121314);font-family: var(--font-display, 'Archivo', ui-sans-serif, system-ui, sans-serif);} .ds-flags div{display:grid;grid-template-columns:12px 1fr;column-gap:10px} .ds-f{grid-row:span 2;width:12px;height:44px} .ds-f-sc{background:var(--flag-yellow,#ffc800)} .ds-f-vsc{background:repeating-linear-gradient(180deg,var(--flag-yellow,#ffc800) 0 6px,var(--foreground,#121314) 6px 12px)} .ds-f-red{background:var(--flag-red,#d40a1c)} .ds-flags dt{font-stretch:75%;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground,#5c5f5a)} .ds-flags dd{margin:0;font-stretch:62%;font-weight:900;font-size:1.875rem;line-height:1;font-variant-numeric:tabular-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Paddock Credential",
+    "overview": "**Creative North Star: \"The Paddock Credential\"**\n\nThe weekend is printed as a credential hung on a lanyard: a matte laminate card, engraved in near-black ink, crossed by a single ultramarine role band. The zones printed on the band are the sessions of the weekend; a zone is filled once the model has seen that session and punched through when the reader is looking at it. Everything below the band reads like the back of the pass: ruled, dense, square, set in one heavy narrow face.\n\nThe page is light and flat. Depth comes from ink rules, not light: a 3px ink strip heads every section, 1px rules divide rows, and the prediction sections sit on a white card that is one step brighter than the laminate. Race-control state is spoken in marshal-flag colours, and the states of the data itself (pending, void, stale, won, beaten) are rubber stamps pressed slightly off square, never silently removed.\n\nThe system refuses the dark broadcast-card grid every F1 dashboard ships: no black ground, no glow, no rounded tiles, no gradient team livery behind numbers.",
+    "keyCharacteristics": [
+      "One light laminate ground with ink type; white card only for prediction sections.",
+      "Ultramarine means the model's prediction (and the credential band that carries the weekend). Nothing else is ultramarine.",
+      "Archivo variable at 62-68% width and 800-900 weight for every head and numeral; 100% width for prose.",
+      "Square corners everywhere; the only circles are punched holes, tyre and incident markers.",
+      "State is stamped, not hidden."
+    ],
+    "rules": [
+      {
+        "name": "The One Band Rule",
+        "body": "Ultramarine marks the model's prediction and the credential band that carries it. Results, context, links, charts of observed data and decoration never use it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flag Code Rule",
+        "body": "Yellow is safety car, yellow-and-ink stripes are VSC, red is red flag. These colours are not available for generic warning or emphasis outside race-control meaning, retirements and losses.",
+        "section": "colors"
+      },
+      {
+        "name": "The Width Axis Rule",
+        "body": "Hierarchy is set by width and weight before size: heads and numerals go narrow and heavy (62-68%, 800-900), prose stays at 100%. Never bring in a second display family.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Every number on the page is tabular; the body sets `tnum` globally.",
+        "section": "typography"
+      },
+      {
+        "name": "The Printed Depth Rule",
+        "body": "Hierarchy between surfaces comes from ink rules and the laminate-to-white step. Do not add shadows to sections, rows or controls.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep ultramarine (the One Band Rule) for the band and the model's prediction only.",
+      "**Do** head every section with a 3px ink rule, and put model output on the white prediction card with its model footer.",
+      "**Do** set heads and numerals in Archivo at 62-68% width and 800-900 weight, and keep every number tabular.",
+      "**Do** show data states as stamps that keep the section in place.",
+      "**Do** use marshal-flag colours with their race-control meaning, and pair gain green with marshal red only for deltas.",
+      "**Do** border the white hard compound in ink, and draw it in ink on lines."
+    ],
+    "donts": [
+      "**Don't** round corners; radius is 0px. Circles only for the punched hole, tyres and incident pips.",
+      "**Don't** put shadows on sections, rows or controls.",
+      "**Don't** use ultramarine for links, results, observed data or decoration.",
+      "**Don't** put the page on a dark ground; the laminate is the world. The ink fill is for the site footer and inverted controls.",
+      "**Don't** add a second display typeface."
+    ]
+  }
+}

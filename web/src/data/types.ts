@@ -8,6 +8,8 @@ import type * as Mf from "./generated/manifest";
 import type * as Qu from "./generated/qualifying";
 import type * as Ri from "./generated/race_incidents";
 import type * as Re from "./generated/results";
+import type * as Sp from "./generated/sprint";
+import type * as Sq from "./generated/sprint_qualifying";
 import type * as St from "./generated/strategy";
 import type * as We from "./generated/weather";
 
@@ -28,7 +30,10 @@ export type SessionId = Ev.Session["id"];
 
 export type ModelInfo = Fo.ModelInfo;
 export type FinishingOrderDoc = Fo.FinishingOrderDoc;
+export type FinishingSnapshots = Partial<Record<Stage, FinishingOrderDoc>>;
 export type QualifyingDoc = Qu.QualifyingDoc;
+export type SprintQualifyingDoc = Sq.SprintQualifyingDoc;
+export type SprintDoc = Sp.SprintDoc;
 export type RaceIncidentsDoc = Ri.RaceIncidentsDoc;
 export type StrategyDoc = St.StrategyDoc;
 export type Compound = St.Stint["compound"];
@@ -37,12 +42,12 @@ export type FactsDoc = Fa.FactsDoc;
 export type ResultsDoc = Re.ResultsDoc;
 export type RaceRow = Re.RaceRow;
 export type QualiRow = Re.QualiRow;
+export type DriverPace = Re.DriverPace;
 
 export type PredictionKey =
-  "finishing_order" | "qualifying" | "strategy" | "race_incidents";
-export const PREDICTION_KEYS: PredictionKey[] = [
-  "finishing_order",
-  "qualifying",
-  "strategy",
-  "race_incidents",
-];
+  | "finishing_order"
+  | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
+  | "strategy"
+  | "race_incidents";

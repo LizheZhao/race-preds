@@ -10,14 +10,16 @@ The repo has three parts:
 1. **Lakehouse**: ingest FastF1 / Jolpica / Open-Meteo, then Spark ETL into Delta tables
    on Databricks (bronze → silver → gold).
 2. **Models**: finishing order, qualifying, race incidents (SC/VSC/red flag), tyre
-   strategy. They are trained and scored on Databricks and tracked in MLflow.
+   strategy. Each is trained in pandas on a snapshot of `gold.features`, by hand for now
+   (a Monday Databricks job is Phase 3 step 6), and registered in MLflow / Unity Catalog
+   on Databricks. Publish scores the exported model on the GitHub runner, without Spark.
 3. **Dashboard**: a static front end that reads JSON documents conforming to
    `src/schema.py` (see `docs/artifact-schema.md`). Live at
    https://lizhezhao.github.io/race-preds/.
 
 ## Status and next steps
 
-As of 2026-10-13.
+As of 2026-10-15.
 
 | # | phase | status |
 |---|---|---|
@@ -25,9 +27,9 @@ As of 2026-10-13.
 | 1 | Lakehouse for one race | **Done** 2026-10-11 on 2026 R16 (Phase 1 record) |
 | 2 | Replay | **Done** 2026-10-11 on 2026 R15 (Phase 2 record) |
 | 2b | Fallback path | **Narrowed** 2026-10-13: release-hosted tree done; runner-side ingest deferred (runners can't reach F1 live timing). The rest folds into Phase 3 |
-| 3 | Backfill + models | **Next.** Plan written 2026-10-13 (Phase 3 plan) |
+| 3 | Backfill + models | **In progress.** Steps 1–5b built 2026-10-13 to 15. Backfill: 2024, 2025 and 2026 R1–R17 complete; 2022 and 2023 partial, held up by F1's live timing block (step 1, Progress). Season-split backtest run once on the partial data (step 4) |
 | 3b | Research swarm (optional) | Not started |
-| 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result |
+| 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result. Redesign built locally 2026-10-15 (tag `dashboard-review-v1`); what its cards still need from the pipeline is in `docs/dashboard-data-needs.md` |
 | 5 | Go live | Built and dry-run in CI 2026-10-13; first real publish 2026-10-22 21:30 UTC |
 
 **Order for the rest of 2026: go live first, models after** (decided 2026-10-12). Six
@@ -46,6 +48,10 @@ model scores, as designed.
    - ~~dry run steps 1–2~~ done 2026-10-13 in CI (R17, and R18's Thursday build);
      step 3, a quiet scheduled run, comes Thursday 2026-10-15
    - let the Thursday R18 build be the first real publish
+   - redeploy the bundle with the 2026-10-15 ingest fix (after `databricks auth login
+     --profile race-preds`; the CLI's refresh token expired that day). F1 has blocked the
+     live timing archive since 2026-10-15; if that lasts to 2026-10-23, every R18 session
+     run fails and emails instead of going quiet (Known constraints)
 2. **Phase 3** between race weekends (Tuesday and Wednesday only), in the order of the
    Phase 3 plan: backfill, feature table, evaluation harness, then `finishing_order`.
    Grading the baselines starts with the first live round, so the 2026 rounds become the
@@ -62,12 +68,23 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
+- **A refused live timing request fails ingest; only a missing file is `not_available`**
+  (2026-10-15). F1 blocked the archive with a 401 that FastF1 swallows, and ingest had
+  recorded it as "no data yet", which no alert covers. (Automation → Known constraints)
 - **Training data is the ground-effect era, 2022 on** (2026-10-15). 2026 replaced both
   the chassis rules (smaller cars, active aero instead of DRS) and the power unit (about
   half electric, no MGU-H), so data from before 2022, two rule sets back, is left out.
   2022–2025 enters as a prior that the 2026 walk-forward must show to help: compare 2026
   only, 2022–2026 pooled, and pooled with 2026 weighted up. The backfill stops at 2022;
   the season split tests 2023 and 2024. (Phase 3 plan, steps 1, 3 and 4)
+- **A sprint weekend predicts every session** (2026-10-15). `sprint_qualifying` (target SQ)
+  and `sprint` (target S) join the snapshot sections, so the dashboard can show a trend from
+  practice through SQ, the sprint and Q to the race; both are `not_applicable` on a
+  conventional weekend. Once SQ has run its classification orders the `qualifying` and
+  `finishing_order` baselines and is the sprint grid. One `PREDICTIONS` registry in
+  `src/publish/documents.py` replaces the per-section tables in publish. Results gain
+  `race_pace` (clean green-flag laps) and weather `track_temp_c_min`; the tyre prior is a
+  curve (wear, acceleration, cliff), not a line. (Artifact schema → Stages)
 - **Phase 2b is narrowed; a Databricks failure is handled by retry, not by a runner
   pipeline** (2026-10-13). GitHub-hosted runners get 403 from F1 live timing, so the
   runner can't ingest a session. When a Databricks job fails, the dispatcher publishes the
@@ -287,8 +304,9 @@ failed run.
 - Long format, so a new stage needs no schema change. Each job task upserts its own row
   with a `MERGE` (`src/etl/ops.py`; `track()` wraps a task).
 - The dispatcher reads it to decide what still needs doing.
-- `not_available` is ingest's `SessionNotAvailable`: the session has not run yet, so
-  retry later.
+- `not_available` is ingest's `SessionNotAvailable`: the archive says the session's files
+  are not there yet, so retry later. A refused or failed archive request is
+  `ArchiveRequestFailed` and recorded `failed` (Known constraints, live timing block).
 
 ### Silver assumptions to revisit
 
@@ -521,7 +539,8 @@ None of these calls Databricks at request time.
     `process_session` job (`jobs.py`, Databricks SDK, waits up to 30 min, reads the
     outcome back from the state table).
   - An ingest `not_available` publishes the previous stage and leaves the session for
-    the next run.
+    the next run. A blocked archive is `failed`, not `not_available`, so that run fails
+    and emails (Known constraints).
 - `replay.py` runs the same dispatcher over a fake clock, one call per stage.
 
 What publishes when is specified in `docs/artifact-schema.md` (Stages and the weekend
@@ -663,6 +682,34 @@ is involved.
   runner may load FastF1 timing or telemetry: circuit geometry is committed, session
   data comes from the lakehouse. Open-Meteo's historical-forecast host also returned a
   504 once; only replays and the day after a race use it, and weather then goes `stale`.
+- **F1 can block the live timing archive for everyone.** From about 15:08 UTC on
+  2026-10-15, every `livetiming.formula1.com/static/<year>/...` path answered 401 with an
+  empty body and `x-cache: FunctionGeneratedResponse from cloudfront`, for every season,
+  existing or not, from the Mac and from Databricks. The live feed
+  (`/signalr/negotiate`) did too. Jolpica and the FastF1 schedule kept working.
+  - FastF1's `Session.load()` logs "Failed to load ... data!" and carries on, so ingest
+    used to turn the block into `SessionNotAvailable`. 85 sessions of 2023 R1–R17 were
+    recorded `not_available` that way, `backfill_round` then skips them as finished, and
+    the dispatcher would have published the previous stage all weekend with no error.
+  - **Since 2026-10-15, ingest watches every request FastF1 makes during `load()`**
+    (`_watch_requests` in `src/ingest/fastf1_session.py`). An archive answer that is
+    neither the file (200) nor "no such file" (S3's 403 `AccessDenied` with
+    `Server: AmazonS3`, or a 404), or a request that raised, raises
+    `ArchiveRequestFailed` unless FastF1's mirror served the same file. That is recorded
+    `failed`: the dispatcher publishes the previous stage and fails the run, so the email
+    goes out, and the next backfill retries it. Only a missing file still gives
+    `SessionNotAvailable`. Checked locally on 2026-10-15: 2023 R1 FP1 and 2026 R17 R
+    raise `ArchiveRequestFailed` (401), a dead proxy raises it too (`ProxyError`), a path
+    S3 doesn't have gives `SessionNotAvailable`, and 2022 R1 still ingests.
+  - FastF1 falls back to its own mirror, `livetiming-mirror.fastf1.dev`, on any answer
+    ≥ 400. On 2026-10-15 it served 2021 and 2022 in full and nothing from 2023 on (404),
+    so 2022 ingests during a block and 2023–2026 don't.
+  - Not covered: a block that looks exactly like a missing object, S3's own 403
+    `AccessDenied` on every key, would still read as `not_available`.
+  - To check by hand, `curl -sI -A BestHTTP
+    https://livetiming.formula1.com/static/2024/2024-03-02_Bahrain_Grand_Prix/2024-03-02_Race/SessionInfo.jsonStream`.
+    200 is open; 401 is blocked. Sessions recorded `not_available` during a block need
+    `python -m src.dispatch.backfill <season> <rounds> --redo`.
 - Free Edition allows **5 concurrent job tasks** per account. The dispatcher processes
   one session at a time, and a backfill must not fan out into parallel job runs. Spark's
   own parallelism inside a task (`mapInPandas`, `applyInPandas`) is unaffected.
@@ -672,6 +719,16 @@ is involved.
   the month. Data and settings survive. The quota itself is not published. The
   race-weekend path is meant to fall back to the runner (see Fallback, which doesn't
   work as written yet).
+  - First hit 2026-10-15 at about 23:00 UTC, after 7.1 h of job run time that UTC day,
+    all of it backfill and `build_features`. The SQL warehouse then answered "you have
+    hit your free daily limit" too, which blocks publish's reads as well. Keep a
+    backfill day well under 7 h, and never run one on a race-weekend day.
+  - **It did not reset at 00:00 UTC.** The warehouse answered again at 12:12 UTC on
+    2026-10-16, about 13 h after the first refusal. Shortly before, its message had changed
+    to "Cannot start warehouse ... with Serverless Compute since it is disabled in global
+    warehouse config", although the workspace's warehouse config still read
+    `enable_serverless_compute: true`. Plan as if a block costs the rest of the UTC day
+    and half the next one: on a race weekend that is a lost session day.
 - Personal access tokens expire. An expired token makes every dispatcher run fail until
   you notice the failure emails, so record the expiry date (Dispatcher → Secrets).
 - Scheduled workflows in a public repo are disabled after 60 days without commits. Keep
@@ -759,7 +816,27 @@ Each step ends in its own check. Don't start the next step until it passes.
 - **Progress.** 2026 R1–R17 complete 2026-10-14: 85 sessions in gold, 22 drivers each.
   R1–R13 took 68 min, 5.3 min per round on average (warm runs are faster than the
   first). 2025, 2024, 2023 and 2022 started 2026-10-15 (a Thursday, run with
-  `--anyday`: no race until R18 on 2026-10-22), one after another, about 10 h.
+  `--anyday`: no race until R18 on 2026-10-22), one after another.
+  - **2025:** complete, 24 rounds in 2.4 h (about 6 min per round), all six sprint
+    weekends included.
+  - **2024:** complete. The first batch died at R11 when the local driver's SQL
+    connection dropped after 15 min of retries; since `cdaae98` a dropped connection
+    costs one round, and a re-run skips what finished.
+  - **2023:** R18–R22 in gold. R1–R17 ran from 15:08 UTC into F1's live timing block
+    (HTTP 401 on every archive path, see Known constraints), and the deployed ingest
+    recorded all 85 sessions `not_available`. `backfill_round` skips those, so they need
+    `--redo` once the archive answers 200 again. FastF1's mirror has nothing from 2023 on.
+  - **2022:** R19–R22 in gold, loaded through FastF1's mirror during the block. R1–R18
+    never started: the repo moved from `~/文档` to `~/Documents` mid-run, and the local
+    driver lost its certifi path. The mirror serves all of 2022, so they can run now.
+  - **Free Edition daily limit** hit at about 23:00 UTC, after 7.1 h of job run time that
+    UTC day (96 `backfill_round` runs, 4 `build_features` runs). The SQL warehouse then
+    refused queries too (Known constraints).
+  - **Next:** `python -m src.dispatch.backfill 2022 1-18 --anyday` once the limit resets,
+    then `python -m src.dispatch.backfill 2023 1-17 --redo` once the archive is open. A
+    round counts as done only when all its sessions are in gold
+    (`ops.processed_sessions`), since a `not_available` row looks finished to the job.
+    Then rebuild `gold.features`, snapshot it and run `evaluate run --log`.
 - **Driver:** `python -m src.dispatch.backfill <season> <rounds>` (e.g. `2025 1-24`)
   starts `backfill_round` one round at a time, newest first, and prints each round's
   time and final states. It refuses to start Thursday to Monday (UTC) unless
@@ -807,6 +884,9 @@ Each step ends in its own check. Don't start the next step until it passes.
   - The job rebuilds the whole table and then checks 12 sampled stages (7.8 min, most
     of it the rebuilds). On 2026 alone: 17 rounds, 7 stages, 1,870 rows; the check
     passed. Re-run it after each backfill batch.
+  - Rebuilt 2026-10-15 on 2022–2026 as far as the backfill reached (2022 R19–R22, 2023
+    R18–R22, 2024, 2025, 2026 R1–R17): 7,560 rows in 16.2 min, and the 12-sample leakage
+    check passed.
 
 #### Step 3: the evaluation harness (frozen once written)
 
@@ -874,6 +954,20 @@ Each step ends in its own check. Don't start the next step until it passes.
     Twelve rounds can't separate the two, and tuning on them would overfit the
     walk-forward, so the simpler single model stays. Retest both on the season split
     first, then the pre-Q ordering (the weakest part).
+- **First season-split run, preliminary (2026-10-15).** On the partial backfill (step 1)
+  and not logged to MLflow; rerun with `--log` once 2022 and 2023 are complete. RPS,
+  `strength-pl` vs `grid-order`:
+  - 2026 walk-forward, 12 rounds: 0.132 vs 0.147 pre-weekend, 0.124 vs 0.142 after Q,
+    0.124 vs 0.144 at the sprint stages. Log loss 2.71 vs 3.26 pre-weekend. With 2024
+    and 2025 in the training data, the after-Q RPS improved from 0.128.
+  - 2024 season, 24 rounds, trained on only 9 rounds (2022 R19–R22, 2023 R18–R22):
+    0.134 vs 0.143 pre-weekend and after FP1, 0.130 vs 0.139 after FP3, 0.126 vs 0.125
+    after Q, and 0.157 vs 0.153 at the sprint stages (6 rounds). So the check fails
+    after Q and at sprint stages on this data; judge it again once training has all of
+    2022 and 2023.
+  - 2023 season: only R18–R22 have labels, too few to read.
+  - Qualifying has only its baseline (`quali-season-average`), so there is nothing to
+    compare yet.
 - **To do once 2022–2025 is in** (2026-10-15):
   - training span: 2026 only vs 2022–2026 pooled vs pooled with 2026 weighted up
     (`era_2026` as a feature or sample weights), judged on the 2026 walk-forward
@@ -885,6 +979,34 @@ Each step ends in its own check. Don't start the next step until it passes.
     teams (Pérez and Bottas skipped 2025). Limit form windows to the era or to recent
     rounds, and add form relative to the team-mate, which carries across team changes
   - a team without history (Cadillac 2026) has no team form for its first rounds
+- **Per-stage candidate `strength-pl-stage` (2026-10-15).** One shared ridge and temperature
+  is why `strength-pl` loses after Q. At the five pre-Q stages the grid is imputed, so its
+  coefficient is fitted mostly where it says nothing: trained before R17, 0.30 standardised
+  against 1.63 for `form_quali`. One temperature (4.0) then spreads the Q predictions as wide
+  as the pre-weekend ones: at R17 Q the pole sitter gets 15.4% to win and P2 13.3%
+  (`strength-pl-stage`: 19.4% and 15.5%). The candidate fits a ridge and a temperature per
+  stage. A stage with fewer than 10 training rounds uses the stage before it, then the pooled
+  model; SQ and S fall back to FP1, whose model never sees the SQ and sprint features. DNF
+  stays pooled, and a row missing a feature its stage model never saw missing (an entrant
+  without a grid at Q) is scored by the pooled model.
+  - The 2022 and 2023 sprint formats ran Q before the sprint, so their FP2, SQ and S stages
+    hold what Q holds today. Fitting them into the stage models made Q worse the more of them
+    went in (2024 Q RPS 0.1175 by stage name, 0.1251 with the grid-known S, 0.1285 with every
+    post-Q stage); those weekends now train and are scored by the pooled model only.
+  - **These choices were tuned on the 2024 and 2026 folds** (the old-sprint exclusion, the
+    fallback chain, the training span), so the backtest numbers below are optimistic. The
+    2025 holdout stays untouched until the final gate and is run once. The 10-round minimum
+    was set before the full-data run, on sample size alone (about 200 rows per stage fit,
+    every out-of-fold group at least 2 rounds); an earlier run used 5.
+  - Training span: pooled 2022–2026, unweighted. The comparison against 2026 alone and against
+    weighting 2026 ×3 comes from an earlier session's scratch scripts, not in the repo, so it
+    can't be reproduced from here: 2026 alone was worse by about two standard errors on the
+    2026 walk-forward, ×3 a tie.
+  - Partial snapshot, RPS against `grid-order`. 2026 walk-forward: better at every stage
+    (Q 0.121 vs 0.142, 11 of 12 rounds). The 2024 split trains on only 9 rounds, so with the
+    10-round minimum it is the pooled model and fails Q, SQ and S as before; with a 5-round
+    minimum it scored Q 0.115 vs 0.125 (20 of 24) and SQ and S 0.144 vs 0.153 (6 of 6).
+    2023 SQ and S lose (2 rounds). The gate is run on the full snapshot.
 
 #### Step 5: MLflow, champion export, scoring in publish
 
@@ -972,6 +1094,14 @@ Three gaps:
 `qualifying` next (it shares the strength model), then `race_incidents` (a rate model,
 cheap), then `strategy` (the degradation model, the hardest). Each goes through steps 4–5
 with its own baseline as the bar.
+
+- **`qualifying` candidate `strength-pl-quali` (2026-10-15):** `strength-pl-stage` on
+  `y_quali`, trained and scored at the stages before Q, Plackett–Luce over every entrant
+  with no retirements; `registry train qualifying` registers it. Partial snapshot, RPS against
+  `quali-season-average`: better at every stage of the 2026 walk-forward (0.081 vs 0.096
+  before practice) and of the 2024 split (pooled there, 0.121 vs 0.131 pre-weekend); worse
+  at 2023 FP2 and FP3 (3 rounds). Publish has no champion path for qualifying yet
+  (`documents.qualifying` scores only the baseline).
 
 **Target.** Steps 1–3 before R20; a `finishing_order` champion live for R21 or R22. The
 off-season covers step 7.

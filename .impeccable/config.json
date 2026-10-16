@@ -1,0 +1,242 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "hero-eyebrow-chip",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.570Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.589Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.608Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.625Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "hero-eyebrow-chip",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-ikeda.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.643Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-ikeda.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.660Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-ikeda.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.678Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-ikeda.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.695Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "hero-eyebrow-chip",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.712Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.730Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.747Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.765Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "hero-eyebrow-chip",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-japanese.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.782Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-japanese.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.800Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-japanese.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.817Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-japanese.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.835Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "hero-eyebrow-chip",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.853Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.871Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "wide-tracking",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.889Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-15T12:00:09.907Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-15T12:07:06.615Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-ikeda.html"
+        ],
+        "createdAt": "2026-10-15T12:07:06.633Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-15T12:07:06.651Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-japanese.html"
+        ],
+        "createdAt": "2026-10-15T12:07:06.670Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-15T12:07:06.688Z",
+        "reason": "Claude: throwaway decision-round sketch, not shipped UI"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/r17-layout/index.html"
+        ],
+        "createdAt": "2026-10-16T16:17:21.794Z",
+        "reason": "Claude: throwaway layout mock; Google Fonts 'Archivo' is the same face DESIGN.md names as 'Archivo Variable' (self-hosted in web/)"
+      }
+    ]
+  }
+}

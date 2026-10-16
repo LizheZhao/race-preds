@@ -3,10 +3,13 @@ import type {
   EventDoc,
   FactsDoc,
   FinishingOrderDoc,
+  FinishingSnapshots,
   QualifyingDoc,
   RaceIncidentsDoc,
   RaceManifest,
   ResultsDoc,
+  SprintDoc,
+  SprintQualifyingDoc,
   SeasonIndex,
   SectionKey,
   Stage,
@@ -51,6 +54,8 @@ export interface SectionDocs {
   results?: ResultsDoc;
   finishing_order?: FinishingOrderDoc;
   qualifying?: QualifyingDoc;
+  sprint_qualifying?: SprintQualifyingDoc;
+  sprint?: SprintDoc;
   strategy?: StrategyDoc;
   race_incidents?: RaceIncidentsDoc;
 }
@@ -77,6 +82,8 @@ const LOADABLE: (keyof SectionDocs)[] = [
   "results",
   "finishing_order",
   "qualifying",
+  "sprint_qualifying",
+  "sprint",
   "strategy",
   "race_incidents",
 ];
@@ -133,24 +140,22 @@ export async function loadStageDoc<K extends PredictionKey>(
   );
 }
 
-/** All prediction documents for an earlier stage (only those whose history lists it). */
-export async function loadStageSnapshots(bundle: RoundBundle, stage: Stage) {
-  const out: Partial<Pick<SectionDocs, PredictionKey>> = {};
-  const keys: PredictionKey[] = [
-    "finishing_order",
-    "qualifying",
-    "strategy",
-    "race_incidents",
-  ];
-  await Promise.all(
-    keys.map(async (key) => {
-      try {
-        const doc = await loadStageDoc(bundle, key, stage);
-        if (doc) (out as Record<string, unknown>)[key] = doc;
-      } catch {
-        /* missing snapshot: card shows "no snapshot" */
-      }
-    }),
+/**
+ * Every finishing-order snapshot of the round by stage: the manifest's history and the
+ * current document. A snapshot that fails to load is left out, so its stage reads as no data.
+ */
+export async function loadFinishingSnapshots(
+  bundle: RoundBundle,
+): Promise<FinishingSnapshots> {
+  const section = bundle.manifest.sections["finishing_order"];
+  const stages = [...(section?.history ?? [])];
+  if (section?.stage) stages.push(section.stage);
+  const docs = await Promise.all(
+    stages.map((stage) =>
+      loadStageDoc(bundle, "finishing_order", stage).catch(() => undefined),
+    ),
   );
-  return out;
+  return Object.fromEntries(
+    stages.flatMap((stage, i) => (docs[i] ? [[stage, docs[i]]] : [])),
+  );
 }

@@ -8,14 +8,15 @@ export type Artifact =
   | "weather"
   | "finishing_order"
   | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
   | "race_incidents"
   | "strategy"
   | "facts"
   | "results";
 export type Season = number;
 export type Round = number | null;
-export type Stage =
-  ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
+export type Stage = ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
 export type GeneratedAt = string;
 export type RunId = string;
 export type Source = string;
@@ -27,9 +28,11 @@ export type PRain = number;
 export type WindSpeedMs = number;
 export type AirTempCMean = number;
 export type TrackTempCMax = number;
+export type TrackTempCMin = number | null;
 export type HumidityMean = number;
 export type WindSpeedMsMean = number;
 export type RainShare = number;
+export type WetTyreShare = number | null;
 export type Sessions = SessionWeather[];
 export type TimeUtc = string;
 export type AirTempC1 = number;
@@ -96,9 +99,11 @@ export interface SessionForecast {
 export interface ObservedWeather {
   air_temp_c_mean: AirTempCMean;
   track_temp_c_max: TrackTempCMax;
+  track_temp_c_min?: TrackTempCMin;
   humidity_mean: HumidityMean;
   wind_speed_ms_mean: WindSpeedMsMean;
   rain_share: RainShare;
+  wet_tyre_share?: WetTyreShare;
 }
 /**
  * This interface was referenced by `WeatherDoc`'s JSON-Schema
@@ -114,7 +119,7 @@ export interface HourlyForecast {
   humidity: Humidity;
 }
 /**
- * Historical prior for this circuit, from FastF1 observed weather in past seasons.
+ * Historical prior for this circuit, from the earlier races here the lakehouse holds.
  *
  * This interface was referenced by `WeatherDoc`'s JSON-Schema
  * via the `definition` "Climatology".

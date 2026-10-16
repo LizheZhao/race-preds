@@ -8,19 +8,19 @@ export type Artifact =
   | "weather"
   | "finishing_order"
   | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
   | "race_incidents"
   | "strategy"
   | "facts"
   | "results";
 export type Season = number;
 export type Round = number | null;
-export type Stage =
-  ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
+export type Stage = ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
 export type GeneratedAt = string;
 export type RunId = string;
 export type Id = string;
-export type Category =
-  "driver" | "team" | "circuit" | "history" | "telemetry" | "weekend";
+export type Category = "driver" | "team" | "circuit" | "history" | "telemetry" | "weekend";
 export type Headline = string;
 export type Body = string | null;
 export type DriverIds = string[];

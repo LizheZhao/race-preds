@@ -8,14 +8,15 @@ export type Artifact =
   | "weather"
   | "finishing_order"
   | "qualifying"
+  | "sprint_qualifying"
+  | "sprint"
   | "race_incidents"
   | "strategy"
   | "facts"
   | "results";
 export type Season = number;
 export type Round = number | null;
-export type Stage =
-  ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
+export type Stage = ("pre_weekend" | "FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R") | null;
 export type GeneratedAt = string;
 export type RunId = string;
 export type Name = string;
@@ -32,6 +33,9 @@ export type EvaluatedOn = string;
 export type Backtest = Metric[];
 export type RaceLaps = number;
 export type PitLossS = number;
+export type PitLossS1 = number;
+export type Stops = number;
+export type Seasons = number[];
 export type CompoundsAvailable = {
   [k: string]: string;
 } | null;
@@ -53,21 +57,26 @@ export type EarliestLap = number;
 export type LatestLap = number;
 export type PitWindows = PitWindow[];
 export type PBest = number | null;
-export type Stops = number;
+export type Stops1 = number;
 export type Compound1 = "SOFT" | "MEDIUM" | "HARD" | "INTERMEDIATE" | "WET";
 export type TyreLife = number[];
 export type LapDeltaS = number[];
 export type SourceSessions = ("FP1" | "FP2" | "FP3" | "SQ" | "S" | "Q" | "R")[];
+export type Seasons1 = number[];
+export type Stints1 = number | null;
 export type Degradation = DegradationCurve[];
+export type MeasuredDegradation = DegradationCurve[];
 
 export interface StrategyDoc {
   meta: Meta;
   model: ModelInfo;
   race_laps: RaceLaps;
   pit_loss_s: PitLossS;
+  pit_loss_measured?: PitLoss | null;
   compounds_available?: CompoundsAvailable;
   options: Options;
   degradation?: Degradation;
+  measured_degradation?: MeasuredDegradation;
 }
 /**
  * This interface was referenced by `StrategyDoc`'s JSON-Schema
@@ -107,6 +116,17 @@ export interface Metric {
   evaluated_on: EvaluatedOn;
 }
 /**
+ * Green-flag stops at this circuit: in-lap plus out-lap against twice the driver's median lap.
+ *
+ * This interface was referenced by `StrategyDoc`'s JSON-Schema
+ * via the `definition` "PitLoss".
+ */
+export interface PitLoss {
+  pit_loss_s: PitLossS1;
+  stops: Stops;
+  seasons: Seasons;
+}
+/**
  * This interface was referenced by `StrategyDoc`'s JSON-Schema
  * via the `definition` "StrategyOption".
  */
@@ -116,7 +136,7 @@ export interface StrategyOption {
   expected_time_delta_s: ExpectedTimeDeltaS;
   pit_windows: PitWindows;
   p_best?: PBest;
-  stops: Stops;
+  stops: Stops1;
 }
 /**
  * This interface was referenced by `StrategyDoc`'s JSON-Schema
@@ -145,4 +165,6 @@ export interface DegradationCurve {
   tyre_life: TyreLife;
   lap_delta_s: LapDeltaS;
   source_sessions: SourceSessions;
+  seasons?: Seasons1;
+  stints?: Stints1;
 }

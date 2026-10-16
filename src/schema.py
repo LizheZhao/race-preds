@@ -27,7 +27,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import (AwareDatetime, BaseModel, ConfigDict, Field, ValidationError,
                       computed_field, model_validator)
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.2.0"
 
 # Slack for probability sums coming out of Monte Carlo runs and float arithmetic.
 PROB_TOL = 1e-6
@@ -51,13 +51,13 @@ STAGE_ORDER: dict[str, list[str]] = {
 }
 DRY_COMPOUNDS = {"SOFT", "MEDIUM", "HARD"}
 
-ArtifactName = Literal["index", "manifest", "event", "weather", "finishing_order",
-                       "qualifying", "race_incidents", "strategy", "facts", "results"]
-SectionName = Literal["event", "weather", "finishing_order", "qualifying",
+ArtifactName = Literal["index", "manifest", "event", "weather", "finishing_order", "qualifying",
+                       "sprint_qualifying", "sprint", "race_incidents", "strategy", "facts", "results"]
+SectionName = Literal["event", "weather", "finishing_order", "qualifying", "sprint_qualifying", "sprint",
                       "race_incidents", "strategy", "facts", "results"]
 SECTIONS: tuple[str, ...] = SectionName.__args__
 # Sections that keep one snapshot per stage at <section>/<stage>.json.
-SNAPSHOT_SECTIONS = ("finishing_order", "qualifying", "race_incidents", "strategy")
+SNAPSHOT_SECTIONS = ("finishing_order", "qualifying", "sprint_qualifying", "sprint", "race_incidents", "strategy")
 
 
 def round_dir(season: int, rnd: int) -> str:
@@ -270,12 +270,41 @@ class Corner(Strict):
     letter: str = ""
     x: Fraction
     y: Fraction
+    name: str | None = None  # curated (reference/stories), only for corners with an established name
+    name_origin: str | None = None
 
 
 class PastWinner(Strict):
     season: int
     driver_name: str  # names, not ids: past drivers are not in this event's entry list
     team_name: str
+
+
+class CircuitMoment(Strict):
+    season: int
+    headline: str
+    body: str | None = None
+    source: str
+
+
+class CircuitStory(Strict):
+    """curated in reference/stories/<circuit_id>.json; every claim carries its source"""
+    designer: str | None = None
+    moments: list[CircuitMoment] = []  # oldest first
+
+
+class SpeedMark(Strict):
+    speed_kph: float = Field(gt=0)
+    driver_code: str  # a record holder may not be in this event's entry list
+    season: int
+    session_id: SessionId
+
+
+class SpeedTrap(Strict):
+    """fastest speed-trap reading (FastF1 SpeedST) this weekend so far, and at this circuit before it"""
+    weekend: SpeedMark | None = None
+    record: SpeedMark | None = None
+    record_since: int | None = None  # first season the record covers: the lakehouse's history, not the circuit's
 
 
 class Circuit(Strict):
@@ -292,6 +321,8 @@ class Circuit(Strict):
     outline: list[tuple[Fraction, Fraction]] = Field(min_length=3)
     corners: list[Corner]
     past_winners: list[PastWinner] = []  # newest first
+    story: CircuitStory | None = None
+    speed_trap: SpeedTrap | None = None
 
 
 class DriverStanding(Strict):
@@ -370,9 +401,12 @@ class ObservedWeather(Strict):
 
     air_temp_c_mean: float
     track_temp_c_max: float
+    track_temp_c_min: float | None = None  # None when the track sensor never gave a usable reading
     humidity_mean: Fraction
     wind_speed_ms_mean: float = Field(ge=0)
     rain_share: Fraction  # share of samples with Rainfall == True
+    # share of timed laps on INTERMEDIATE or WET; catches a damp track the rain sensor misses
+    wet_tyre_share: Fraction | None = None
 
 
 class SessionWeather(Strict):
@@ -383,10 +417,10 @@ class SessionWeather(Strict):
 
 
 class Climatology(Strict):
-    """Historical prior for this circuit, from FastF1 observed weather in past seasons."""
+    """Historical prior for this circuit, from the earlier races here the lakehouse holds."""
 
     seasons: list[int]
-    wet_race_share: Fraction  # share of those races with any rainfall
+    wet_race_share: Fraction  # share of those races with any rainfall or 5% of laps on wet tyres
     air_temp_c_mean: float
     track_temp_c_mean: float
 
@@ -549,7 +583,38 @@ class QualifyingDoc(Document):
         return self
 
 
+class SprintQualifyingDoc(QualifyingDoc):
+    """Same shape as qualifying, for the sprint qualifying session. Not applicable on a conventional weekend."""
+
+    ARTIFACT = "sprint_qualifying"
+
+
+# ---------------------------------------------------------------- sprint/<stage>.json
+
+
+class SprintDoc(FinishingOrderDoc):
+    """Same shape as finishing_order, for the sprint. Not applicable on a conventional weekend."""
+
+    ARTIFACT = "sprint"
+
+
 # ---------------------------------------------------------------- race_incidents/<stage>.json
+
+
+class Neutralisation(Strict):
+    """One period of a race under the safety car, the virtual safety car or a red flag, in the
+    leader's laps. Every lap the status was active in counts, so an SC deployed late in lap 12
+    and in for laps 13-16 is 12-16."""
+
+    kind: Literal["SC", "VSC", "RED"]
+    start_lap: int = Field(ge=1)
+    end_lap: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.end_lap < self.start_lap:
+            raise ValueError("end_lap before start_lap")
+        return self
 
 
 class LapWindow(Strict):
@@ -563,6 +628,7 @@ class CircuitIncidentHistory(Strict):
     safety_cars: int = Field(ge=0)
     vscs: int = Field(ge=0)
     red_flags: int = Field(ge=0)
+    periods: list[Neutralisation] = []  # in lap order; empty in documents before 1.1
 
 
 class RaceIncidentsDoc(Document):
@@ -626,11 +692,21 @@ class StrategyOption(Strict):
         return self
 
 
+class PitLoss(Strict):
+    """Green-flag stops at this circuit: in-lap plus out-lap against twice the driver's median lap."""
+
+    pit_loss_s: float = Field(gt=0)  # median over the stops
+    stops: int = Field(ge=1)
+    seasons: list[int]
+
+
 class DegradationCurve(Strict):
     compound: Compound
     tyre_life: list[int]  # laps on the tyre
     lap_delta_s: list[float]  # lap time loss vs a fresh tyre, fuel-corrected
-    source_sessions: list[SessionId]  # e.g. ["FP2"] long runs
+    source_sessions: list[SessionId]  # e.g. ["FP2"] long runs; empty for a prior
+    seasons: list[int] = []  # seasons of the sessions it was measured on
+    stints: int | None = Field(default=None, ge=1)  # long runs behind a measured curve
 
     @model_validator(mode="after")
     def _check(self):
@@ -644,10 +720,13 @@ class StrategyDoc(Document):
     model: ModelInfo
     race_laps: int = Field(gt=0)
     pit_loss_s: float = Field(gt=0)  # time lost per stop, pit lane entry to exit
+    pit_loss_measured: PitLoss | None = None  # None: pit_loss_s is a prior, not measured here
     # Pirelli allocation, e.g. {"SOFT": "C5"}. Not in FastF1 -- None when unknown.
     compounds_available: dict[DryCompound, str] | None = None
     options: list[StrategyOption] = Field(min_length=1)  # best first
-    degradation: list[DegradationCurve] = []
+    degradation: list[DegradationCurve] = []  # the curves the options are planned with
+    # measured on long runs: this weekend's practice and sprint, and earlier races here
+    measured_degradation: list[DegradationCurve] = []
 
     @model_validator(mode="after")
     def _check(self):
@@ -719,6 +798,23 @@ class RaceRow(Strict):
         return self
 
 
+class PracticeRow(Strict):
+    driver_id: DriverId
+    position: int = Field(ge=1)  # by best lap; drivers without a timed lap come last
+    best_lap_s: float | None = None
+
+
+class PracticeSession(Strict):
+    session_id: Literal["FP1", "FP2", "FP3"]
+    rows: list[PracticeRow]
+
+    @model_validator(mode="after")
+    def _check(self):
+        _unique([r.driver_id for r in self.rows], f"{self.session_id} driver ids")
+        _unique([r.position for r in self.rows], f"{self.session_id} positions")
+        return self
+
+
 class IncidentCounts(Strict):
     safety_cars: int = Field(ge=0)
     vscs: int = Field(ge=0)
@@ -730,21 +826,39 @@ class DriverStrategy(Strict):
     stints: list[Stint] = Field(min_length=1)
 
 
+class DriverPace(Strict):
+    driver_id: DriverId
+    lap_times_s: list[float]  # clean green-flag race laps, in lap order
+    compounds: list[Compound] = []  # the tyre of each of those laps; empty in documents before 1.1
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.compounds and len(self.compounds) != len(self.lap_times_s):
+            raise ValueError(f"{self.driver_id}: one compound per lap time")
+        return self
+
+
 class ResultsDoc(Document):
     """Actual outcomes, filled in session by session. Also the ground truth for grading snapshots."""
 
     ARTIFACT = "results"
+    practice: list[PracticeSession] | None = None  # in session order; ranked by best lap
+    sprint_qualifying: list[QualiRow] | None = None  # q1_s..q3_s hold SQ1..SQ3
     qualifying: list[QualiRow] | None = None
     sprint: list[RaceRow] | None = None
     race: list[RaceRow] | None = None
     race_incidents: IncidentCounts | None = None
+    race_neutralisations: list[Neutralisation] | None = None  # in lap order
     race_strategies: list[DriverStrategy] | None = None
+    race_pace: list[DriverPace] | None = None
 
     @model_validator(mode="after")
     def _check(self):
-        for label, rows in (("qualifying", self.qualifying), ("sprint", self.sprint), ("race", self.race)):
+        for label, rows in (("sprint qualifying", self.sprint_qualifying), ("qualifying", self.qualifying),
+                            ("sprint", self.sprint), ("race", self.race), ("race pace", self.race_pace)):
             if rows:
                 _unique([r.driver_id for r in rows], f"{label} driver ids")
+        _unique([p.session_id for p in self.practice or []], "practice sessions")
         for s in self.race_strategies or []:
             _check_stints(s.stints)
         return self
@@ -755,7 +869,7 @@ class ResultsDoc(Document):
 DOCUMENTS: dict[str, type[Document]] = {
     cls.ARTIFACT: cls
     for cls in (SeasonIndex, RaceManifest, EventDoc, WeatherDoc, FinishingOrderDoc,
-                QualifyingDoc, RaceIncidentsDoc, StrategyDoc, FactsDoc, ResultsDoc)
+                QualifyingDoc, SprintQualifyingDoc, SprintDoc, RaceIncidentsDoc, StrategyDoc, FactsDoc, ResultsDoc)
 }
 
 
@@ -810,7 +924,7 @@ def check_round(directory: Path) -> list[str]:
     drivers = {d.id for d in event.drivers}
     teams = {t.id for t in event.teams}
 
-    for name in ("finishing_order", "qualifying"):
+    for name in ("finishing_order", "qualifying", "sprint_qualifying", "sprint"):
         if name in docs:
             predicted = {d.driver_id for d in docs[name].drivers}
             if predicted != drivers:
@@ -824,7 +938,8 @@ def check_round(directory: Path) -> list[str]:
 
     if "results" in docs:
         res = docs["results"]
-        rows = [*(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or [])]
+        rows = [*(r for p in res.practice or [] for r in p.rows), *(res.sprint_qualifying or []), *(res.qualifying or []), *(res.sprint or []), *(res.race or []), *(res.race_strategies or []),
+                *(res.race_pace or [])]
         unknown = {r.driver_id for r in rows} - drivers
         if unknown:
             errors.append(f"results: unknown driver ids {sorted(unknown)}")

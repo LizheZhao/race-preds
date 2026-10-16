@@ -145,7 +145,9 @@ for sid, _, start, status in SESSIONS:
     if status == "completed":
         observed = S.ObservedWeather(air_temp_c_mean=26.4 if sid == "FP2" else 23.1,
                                      track_temp_c_max=44.0 if sid == "FP2" else 36.5,
-                                     humidity_mean=0.52, wind_speed_ms_mean=1.8, rain_share=0.0)
+                                     track_temp_c_min=31.5 if sid == "FP2" else 29.0,
+                                     humidity_mean=0.52, wind_speed_ms_mean=1.8, rain_share=0.0,
+                                     wet_tyre_share=0.0)
     session_weather.append(S.SessionWeather(session_id=sid, start_utc=start,
                                             forecast=forecast_at(start), observed=observed))
 
@@ -233,9 +235,12 @@ incidents = S.RaceIncidentsDoc(
     meta=meta("race_incidents"), model=model_info("race_incidents_logit", calibrated=False),
     p_safety_car=0.42, p_vsc=0.35, p_red_flag=0.06, expected_safety_cars=0.51,
     by_lap_window=[S.LapWindow(start_lap=a, end_lap=b, p_safety_car=p) for a, b, p in windows],
-    circuit_history=[S.CircuitIncidentHistory(season=s, safety_cars=sc, vscs=v, red_flags=r)
-                     for s, sc, v, r in [(2024, 0, 1, 0), (2023, 0, 0, 0), (2022, 1, 1, 0),
-                                         (2021, 1, 0, 0), (2020, 1, 0, 1)]],
+    circuit_history=[S.CircuitIncidentHistory(season=s, safety_cars=sc, vscs=v, red_flags=r,
+                                              periods=[S.Neutralisation(kind=k, start_lap=a, end_lap=b) for k, a, b in p])
+                     for s, sc, v, r, p in [(2024, 0, 1, 0, [("VSC", 38, 39)]), (2023, 0, 0, 0, []),
+                                            (2022, 1, 1, 0, [("VSC", 46, 46), ("SC", 47, 53)]),
+                                            (2021, 1, 0, 0, [("SC", 1, 3)]),
+                                            (2020, 1, 0, 1, [("SC", 20, 24), ("RED", 24, 27)])]],
 )
 write("2025/16/race_incidents/FP2.json", incidents)
 
@@ -247,6 +252,7 @@ def stints(*spec):
 strategy = S.StrategyDoc(
     meta=meta("strategy"), model=model_info("strategy_sim"),
     race_laps=RACE_LAPS, pit_loss_s=23.8,
+    pit_loss_measured=S.PitLoss(pit_loss_s=23.8, stops=61, seasons=[2022, 2023, 2024]),
     compounds_available={"HARD": "C3", "MEDIUM": "C4", "SOFT": "C5"},
     options=[
         S.StrategyOption(id="1stop-m-h", stints=stints(("MEDIUM", 1, 22), ("HARD", 23, 53)),
@@ -266,6 +272,12 @@ strategy = S.StrategyDoc(
                            source_sessions=["FP2"])
         for c, L, a, b in [("SOFT", 14, 0.06, 0.004), ("MEDIUM", 24, 0.04, 0.0015), ("HARD", 32, 0.03, 0.0007)]
     ],
+    measured_degradation=[
+        S.DegradationCurve(compound=c, tyre_life=list(range(1, L + 1)),
+                           lap_delta_s=[round((k - 1) * a + ((k - 1) ** 2) * b, 3) for k in range(1, L + 1)],
+                           source_sessions=["FP1", "FP2", "R"], seasons=[2022, 2023, 2024, 2025], stints=n)
+        for c, L, a, b, n in [("MEDIUM", 26, 0.045, 0.0012, 24), ("HARD", 34, 0.028, 0.0006, 31)]
+    ],
 )
 write("2025/16/strategy/FP2.json", strategy)
 
@@ -284,6 +296,22 @@ facts = S.FactsDoc(meta=meta("facts"), facts=[
 ])
 write("2025/16/facts.json", facts)
 
+# ---------------------------------------------------------------- results
+practice_rng = np.random.default_rng(1601)
+
+
+def practice_session(session_id, no_lap=()):
+    laps = 81.0 - 0.25 * strength + practice_rng.normal(0, 0.15, n)
+    timed = sorted((l, d) for l, d in zip(laps, ids) if d not in no_lap)
+    rows = [S.PracticeRow(driver_id=d, position=i, best_lap_s=round(float(l), 3)) for i, (l, d) in enumerate(timed, 1)]
+    rows += [S.PracticeRow(driver_id=d, position=len(rows) + i) for i, d in enumerate(no_lap, 1)]
+    return S.PracticeSession(session_id=session_id, rows=rows)
+
+
+results = S.ResultsDoc(meta=meta("results"), practice=[practice_session("FP1", no_lap=("colapinto",)),
+                                                      practice_session("FP2")])
+write("2025/16/results.json", results)
+
 # ---------------------------------------------------------------- manifest + index
 upd = GENERATED
 manifest = S.RaceManifest(
@@ -294,11 +322,13 @@ manifest = S.RaceManifest(
         "finishing_order": S.SectionStatus(status="ready", path="finishing_order/FP2.json", stage="FP2",
                                            updated_at=upd, history=["FP1"]),
         "qualifying": S.SectionStatus(status="ready", path="qualifying/FP2.json", stage="FP2", updated_at=upd),
+        "sprint_qualifying": S.SectionStatus(status="not_applicable"),
+        "sprint": S.SectionStatus(status="not_applicable"),
         "race_incidents": S.SectionStatus(status="ready", path="race_incidents/FP2.json", stage="FP2", updated_at=upd),
         "strategy": S.SectionStatus(status="ready", path="strategy/FP2.json", stage="FP2", updated_at=upd),
         "facts": S.SectionStatus(status="stale", path="facts.json", stage="FP2", updated_at=upd - timedelta(hours=3),
                                  message="Fun facts could not be refreshed after FP2; showing the latest set."),
-        "results": S.SectionStatus(status="pending", available_from="Q"),
+        "results": S.SectionStatus(status="ready", path="results.json", stage="FP2", updated_at=upd),
     },
 )
 write("2025/16/manifest.json", manifest)

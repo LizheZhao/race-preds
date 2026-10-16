@@ -2,7 +2,7 @@
   "$defs": {
     "Climatology": {
       "additionalProperties": false,
-      "description": "Historical prior for this circuit, from FastF1 observed weather in past seasons.",
+      "description": "Historical prior for this circuit, from the earlier races here the lakehouse holds.",
       "properties": {
         "seasons": {
           "items": {
@@ -92,7 +92,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "1.0.0",
+          "default": "1.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -104,6 +104,8 @@
             "weather",
             "finishing_order",
             "qualifying",
+            "sprint_qualifying",
+            "sprint",
             "race_incidents",
             "strategy",
             "facts",
@@ -183,6 +185,18 @@
           "title": "Track Temp C Max",
           "type": "number"
         },
+        "track_temp_c_min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track Temp C Min"
+        },
         "humidity_mean": {
           "maximum": 1.0,
           "minimum": 0.0,
@@ -199,6 +213,20 @@
           "minimum": 0.0,
           "title": "Rain Share",
           "type": "number"
+        },
+        "wet_tyre_share": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wet Tyre Share"
         }
       },
       "required": [

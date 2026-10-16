@@ -1,5 +1,5 @@
 # Environments
-.venv/
+.venv
 __pycache__/
 *.py[cod]
 
@@ -24,8 +24,14 @@ outputs/
 # Secrets — Databricks host/token
 .env
 .env.*
+!.env.example
 
 # Front end (web/): dependencies, build output, data copied in by scripts/copy-data.mjs
 web/node_modules/
 web/dist/
 web/public/data/
+
+# Impeccable scratch: direction mocks, question pages, review screenshots
+.impeccable/mocks/
+.impeccable/questions/
+.impeccable/review/

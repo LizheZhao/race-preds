@@ -31,13 +31,15 @@ layout below can change without touching front-end code.
 v1/
   index.json                         season index, current_round pointer
   2026/16/
-    manifest.json                    one status entry per section, always all eight
+    manifest.json                    one status entry per section, always all ten
     event.json                       circuit, sessions, teams, drivers, standings
     weather.json                     forecast + observed + climatology
     facts.json
     results.json                     actuals, filled in as sessions complete
     finishing_order/<stage>.json     ┐
     qualifying/<stage>.json          │ one snapshot per stage, e.g. FP1.json, FP2.json, Q.json
+    sprint_qualifying/<stage>.json   │ sprint weekends only; the manifest says not_applicable otherwise
+    sprint/<stage>.json              │ same
     race_incidents/<stage>.json      │
     strategy/<stage>.json            ┘
 ```
@@ -66,24 +68,32 @@ What a conventional weekend publishes:
 | when | stage | new or updated |
 |---|---|---|
 | Thu | `pre_weekend` | event, weather, facts, all four predictions (priors only: form, circuit history) |
-| Fri after FP1/FP2 | `FP1`, `FP2` | predictions re-run with practice pace; strategy gets its first real degradation curves |
-| Sat after FP3 | `FP3` | predictions |
+| Fri after FP1/FP2 | `FP1`, `FP2` | results (practice classification); predictions re-run with practice pace; strategy gets its first real degradation curves |
+| Sat after FP3 | `FP3` | results (practice); predictions |
 | Sat after Q | `Q` | results (qualifying); finishing_order now has `grid_position`; qualifying section goes to history |
 | Sun after R | `R` | results (race, incidents, strategies used) |
 | every few hours | unchanged | weather (forecasts move on their own clock, not with sessions) |
+
+A sprint weekend adds two predicted sessions, so the dashboard can show a trend across the
+whole weekend: `sprint_qualifying` (snapshots until SQ runs, then history like `qualifying`)
+and `sprint` (snapshots until S runs, then the last one stays up). Once SQ has run, its
+classification orders the `qualifying` and `finishing_order` baselines and is the `sprint`
+grid. Both have the shape of their race counterparts (`SprintQualifyingDoc` is a
+`QualifyingDoc`, `SprintDoc` a `FinishingOrderDoc`). On a conventional weekend both
+sections are `not_applicable`.
 
 Every stage is optional. If FP3 is rained out, the pipeline skips from `FP2` to `Q`.
 
 ## Section status
 
-The manifest always lists all eight sections, so the front end never has to infer a
+The manifest always lists all ten sections, so the front end never has to infer a
 missing panel:
 
 | status | has data | front end shows |
 |---|---|---|
 | `ready` | yes | the panel |
 | `stale` | yes, last good version | the panel plus `message` as a warning |
-| `pending` | no | "Available after `available_from`", e.g. results before Q |
+| `pending` | no | "Available after `available_from`", e.g. results before FP1 |
 | `error` | no | `message`, and no fallback exists |
 | `not_applicable` | no | nothing, e.g. a sprint panel on a conventional weekend |
 
@@ -92,6 +102,47 @@ FP2, the FP1 prediction stays up with a warning and the panel isn't blanked. The
 has to preserve the previous path when it writes `stale`.
 
 ## Decisions worth knowing
+
+**Results carry the evidence behind a prediction.** `results.race_pace` lists each driver's
+clean green-flag race laps in lap order, for pace charts, with the compound of each lap in
+`compounds` (since 1.1), so a wet start can be split from the dry laps.
+`results.practice` (since 1.2) lists each practice session run so far with its drivers ranked
+by best lap (`position`, `best_lap_s`); a driver with no timed lap comes last with a null
+`best_lap_s`, and only this weekend's entrants appear.
+`results.sprint_qualifying` is the SQ classification (`q1_s`..`q3_s` hold SQ1..SQ3), and
+`results.race_neutralisations` lists every SC, VSC and red-flag period of the race in the
+leader's laps; every lap the status was active in counts, so a period covers the lap it was
+called in. Periods of one kind on consecutive laps merge, so two safety cars on back-to-back
+laps make one period and the list can be shorter than `race_incidents.safety_cars`. `weather.sessions[].observed` has `track_temp_c_min` next to the max; it is null
+when the track sensor gave no usable reading (FastF1 reports a dropped sensor as 0.0 °C).
+`wet_tyre_share` is the share of laps run on intermediates or wets, which catches a damp
+track the rain sensor misses.
+
+**Circuit history comes from the lakehouse, and says how deep it goes.** Everything
+measured "here" pools the earlier races at this circuit that the lakehouse holds (2022 on
+once the backfill is complete), and names the seasons it used: `weather.climatology`
+(a race counts as wet with any rainfall or 5% of laps on wet tyres),
+`race_incidents.circuit_history[].periods`, `strategy.pit_loss_measured` (median green-flag
+stop: in-lap plus out-lap against twice the driver's median clean lap; for now the options
+are still planned with the prior in `pit_loss_s`) and
+`strategy.measured_degradation`. The measured curves fit lap delta against tyre age per
+dry compound on long runs (five clean laps or more) from this weekend's practice and sprint
+and the earlier races here, with one intercept per stint; practice laps get the race fuel
+prior, so they are comparable. Every season counts the same, 2026's new rules included, and a
+compound whose fit gets faster with age is left out rather than clamped. `strategy.degradation` stays the curve the options were
+planned with; while that is a prior, its `source_sessions` is empty.
+
+**Standings follow the race.** `event.standings` is after the previous round until the
+race has run and Ergast has published it, then after this round; `after_round` says which.
+
+**Curated circuit knowledge lives in committed reference files, with its source.**
+`event.circuit.story` (designer, notable moments) and `corners[].name` / `name_origin` come
+from `reference/stories/<circuit_id>.json`; every moment carries a `source` URL, and a
+circuit without a file simply has no story. `strategy.compounds_available` (Pirelli's
+C-numbers) comes from `reference/tyres/<season>.json`, because FastF1 doesn't have it.
+`event.circuit.speed_trap` is measured, not curated: the fastest FastF1 `SpeedST` reading
+in this weekend's sessions so far and at this circuit before it (`silver.laps`), with
+`record_since`, the first season the lakehouse has for it.
 
 **Probabilities are fractions, and they carry a `calibrated` flag.** Every prediction
 document has `model.calibrated`. It becomes `true` only after the backtest shows the

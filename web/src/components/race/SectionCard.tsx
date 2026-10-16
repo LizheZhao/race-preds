@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, Info } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -9,11 +8,17 @@ import type { ModelInfo, SectionStatus } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 interface Props {
+  id?: string;
   title: string;
+  subtitle?: ReactNode;
+  /** Body when the section is ready but this view has nothing to show. */
+  emptyText?: string | undefined;
   section?: SectionStatus | undefined;
   fetchError?: string | undefined;
   hasData: boolean;
   model?: ModelInfo | undefined;
+  /** Prediction sections carry the full apparatus: card, ink rule, model footer. */
+  prediction?: boolean;
   className?: string;
   aside?: ReactNode;
   stageKey?: string;
@@ -21,11 +26,15 @@ interface Props {
 }
 
 export function SectionCard({
+  id,
   title,
+  subtitle,
+  emptyText,
   section,
   fetchError,
   hasData,
   model,
+  prediction,
   className,
   aside,
   stageKey,
@@ -37,21 +46,21 @@ export function SectionCard({
   let body: ReactNode;
   if (status === "pending") {
     body = (
-      <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
-        Available after {section?.available_from ?? "a later session"}
-      </div>
+      <Empty stamp="Pending" tone="muted">
+        Opens after {section?.available_from ?? "a later session"}.
+      </Empty>
     );
   } else if (status === "error" || fetchError) {
     body = (
-      <div className="flex min-h-32 items-center justify-center text-center text-sm text-muted-foreground">
+      <Empty stamp="Void" tone="red">
         {section?.message ?? fetchError ?? "This section could not be loaded."}
-      </div>
+      </Empty>
     );
   } else if (!hasData) {
     body = (
-      <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
-        No snapshot for this stage.
-      </div>
+      <Empty stamp="No snapshot" tone="muted">
+        {emptyText ?? "Nothing was published for this stage."}
+      </Empty>
     );
   } else {
     body = (
@@ -61,69 +70,131 @@ export function SectionCard({
     );
   }
 
+  const showModel =
+    model && hasData && (status === "ready" || status === "stale");
+
   return (
     <section
+      id={id}
+      aria-label={title}
       className={cn(
-        "flex min-w-0 flex-col rounded-md border border-border bg-card p-5 md:p-6",
+        "flex min-w-0 scroll-mt-16 flex-col",
+        prediction
+          ? "border border-border border-t-foreground border-t-[3px] bg-card"
+          : "border-t-[3px] border-foreground pt-1",
         className,
       )}
     >
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h2 className="label-caps">{title}</h2>
+      <header
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3",
+          prediction && "border-b border-border px-5 md:px-6",
+        )}
+      >
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="section-title">{title}</h2>
+          {status === "stale" && (
+            <span className="stamp text-[11px] text-warning">Stale</span>
+          )}
+          {subtitle && (
+            <p className="basis-full text-xs text-muted-foreground">
+              {subtitle}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {aside}
           {model && !model.calibrated && hasData && status !== "pending" && (
             <UncalibratedNote />
           )}
         </div>
-        {aside}
       </header>
       {status === "stale" && (
-        <div className="mb-4 flex items-start gap-2 rounded-sm border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-          <AlertTriangle className="mt-px size-3.5 shrink-0" />
-          <span>
-            {section?.message ??
-              "Showing the last good data; the latest refresh failed."}
-          </span>
-        </div>
+        <p
+          className={cn(
+            "mt-4 border border-flag-yellow bg-flag-yellow/20 px-3 py-2 text-xs text-foreground",
+            prediction && "mx-5 md:mx-6",
+          )}
+        >
+          {section?.message ??
+            "Showing the last good data; the latest refresh failed."}
+        </p>
       )}
-      <div className="min-w-0 flex-1">{body}</div>
-      {model && hasData && (status === "ready" || status === "stale") && (
-        <ModelFooter model={model} />
-      )}
+      <div
+        className={cn(
+          "min-w-0 flex-1 pt-5",
+          prediction ? "px-5 pb-5 md:px-6 md:pb-6" : "pb-2",
+        )}
+      >
+        {body}
+      </div>
+      {showModel && <ModelFooter model={model} />}
     </section>
+  );
+}
+
+function Empty({
+  stamp,
+  tone,
+  children,
+}: {
+  stamp: string;
+  tone: "muted" | "red";
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center">
+      <span
+        className={cn(
+          "stamp text-base",
+          tone === "red" ? "text-flag-red" : "text-subtle",
+        )}
+      >
+        {stamp}
+      </span>
+      <p className="max-w-sm text-sm text-muted-foreground">{children}</p>
+    </div>
   );
 }
 
 function UncalibratedNote() {
   return (
     <Popover>
-      <PopoverTrigger
-        aria-label="About these scores"
-        className="text-muted-foreground hover:text-foreground"
-      >
-        <Info className="size-3.5" />
+      <PopoverTrigger className="border border-border px-1.5 py-0.5 text-[11px] font-semibold tracking-[0.04em] text-muted-foreground uppercase hover:border-foreground hover:text-foreground">
+        Model scores
       </PopoverTrigger>
       <PopoverContent className="w-64 text-xs">
-        These are relative model scores, not calibrated probabilities.
+        This model is not calibrated yet, so its numbers are relative model
+        scores, not probabilities. Read them as a ranking, not as odds.
       </PopoverContent>
     </Popover>
   );
 }
 
 function ModelFooter({ model }: { model: ModelInfo }) {
+  const backtest = model.backtest ?? [];
   return (
-    <footer className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 text-[11px] text-muted-foreground">
+    <footer className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-background/60 px-5 py-2.5 text-xs text-muted-foreground md:px-6">
+      <span>
+        Model{" "}
+        <span className="font-semibold text-foreground">
+          {model.name} {model.version}
+        </span>
+      </span>
+      <span className="tnum">Trained through {model.trained_through}</span>
       <Popover>
-        <PopoverTrigger className="underline decoration-dotted underline-offset-2 hover:text-foreground">
-          {model.name} v{model.version}
+        <PopoverTrigger className="ml-auto font-semibold text-foreground underline decoration-border hover:decoration-foreground">
+          {backtest.length ? `Backtest (${backtest.length})` : "Backtest"}
         </PopoverTrigger>
-        <PopoverContent className="w-80 text-xs">
+        <PopoverContent align="end" className="w-80 text-xs">
           <p className="label-caps mb-2">Backtest</p>
-          {(model.backtest ?? []).length === 0 && (
-            <p className="text-muted-foreground">No backtest published.</p>
+          {backtest.length === 0 && (
+            <p className="text-muted-foreground">
+              No backtest published for this model yet.
+            </p>
           )}
           <ul className="space-y-2">
-            {(model.backtest ?? []).map((m) => {
+            {backtest.map((m) => {
               const better =
                 m.baseline_value == null
                   ? null
@@ -136,9 +207,9 @@ function ModelFooter({ model }: { model: ModelInfo }) {
                     <span>{m.name}</span>
                     <span
                       className={cn(
-                        "tnum font-semibold",
-                        better === true && "text-foreground",
-                        better === false && "text-primary",
+                        "font-semibold tnum",
+                        better === true && "text-gain",
+                        better === false && "text-flag-red",
                       )}
                     >
                       {m.value}
@@ -160,7 +231,6 @@ function ModelFooter({ model }: { model: ModelInfo }) {
           </ul>
         </PopoverContent>
       </Popover>
-      <span>trained through {model.trained_through}</span>
     </footer>
   );
 }

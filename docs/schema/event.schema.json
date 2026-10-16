@@ -93,6 +93,28 @@
           },
           "title": "Past Winners",
           "type": "array"
+        },
+        "story": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CircuitStory"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "speed_trap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpeedTrap"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -106,6 +128,70 @@
         "corners"
       ],
       "title": "Circuit",
+      "type": "object"
+    },
+    "CircuitMoment": {
+      "additionalProperties": false,
+      "properties": {
+        "season": {
+          "title": "Season",
+          "type": "integer"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        },
+        "body": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "season",
+        "headline",
+        "source"
+      ],
+      "title": "CircuitMoment",
+      "type": "object"
+    },
+    "CircuitStory": {
+      "additionalProperties": false,
+      "description": "curated in reference/stories/<circuit_id>.json; every claim carries its source",
+      "properties": {
+        "designer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Designer"
+        },
+        "moments": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CircuitMoment"
+          },
+          "title": "Moments",
+          "type": "array"
+        }
+      },
+      "title": "CircuitStory",
       "type": "object"
     },
     "Corner": {
@@ -132,6 +218,30 @@
           "minimum": 0.0,
           "title": "Y",
           "type": "number"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "name_origin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name Origin"
         }
       },
       "required": [
@@ -235,7 +345,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "1.0.0",
+          "default": "1.2.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -247,6 +357,8 @@
             "weather",
             "finishing_order",
             "qualifying",
+            "sprint_qualifying",
+            "sprint",
             "race_incidents",
             "strategy",
             "facts",
@@ -381,6 +493,87 @@
         "status"
       ],
       "title": "Session",
+      "type": "object"
+    },
+    "SpeedMark": {
+      "additionalProperties": false,
+      "properties": {
+        "speed_kph": {
+          "exclusiveMinimum": 0,
+          "title": "Speed Kph",
+          "type": "number"
+        },
+        "driver_code": {
+          "title": "Driver Code",
+          "type": "string"
+        },
+        "season": {
+          "title": "Season",
+          "type": "integer"
+        },
+        "session_id": {
+          "enum": [
+            "FP1",
+            "FP2",
+            "FP3",
+            "SQ",
+            "S",
+            "Q",
+            "R"
+          ],
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "speed_kph",
+        "driver_code",
+        "season",
+        "session_id"
+      ],
+      "title": "SpeedMark",
+      "type": "object"
+    },
+    "SpeedTrap": {
+      "additionalProperties": false,
+      "description": "fastest speed-trap reading (FastF1 SpeedST) this weekend so far, and at this circuit before it",
+      "properties": {
+        "weekend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpeedMark"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "record": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpeedMark"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "record_since": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Since"
+        }
+      },
+      "title": "SpeedTrap",
       "type": "object"
     },
     "Standings": {
