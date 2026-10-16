@@ -971,6 +971,24 @@ Each step ends in its own check. Don't start the next step until it passes.
     teams (Pérez and Bottas skipped 2025). Limit form windows to the era or to recent
     rounds, and add form relative to the team-mate, which carries across team changes
   - a team without history (Cadillac 2026) has no team form for its first rounds
+- **Per-stage candidate `strength-pl-stage` (2026-10-15).** One shared ridge and temperature
+  is why `strength-pl` loses after Q: at the five pre-Q stages the grid is imputed, so its
+  coefficient is fitted mostly where it says nothing (0.30 standardised, against 1.63 for
+  `form_quali`), and one temperature spreads the Q predictions as wide as the pre-weekend ones
+  (R17 at Q: P1 13.8% to win, P2 13.4%). The candidate fits a ridge and a temperature per
+  stage; a stage with fewer than 5 training rounds uses the stage before it (SQ and S fall
+  back to FP1), then the pooled model. DNF stays pooled.
+  - The 2022 and 2023 sprint formats ran Q before the sprint, so their FP2, SQ and S stages
+    hold what Q holds today. Fitting them into the stage models made Q worse the more of them
+    went in (2024 Q RPS 0.1175 by stage name, 0.1251 with the grid-known S, 0.1285 with every
+    post-Q stage); those weekends now train and are scored by the pooled model only.
+  - Training span: pooled 2022–2026, unweighted. On the 2026 walk-forward, 2026 alone is worse
+    by about two standard errors and weighting 2026 ×3 is a tie (preliminary runs, same day).
+  - Partial snapshot (2024 split trained on 9 rounds), RPS against `grid-order`: 2024 Q 0.115
+    vs 0.125 (better in 20 of 24 rounds), SQ and S 0.144 vs 0.153 (6 of 6), pre-weekend 0.127
+    vs 0.143; 2026 walk-forward better at every stage (Q 0.121 vs 0.142). It still loses at
+    2023 SQ and S (2 rounds, scored by the pooled model trained on 4 rounds). The gate is run
+    on the full snapshot.
 
 #### Step 5: MLflow, champion export, scoring in publish
 
@@ -1058,6 +1076,13 @@ Three gaps:
 `qualifying` next (it shares the strength model), then `race_incidents` (a rate model,
 cheap), then `strategy` (the degradation model, the hardest). Each goes through steps 4–5
 with its own baseline as the bar.
+
+- **`qualifying` candidate `strength-pl-quali` (2026-10-15):** `strength-pl-stage` on
+  `y_quali`, trained and scored at the stages before Q, Plackett–Luce over every entrant
+  with no retirements. Partial snapshot, RPS against `quali-season-average`: better at every
+  stage of the 2026 walk-forward (0.081 vs 0.096 before practice); on 2024 better at
+  pre-weekend, FP2 and FP3 but worse at FP1 (0.138 vs 0.131), SQ and S. Publish has no
+  champion path for qualifying yet (`documents.qualifying` scores only the baseline).
 
 **Target.** Steps 1–3 before R20; a `finishing_order` champion live for R21 or R22. The
 off-season covers step 7.
