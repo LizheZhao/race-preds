@@ -28,7 +28,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-from src.config import FEATURES_SNAPSHOT, MODEL_DIR, ROOT
+from src.config import FEATURES_SNAPSHOT, MODEL_DIR, ROOT, enable_cache
 
 UC_NAME = "race_preds.models.{section}"
 RELEASE_TAG, RELEASE_ASSET = "models", "models-v1.tar.gz"
@@ -61,9 +61,9 @@ SECTIONS = ("finishing_order", "qualifying")
 
 def _sections():
     from src.models.candidates import GridOrder, QualiSeasonAverage
-    from src.models.finishing import QualiStrengthPL, StrengthPL
+    from src.models.finishing import QualiStrengthPL, StrengthPLStage
     # section: (model, the baseline it must beat)
-    return {"finishing_order": (StrengthPL, GridOrder), "qualifying": (QualiStrengthPL, QualiSeasonAverage)}
+    return {"finishing_order": (StrengthPLStage, GridOrder), "qualifying": (QualiStrengthPL, QualiSeasonAverage)}
 
 
 def backtest(section: str, features: pd.DataFrame) -> list[dict]:
@@ -84,7 +84,8 @@ def backtest(section: str, features: pd.DataFrame) -> list[dict]:
 
 def _trained_through(features: pd.DataFrame) -> str:
     from src.publish import reference as ref
-    last = features.loc[features["y_classified"].notna(), ["season", "round"]].max()
+    done = features.loc[features["y_classified"].notna(), ["season", "round"]]
+    last = done.sort_values(["season", "round"]).iloc[-1]  # the latest race, not each column's max
     return str(ref.event(int(last["season"]), int(last["round"]))["EventDate"].date())
 
 
@@ -194,6 +195,7 @@ if __name__ == "__main__":
     parser.add_argument("--upload", action="store_true", help="after export, release every exported bundle")
     args = parser.parse_args()
 
+    enable_cache(verbose=False)
     if args.command == "train":
         train(args.section, tuple(args.before) if args.before else None)
     elif args.command == "export":
