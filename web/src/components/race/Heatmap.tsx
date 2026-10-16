@@ -7,7 +7,8 @@ import { useWidth } from "./useWidth";
 
 const ROW = 22;
 const CELL = 18;
-const MIN_CELL = 8;
+const MIN_CELL = 6;
+const PHONE_PX = 480;
 const GAP = 2;
 const BAR_PX = 28;
 const STATS_PX = 232 + 52;
@@ -35,9 +36,10 @@ export function Heatmap({
   const n = Math.max(0, ...rows.map((r) => r.position_probs.length));
   const max = Math.max(1e-4, ...rows.flatMap((r) => r.position_probs));
   const byId = new Map((result ?? []).map((r) => [r.driver_id, r]));
-  // Narrow screens drop the stat columns and shrink the cells so every position stays in view.
+  // Phones drop the stat columns and shrink the cells so every position stays in view;
+  // wider containers that still miss the full width scroll instead.
   const full = 26 + 78 + n * (CELL + GAP) + STATS_PX;
-  const compact = width > 0 && width < full;
+  const compact = width > 0 && width < PHONE_PX;
   const cell = compact
     ? Math.max(MIN_CELL, Math.min(CELL, Math.floor((width - 92) / n) - GAP))
     : CELL;

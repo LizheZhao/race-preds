@@ -286,6 +286,15 @@ export function App() {
               </a>
               <br />
               Not affiliated with Formula 1 or the FIA.
+              <br />
+              Set in Archivo,{" "}
+              <a
+                href={`${import.meta.env.BASE_URL}FONTS-LICENSE.txt`}
+                className="underline decoration-background/40 hover:decoration-background"
+              >
+                SIL Open Font License
+              </a>
+              .
             </p>
           </div>
         </footer>

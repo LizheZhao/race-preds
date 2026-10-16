@@ -1,6 +1,9 @@
 import { cn } from "@/lib/utils";
 
-/** Segmented control: one button per option, the active one filled. Phones get `short` labels and the full width. */
+/**
+ * Segmented control: one button per option, the active one filled. Phones get `short` labels and the full width.
+ * A `short` label must be a word of `label`, so the visible text stays part of the accessible name (WCAG 2.5.3).
+ */
 export function Seg<K extends string>({
   options,
   value,

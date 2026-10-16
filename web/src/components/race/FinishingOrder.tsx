@@ -62,7 +62,7 @@ export function FinishingOrderView({
             {
               key: "sessions",
               label: "Session results",
-              short: "Sessions",
+              short: "Results",
               disabled: sessions.length < 2,
             },
           ]}
