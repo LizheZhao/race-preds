@@ -27,8 +27,12 @@ KEY = ["season", "round", "session_id"]
 STAGES = ["ingest", "bronze", "silver", "gold"]
 SETTLED = timedelta(hours=6)  # a session younger than this may not have been run yet
 # an Ergast id FastF1 could not match; rows written before the silver fix keep "nan"
-BAD_ID = "{c} IS NULL OR {c} IN ('', 'nan')"
+BAD_ID = "({c} IS NULL OR {c} IN ('', 'nan'))"
+# a bad id is a gap when bronze has the real one elsewhere in the round, so a rebuild from
+# silver fixes it; a driver with no id in any session of the round (a practice-only
+# reserve) is only counted, in <table>_unmatched
 BAD_ID_COLS = [f"{t}_bad_{c}_id" for t in ("silver", "gold") for c in ("driver", "constructor")]
+UNMATCHED_COLS = ["silver_unmatched", "gold_unmatched"]
 
 # (column prefix, table, driver column or None); each gives <prefix>_rows and <prefix>_drivers
 COUNTS = [
@@ -75,13 +79,23 @@ def counts(seasons: list[int]) -> pd.DataFrame:
                           FROM {table} WHERE season IN {_seasons_in(seasons)}
                           GROUP BY season, round, session_id""")
         out = df if out is None else out.merge(df, on=KEY, how="outer")
+    real = lambda col: f"MAX(CASE WHEN NOT {BAD_ID.format(c=col)} THEN {col} END)"
+    known = f"""SELECT season, round, Abbreviation AS driver, {real("DriverId")} AS driver_id,
+                       {real("TeamId")} AS constructor_id
+                FROM race_preds.bronze.results WHERE season IN {_seasons_in(seasons)}
+                GROUP BY season, round, Abbreviation"""
+    bad = lambda col: BAD_ID.format(c=f"t.{col}")
     for prefix, table in (("silver", "race_preds.silver.results"), ("gold", "race_preds.gold.driver_session")):
-        bad = lh.query(f"""SELECT season, round, session_id,
-                                  COUNT_IF({BAD_ID.format(c="driver_id")}) AS {prefix}_bad_driver_id,
-                                  COUNT_IF({BAD_ID.format(c="constructor_id")}) AS {prefix}_bad_constructor_id
-                           FROM {table} WHERE season IN {_seasons_in(seasons)}
-                           GROUP BY season, round, session_id""")
-        out = out.merge(bad, on=KEY, how="outer")
+        ids = lh.query(f"""SELECT t.season, t.round, t.session_id,
+                                  COUNT_IF({bad("driver_id")} AND k.driver_id IS NOT NULL) AS {prefix}_bad_driver_id,
+                                  COUNT_IF({bad("constructor_id")} AND k.constructor_id IS NOT NULL)
+                                      AS {prefix}_bad_constructor_id,
+                                  COUNT_IF({bad("driver_id")} AND k.driver_id IS NULL) AS {prefix}_unmatched
+                           FROM {table} t LEFT JOIN ({known}) k
+                             ON t.season = k.season AND t.round = k.round AND t.driver = k.driver
+                           WHERE t.season IN {_seasons_in(seasons)}
+                           GROUP BY t.season, t.round, t.session_id""")
+        out = out.merge(ids, on=KEY, how="outer")
     return out
 
 
@@ -125,17 +139,16 @@ def verify(seasons: list[int], now: datetime) -> pd.DataFrame:
     table = (scheduled(seasons, now)
              .merge(states(seasons), on=KEY, how="outer")
              .merge(counts(seasons), on=KEY, how="outer"))
-    num = [c for c in table.columns if c.endswith(("_rows", "_drivers")) or c in BAD_ID_COLS]
+    num = [c for c in table.columns if c.endswith(("_rows", "_drivers")) or c in BAD_ID_COLS + UNMATCHED_COLS]
     table[num] = table[num].fillna(0).astype(int)
     table["problems"] = table.apply(lambda r: "; ".join(problems(r)), axis=1)
     return table.sort_values(KEY).reset_index(drop=True)
 
 
-def bad_id_rounds(table: pd.DataFrame) -> list[tuple[int, int]]:
-    """(season, round) with a missing or "nan" id in silver or gold: rebuild every session of
-    the round from silver on, since silver takes the ids from all of the round's sessions"""
+def bad_id_sessions(table: pd.DataFrame) -> list[tuple[int, int, str]]:
+    """(season, round, session_id) with an id a rebuild from silver on would fix"""
     bad = table[(table[BAD_ID_COLS] > 0).any(axis=1)]
-    return sorted({(int(s), int(r)) for s, r in zip(bad["season"], bad["round"])})
+    return sorted((int(s), int(r), sid) for s, r, sid in zip(bad["season"], bad["round"], bad["session_id"]))
 
 
 def summary(table: pd.DataFrame) -> pd.DataFrame:
@@ -152,6 +165,7 @@ def summary(table: pd.DataFrame) -> pd.DataFrame:
     s["rounds"] = by_round.groupby("season").size()
     s["rounds_complete"] = by_round.groupby("season").sum()
     s["gold_driver_rows"] = table.groupby("season")["gold_drivers_rows"].sum()
+    s["unmatched_ids"] = table.groupby("season")["silver_unmatched"].sum()
     s["silver_lap_rows"] = table.groupby("season")["silver_laps_rows"].sum()
     return s.fillna(0).astype(int)
 
@@ -174,6 +188,6 @@ if __name__ == "__main__":
         print(f"{len(gaps)} sessions with a gap" + (":" if len(gaps) else ""))
         if len(gaps):
             print(gaps[cols].to_string(index=False))
-        print("\nrounds to rebuild from silver for their ids:", bad_id_rounds(result) or "none")
+        print("\nsessions to rebuild from silver for their ids:", bad_id_sessions(result) or "none")
     if (result["problems"] != "").any():
         raise SystemExit(1)
