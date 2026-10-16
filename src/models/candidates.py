@@ -64,6 +64,6 @@ class GridOrder:
         return pd.DataFrame(out)
 
 
-from src.models.finishing import StrengthPL  # noqa: E402  (after the baselines it is compared with)
+from src.models.finishing import QualiStrengthPL, StrengthPL, StrengthPLStage  # noqa: E402  (after the baselines it is compared with)
 
-CANDIDATES = [GridOrder, StrengthPL, QualiSeasonAverage]
+CANDIDATES = [GridOrder, StrengthPL, StrengthPLStage, QualiSeasonAverage, QualiStrengthPL]

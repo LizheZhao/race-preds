@@ -56,10 +56,14 @@ def released(root: Path = MODEL_DIR) -> list[str]:
     return sorted(p.parent.name for p in root.glob("*/meta.json"))
 
 
+SECTIONS = ("finishing_order", "qualifying")
+
+
 def _sections():
-    from src.models.candidates import GridOrder
-    from src.models.finishing import StrengthPL
-    return {"finishing_order": (StrengthPL, GridOrder)}  # section: (model, the baseline it must beat)
+    from src.models.candidates import GridOrder, QualiSeasonAverage
+    from src.models.finishing import QualiStrengthPL, StrengthPL
+    # section: (model, the baseline it must beat)
+    return {"finishing_order": (StrengthPL, GridOrder), "qualifying": (QualiStrengthPL, QualiSeasonAverage)}
 
 
 def backtest(section: str, features: pd.DataFrame) -> list[dict]:
@@ -183,7 +187,7 @@ def download(root: Path = MODEL_DIR) -> bool:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=["train", "export", "download"])
-    parser.add_argument("section", nargs="?", choices=["finishing_order"])
+    parser.add_argument("section", nargs="?", choices=SECTIONS)
     parser.add_argument("--version")
     parser.add_argument("--alias")
     parser.add_argument("--before", nargs=2, type=int, metavar=("SEASON", "ROUND"), help="train only on earlier rounds")
