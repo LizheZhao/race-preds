@@ -35,7 +35,7 @@ DNF_FEATURES = ["dnf_rate", "team_dnf_rate"]
 SIMULATIONS = 4000
 SEED = 2026
 FOLDS = 5
-MIN_STAGE_ROUNDS = FOLDS  # fewer training rounds at a stage: the stage before it is used (STAGE_FALLBACK)
+MIN_STAGE_ROUNDS = 10  # fewer training rounds at a stage: the stage before it is used (STAGE_FALLBACK)
 STAGE_FALLBACK = {"FP1": "pre_weekend", "FP2": "FP1", "FP3": "FP2", "SQ": "FP1", "S": "SQ", "Q": "FP3"}
 OLD_SPRINT_FORMATS = ("sprint", "sprint_shootout")
 
