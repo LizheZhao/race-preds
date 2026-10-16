@@ -66,16 +66,18 @@ export function LapTimes({ doc }: { doc: ResultsDoc }) {
             </text>
           </g>
         ))}
-        {[
-          ["MEDIAN · GAP", W - RIGHT + 16, "start"],
-          ["STD", W - 46, "end"],
-          ["LAPS", W - 6, "end"],
-        ].map(([label, lx, anchor]) => (
+        {(
+          [
+            ["MEDIAN · GAP", W - RIGHT + 16, "start"],
+            ["STD", W - 46, "end"],
+            ["LAPS", W - 6, "end"],
+          ] as const
+        ).map(([label, lx, anchor]) => (
           <text
             key={label}
             x={lx}
             y={14}
-            textAnchor={anchor as "start" | "end"}
+            textAnchor={anchor}
             fontSize={10}
             letterSpacing={1}
             fill="var(--muted-foreground)"

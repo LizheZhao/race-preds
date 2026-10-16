@@ -155,7 +155,7 @@ def export(section: str, version: str | None = None, alias: str | None = None, r
 
 def upload(root: Path = MODEL_DIR) -> None:
     """every exported bundle under root, as the one asset of the "models" release"""
-    sections = sorted(p.parent.name for p in root.glob("*/meta.json"))
+    sections = released(root)
     with tempfile.TemporaryDirectory() as tmp:
         asset = Path(tmp) / RELEASE_ASSET
         with tarfile.open(asset, "w:gz") as tar:
@@ -181,7 +181,7 @@ def download(root: Path = MODEL_DIR) -> bool:
     except urllib.error.HTTPError as exc:
         print(f"no released models ({exc.code}), publish uses the baselines")
         return False
-    print(f"downloaded {sorted(p.parent.name for p in root.glob('*/meta.json'))} -> {root}")
+    print(f"downloaded {released(root)} -> {root}")
     return True
 
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  actualOrder,
+  classOrder,
   predictedOrder,
   scorecard,
   sessionColumns,
@@ -61,14 +61,13 @@ describe("prediction against the result", () => {
   });
 
   it("puts non-finishers after the classified drivers", () => {
-    const { order, out } = actualOrder(result);
+    const { order, out } = classOrder(result);
     expect(order).toEqual(["b", "a", "d", "c"]);
     expect([...out]).toEqual(["c"]);
   });
 
   it("scores winner, podium, top 10 and mean rank error", () => {
     expect(scorecard(doc, result)).toEqual({
-      favourite: "a",
       winner: "b",
       podiumHits: 2,
       top10Hits: 3,

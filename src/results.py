@@ -49,8 +49,7 @@ def get_season_results(year: int, kind: str = "race") -> tuple[pd.DataFrame, pd.
     results and race info for one season
     kind: "race", "sprint", "qualifying" (see RESULT_ENDPOINTS) or "sprint_qualifying"
     """
-    # Ergast result endpoints
-    # Sprint qualifying is not in Ergast derive it from the FastF1 session instead
+    # sprint qualifying is not in Ergast, derive it from the FastF1 session instead
     RESULT_ENDPOINTS = {
         "race": "get_race_results",
         "sprint": "get_sprint_results",
@@ -61,11 +60,10 @@ def get_season_results(year: int, kind: str = "race") -> tuple[pd.DataFrame, pd.
 
     if kind == "sprint_qualifying":
         return _sprint_qualifying_from_fastf1(year)
-    else:
-        api = establish_api()
-        fetch = getattr(api, RESULT_ENDPOINTS[kind])
-        results, races = collect_pages(fetch, season=year)
-        return results.assign(session=kind), races
+    api = establish_api()
+    fetch = getattr(api, RESULT_ENDPOINTS[kind])
+    results, races = collect_pages(fetch, season=year)
+    return results.assign(session=kind), races
 
 
 def _sprint_qualifying_from_fastf1(year: int) -> tuple[pd.DataFrame, pd.DataFrame]:

@@ -7,7 +7,7 @@ of a past weekend publishes what could have been known at that moment
 """
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import NamedTuple
 
 import pandas as pd

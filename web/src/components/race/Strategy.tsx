@@ -11,7 +11,7 @@ import type { CSSProperties } from "react";
 import type { Compound, StrategyDoc } from "@/data/types";
 import { useTip } from "./Tip";
 
-export const TYRE: Record<Compound, string> = {
+const TYRE: Record<Compound, string> = {
   SOFT: "var(--tyre-soft)",
   MEDIUM: "var(--tyre-medium)",
   HARD: "var(--tyre-hard)",

@@ -18,7 +18,6 @@ export type RoundSummary = Ix.RoundSummary;
 
 export type RaceManifest = Mf.RaceManifest;
 export type SectionStatus = Mf.SectionStatus;
-export type SectionStatusKind = SectionStatus["status"];
 export type WeekendFormat = RaceManifest["format"];
 export type Stage = NonNullable<Mf.Meta["stage"]>;
 export type SectionKey = Exclude<Mf.Meta["artifact"], "index" | "manifest">;
@@ -42,7 +41,6 @@ export type FactsDoc = Fa.FactsDoc;
 export type ResultsDoc = Re.ResultsDoc;
 export type RaceRow = Re.RaceRow;
 export type QualiRow = Re.QualiRow;
-export type DriverPace = Re.DriverPace;
 
 export type PredictionKey =
   | "finishing_order"

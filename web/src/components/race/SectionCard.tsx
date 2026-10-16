@@ -21,7 +21,6 @@ interface Props {
   prediction?: boolean;
   className?: string;
   aside?: ReactNode;
-  stageKey?: string;
   children?: ReactNode;
 }
 
@@ -37,7 +36,6 @@ export function SectionCard({
   prediction,
   className,
   aside,
-  stageKey,
   children,
 }: Props) {
   const status = section?.status ?? "error";
@@ -63,11 +61,7 @@ export function SectionCard({
       </Empty>
     );
   } else {
-    body = (
-      <div key={stageKey} className="stage-fade">
-        {children}
-      </div>
-    );
+    body = <div className="stage-fade">{children}</div>;
   }
 
   const showModel =

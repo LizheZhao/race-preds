@@ -203,7 +203,6 @@ finishing = S.FinishingOrderDoc(
                                       p_dnf=round(float(dnf[d]), 5)) for d in order],
 )
 
-# Rounding can push a column fractionally over 1; renormalise columns only if needed.
 write("2025/16/finishing_order/FP2.json", finishing)
 
 # Earlier snapshot (FP1) -- slightly different strengths, so the front end has movers to show.

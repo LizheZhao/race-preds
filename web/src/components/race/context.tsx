@@ -29,15 +29,15 @@ export function RaceProvider({
   const value = useMemo<Ctx>(() => {
     const drivers = new Map((event?.drivers ?? []).map((d) => [d.id, d]));
     const teams = new Map((event?.teams ?? []).map((t) => [t.id, t]));
+    const teamOf = (id: string) => teams.get(drivers.get(id)?.team_id ?? "");
     return {
       event,
       drivers,
       teams,
       highlight,
       toggleHighlight: (id) => setHighlight((h) => (h === id ? null : id)),
-      teamOf: (id) => teams.get(drivers.get(id)?.team_id ?? ""),
-      colorOf: (id) =>
-        teams.get(drivers.get(id)?.team_id ?? "")?.color ?? "var(--subtle)",
+      teamOf,
+      colorOf: (id) => teamOf(id)?.color ?? "var(--subtle)",
     };
   }, [event, highlight]);
   return <RaceCtx.Provider value={value}>{children}</RaceCtx.Provider>;

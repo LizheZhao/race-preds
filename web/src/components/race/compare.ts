@@ -37,9 +37,7 @@ export function classOrder(rows: RaceRow[]): {
   };
 }
 
-export const actualOrder = (race: RaceRow[]) => classOrder(race);
-
-const OUT_LABEL: Record<string, string> = {
+export const OUT_LABEL: Record<string, string> = {
   R: "DNF",
   D: "DSQ",
   E: "EXC",
@@ -209,7 +207,6 @@ export function trendColumns(
 }
 
 export interface Scorecard {
-  favourite: string | undefined;
   winner: string | undefined;
   podiumHits: number;
   top10Hits: number;
@@ -219,7 +216,7 @@ export interface Scorecard {
 
 export function scorecard(doc: FinishingOrderDoc, race: RaceRow[]): Scorecard {
   const pred = predictedOrder(doc);
-  const { order, out } = actualOrder(race);
+  const { order, out } = classOrder(race);
   const hits = (k: number) =>
     pred
       .slice(0, k)
@@ -228,7 +225,6 @@ export function scorecard(doc: FinishingOrderDoc, race: RaceRow[]): Scorecard {
     .filter((id) => !out.has(id) && pred.includes(id))
     .map((id) => Math.abs(pred.indexOf(id) - order.indexOf(id)));
   return {
-    favourite: [...doc.drivers].sort((a, b) => b.p_win - a.p_win)[0]?.driver_id,
     winner: out.has(order[0] ?? "") ? undefined : order[0],
     podiumHits: hits(3),
     top10Hits: hits(10),

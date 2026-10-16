@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { loadCurrentRound, loadFinishingSnapshots } from "@/data/api";
 import type { Stage } from "@/data/types";
 import { RaceProvider } from "@/components/race/context";
@@ -49,9 +49,7 @@ export function App() {
   });
 
   if (q.isError) {
-    return (
-      <Centered>Couldn't load race data: {(q.error as Error).message}</Centered>
-    );
+    return <Centered>Couldn't load race data: {q.error.message}</Centered>;
   }
   if (!bundle) return <Centered>Loading race week…</Centered>;
 
@@ -252,7 +250,7 @@ export function App() {
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
+function Centered({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-6 text-center text-sm text-muted-foreground">
       {children}

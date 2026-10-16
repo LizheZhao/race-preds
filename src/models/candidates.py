@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from src.models import baselines
+from src.models.finishing import QualiStrengthPL, StrengthPL, StrengthPLStage
 
 
 def _quali_order(rows: pd.DataFrame, history: pd.DataFrame) -> list[str]:
@@ -63,7 +64,5 @@ class GridOrder:
             out += _frame(stage, order, np.column_stack([positions, np.full(len(order), p_dnf)]))
         return pd.DataFrame(out)
 
-
-from src.models.finishing import QualiStrengthPL, StrengthPL, StrengthPLStage  # noqa: E402  (after the baselines it is compared with)
 
 CANDIDATES = [GridOrder, StrengthPL, StrengthPLStage, QualiSeasonAverage, QualiStrengthPL]
