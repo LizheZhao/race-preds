@@ -157,6 +157,14 @@
     transparent 1.5px 5px
   );
 }
+/* A stage that ran but published nothing: plate grey, striped, never clickable. */
+@utility hatch-muted {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--muted) 0 6px,
+    color-mix(in oklab, var(--muted) 50%, var(--card)) 6px 12px
+  );
+}
 /* A rubber stamp on the laminate: state marks that never silently disappear. */
 @utility stamp {
   display: inline-block;

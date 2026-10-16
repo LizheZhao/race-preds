@@ -47,8 +47,8 @@ export function DriverCard({
   const title = highlight
     ? "Pinned driver"
     : winner
-      ? "Race winner · click any driver"
-      : "Favourite · click any driver";
+      ? "Race winner · click to check any driver"
+      : "Favourite · click to check any driver";
   const pred = doc.drivers.find((x) => x.driver_id === id);
   const q = results?.qualifying?.find((x) => x.driver_id === id);
   const sprint = results?.sprint?.find((x) => x.driver_id === id);

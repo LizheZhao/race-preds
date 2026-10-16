@@ -1,23 +1,8 @@
 import { useEffect, useState } from "react";
-import type { EventDoc, RaceManifest, Stage } from "@/data/types";
+import type { EventDoc, RaceManifest } from "@/data/types";
 import { cn } from "@/lib/utils";
 import { relTime } from "./context";
 import { SectionNav, type NavItem } from "./SectionNav";
-
-export const STAGE_ORDER: Record<RaceManifest["format"], Stage[]> = {
-  conventional: ["pre_weekend", "FP1", "FP2", "FP3", "Q", "R"],
-  sprint_qualifying: ["pre_weekend", "FP1", "SQ", "S", "Q", "R"],
-};
-export const STAGE_LABEL: Record<Stage, string> = {
-  pre_weekend: "Pre",
-  FP1: "FP1",
-  FP2: "FP2",
-  FP3: "FP3",
-  SQ: "Sprint Q",
-  S: "Sprint",
-  Q: "Quali",
-  R: "Race",
-};
 
 const RACE_OVER_MS = 3 * 36e5;
 
@@ -31,37 +16,14 @@ function useNow(ms = 1000) {
   return now;
 }
 
-const utcSlot = (iso: string) =>
-  new Date(iso).toLocaleString("en-GB", {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "UTC",
-  });
-
 interface Props {
   manifest: RaceManifest;
   event?: EventDoc | undefined;
-  selectable: Set<Stage>;
-  selected: Stage;
-  onSelect: (s: Stage) => void;
   sections: NavItem[];
 }
 
-export function Header({
-  manifest,
-  event,
-  selectable,
-  selected,
-  onSelect,
-  sections,
-}: Props) {
+export function Header({ manifest, event, sections }: Props) {
   const now = useNow();
-  const current = manifest.meta.stage ?? "pre_weekend";
-  const stages = STAGE_ORDER[manifest.format];
-  const curIdx = stages.indexOf(current);
-  // The race stage is only reached once the race has a result, so it is never "now".
-  const final = current === "R";
   const race = event?.sessions.find((s) => s.id === "R");
 
   const raceStart = new Date(manifest.race_start_utc).getTime();
@@ -94,7 +56,7 @@ export function Header({
     <>
       <header>
         <div className="bg-band text-band-foreground">
-          <div className="mx-auto max-w-[1440px] px-4 md:px-12">
+          <div className="mx-auto max-w-[1440px] px-4 pb-6 md:px-12">
             <div className="flex items-center justify-between gap-4 border-b border-band-foreground/25 py-2.5 text-sm">
               <span className="cond font-black tracking-[0.18em] uppercase">
                 Race Week
@@ -141,137 +103,17 @@ export function Header({
               </div>
             </div>
           </div>
-
-          <nav
-            aria-label="Weekend stage"
-            className="mt-5 border-t border-band-foreground/25"
-          >
-            <ol className="mx-auto grid max-w-[1440px] grid-cols-6 md:px-12">
-              {stages.map((s, i) => {
-                const done = i <= curIdx;
-                const clickable = selectable.has(s);
-                const isSel = s === selected;
-                const session = event?.sessions.find((x) => x.id === s);
-                return (
-                  <li
-                    key={s}
-                    className="border-r border-band-foreground/25 first:border-l"
-                  >
-                    <button
-                      type="button"
-                      disabled={!clickable}
-                      aria-current={isSel ? "step" : undefined}
-                      onClick={() => onSelect(s)}
-                      className={cn(
-                        "group flex h-full w-full flex-col items-center gap-1.5 px-1 py-2.5 text-center transition-colors duration-200 md:flex-row md:gap-3 md:px-4 md:py-2.5 md:text-left",
-                        isSel
-                          ? "bg-background text-foreground"
-                          : clickable
-                            ? "cursor-pointer hover:bg-band-foreground/10"
-                            : "cursor-default",
-                        !done && !isSel && "text-band-foreground/55",
-                      )}
-                    >
-                      <ZoneMark n={i} done={done} punched={isSel} />
-                      <span className="min-w-0">
-                        <span className="cond flex items-center gap-1.5 text-[13px] leading-tight font-extrabold tracking-[0.04em] uppercase md:text-[15px]">
-                          <span className="md:hidden">
-                            {s === "pre_weekend" ? "Pre" : s}
-                          </span>
-                          <span className="hidden md:inline">
-                            {STAGE_LABEL[s]}
-                          </span>
-                          {s === current && (
-                            <span
-                              className={cn(
-                                "hidden px-1 text-[11px] tracking-[0.1em] md:inline",
-                                isSel
-                                  ? "bg-foreground text-background"
-                                  : "bg-band-foreground text-band",
-                              )}
-                            >
-                              {final ? "Final" : "Now"}
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          className={cn(
-                            "hidden text-[11px] tnum md:block",
-                            isSel ? "text-muted-foreground" : "opacity-80",
-                          )}
-                        >
-                          {session ? utcSlot(session.start_utc) : "Preview"}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          </nav>
-        </div>
-        <div className="mx-auto flex max-w-[1440px] flex-wrap justify-between gap-2 px-4 pt-3 text-xs text-muted-foreground md:px-12">
-          <span>
-            {selected === current
-              ? final
-                ? "Race finished. The last pre-race prediction is set against the result."
-                : "Showing the latest predictions."
-              : `Viewing the ${STAGE_LABEL[selected]} snapshot. `}
-            {selected !== current && (
-              <button
-                className="font-semibold text-foreground underline"
-                onClick={() => onSelect(current)}
-              >
-                Back to latest
-              </button>
-            )}
-          </span>
-          <span className="tnum">
-            Published{" "}
-            {now != null ? relTime(manifest.meta.generated_at, now) : "…"}
-          </span>
         </div>
       </header>
-      <div className="sticky top-0 z-20 mt-3 border-y border-border bg-background/95 backdrop-blur-sm">
+      <div className="sticky top-0 z-20 border-t border-band-foreground/25 bg-band text-band-foreground">
         <div className="mx-auto max-w-[1440px] px-4 md:px-12">
           <SectionNav items={sections} />
         </div>
       </div>
+      <p className="mx-auto max-w-[1440px] px-4 pt-3 text-right text-xs text-muted-foreground tnum md:px-12">
+        Published {now != null ? relTime(manifest.meta.generated_at, now) : "…"}
+      </p>
     </>
-  );
-}
-
-/** A zone number on the credential: filled once cleared, punched through when viewed. */
-function ZoneMark({
-  n,
-  done,
-  punched,
-}: {
-  n: number;
-  done: boolean;
-  punched: boolean;
-}) {
-  if (punched)
-    return (
-      <span
-        aria-hidden
-        className="punch-in grid size-8 shrink-0 place-items-center rounded-full bg-foreground text-sm font-black text-background xcond"
-      >
-        {n}
-      </span>
-    );
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "grid size-8 shrink-0 place-items-center text-sm font-black xcond",
-        done
-          ? "bg-band-foreground text-band"
-          : "border border-band-foreground/50",
-      )}
-    >
-      {n}
-    </span>
   );
 }
 

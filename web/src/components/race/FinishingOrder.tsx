@@ -1,12 +1,19 @@
 import { useState } from "react";
-import type { FinishingOrderDoc, ResultsDoc } from "@/data/types";
+import type {
+  EventDoc,
+  FinishingOrderDoc,
+  ResultsDoc,
+  Stage,
+} from "@/data/types";
 import { BumpChart, type BumpColumn } from "./Bump";
-import { predictedOrder, scorecard, sessionColumns } from "./compare";
+import { sessionColumns } from "./compare";
 import { DriverCard } from "./DriverCard";
 import { Heatmap } from "./Heatmap";
 import { Seg } from "./Seg";
-import { Stat } from "./Stat";
-import { pct, probNoun, useRace } from "./context";
+import { StageStrip } from "./StageStrip";
+import type { StageTile } from "./stages";
+import { probNoun } from "./context";
+import { Verdict } from "./Verdict";
 
 type Mode = "heat" | "trend" | "sessions";
 
@@ -15,83 +22,83 @@ export function FinishingOrderView({
   stageLabel,
   trend,
   results,
-  scored,
+  tiles,
+  selected,
+  current,
+  sessions,
+  onSelect,
 }: {
-  doc: FinishingOrderDoc;
+  /** The snapshot for the selected stage, undefined while it loads. */
+  doc: FinishingOrderDoc | undefined;
   /** The stage this prediction was made at. */
   stageLabel: string;
   /** Predicted order per session being predicted, first to last. */
   trend: BumpColumn[];
   results?: ResultsDoc | undefined;
-  /** Compare this prediction with the race result (false when viewing an earlier snapshot). */
-  scored: boolean;
+  tiles: StageTile[];
+  selected: Stage;
+  current: Stage;
+  sessions: EventDoc["sessions"] | undefined;
+  onSelect: (stage: Stage) => void;
 }) {
   const [mode, setMode] = useState<Mode>("heat");
-  const { drivers } = useRace();
-  const noun = probNoun(doc.model.calibrated);
-  const code = (id: string | undefined) =>
-    id ? (drivers.get(id)?.code ?? id) : "—";
-  const race = scored ? (results?.race ?? undefined) : undefined;
-  const sessions = results ? sessionColumns(results) : [];
-  const favourite = [...doc.drivers].sort((a, b) => b.p_win - a.p_win)[0];
-  const card = race ? scorecard(doc, race) : undefined;
-  const n = Math.min(10, race?.length ?? 10);
+  const race = results?.race ?? undefined;
+  const sessionCols = results ? sessionColumns(results) : [];
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
-        <p className="text-sm text-muted-foreground">
-          {mode === "heat"
-            ? `Position ${noun}s for every driver, after ${stageLabel}.`
-            : mode === "trend"
-              ? "How the predicted race order moved through the weekend."
-              : "Where each driver finished in every session so far."}
-        </p>
-        <Seg
-          label="View"
-          value={mode}
-          onChange={setMode}
-          options={[
-            { key: "heat", label: "Positions" },
-            {
-              key: "trend",
-              label: "Prediction trend",
-              short: "Trend",
-              disabled: trend.length < 2,
-            },
-            {
-              key: "sessions",
-              label: "Session results",
-              short: "Results",
-              disabled: sessions.length < 2,
-            },
-          ]}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div key={mode} className="stage-fade min-w-0">
-          {mode === "heat" && <Heatmap doc={doc} noun={noun} result={race} />}
-          {mode === "trend" && (
-            <>
-              <BumpChart columns={trend} />
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                How the predicted race order moved through the weekend.
-              </p>
-            </>
-          )}
-          {mode === "sessions" && (
-            <>
-              <BumpChart columns={sessions} />
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Where each driver actually finished in every session. Dashed
-                lines end in a retirement.
-              </p>
-            </>
-          )}
+      <StageStrip
+        tiles={tiles}
+        selected={selected}
+        current={current}
+        sessions={sessions}
+        onSelect={onSelect}
+      />
+      {doc ? (
+        <div key={selected} className="stage-fade">
+          <div className="mt-6">
+            <Verdict doc={doc} stageLabel={stageLabel} result={race} />
+          </div>
+          <div className="mt-6 mb-4">
+            <Seg
+              label="View"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { key: "heat", label: "Positions" },
+                {
+                  key: "trend",
+                  label: "Prediction trend",
+                  short: "Trend",
+                  disabled: trend.length < 2,
+                },
+                {
+                  key: "sessions",
+                  label: "Session results",
+                  short: "Results",
+                  disabled: sessionCols.length < 2,
+                },
+              ]}
+            />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <div key={mode} className="stage-fade min-w-0">
+              {mode === "heat" && (
+                <Heatmap
+                  doc={doc}
+                  noun={probNoun(doc.model.calibrated)}
+                  result={race}
+                />
+              )}
+              {mode === "trend" && <BumpChart columns={trend} />}
+              {mode === "sessions" && <BumpChart columns={sessionCols} />}
+            </div>
+            <DriverCard doc={doc} results={results} stageLabel={stageLabel} />
+          </div>
         </div>
-        <DriverCard doc={doc} results={results} stageLabel={stageLabel} />
-      </div>
+      ) : (
+        <p className="mt-6 text-sm text-muted-foreground">Loading snapshot…</p>
+      )}
     </div>
   );
 }

@@ -43,10 +43,10 @@ export function SectionNav({ items }: { items: NavItem[] }) {
           href={`#${i.id}`}
           aria-current={current === i.id ? "location" : undefined}
           className={cn(
-            "cond whitespace-nowrap px-2.5 py-2 text-sm font-bold uppercase tracking-[0.06em] transition-colors hover:text-foreground",
+            "cond whitespace-nowrap px-2.5 py-3 text-sm font-bold uppercase tracking-[0.06em] transition-colors hover:text-band-foreground focus-visible:outline-band-foreground",
             current === i.id
-              ? "text-foreground shadow-[inset_0_-3px_0_var(--foreground)]"
-              : "text-muted-foreground",
+              ? "text-band-foreground shadow-[inset_0_-3px_0_var(--band-foreground)]"
+              : "text-band-foreground/85",
           )}
         >
           {i.label}

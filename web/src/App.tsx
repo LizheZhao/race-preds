@@ -1,20 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   loadCurrentRound,
   loadLatestPrediction,
   loadStageSnapshots,
 } from "@/data/api";
-import type { PredictionKey, Stage } from "@/data/types";
-import { PREDICTION_KEYS } from "@/data/types";
+import type { Stage } from "@/data/types";
 import { RaceProvider } from "@/components/race/context";
 import {
   predictionColumns,
   TREND_KEYS,
   type TrendDocs,
 } from "@/components/race/compare";
-import { probNoun } from "@/components/race/context";
-import { Header, STAGE_LABEL, STAGE_ORDER } from "@/components/race/Header";
+import { Header } from "@/components/race/Header";
+import { STAGE_LABEL, stageTiles } from "@/components/race/stages";
 import { SectionCard } from "@/components/race/SectionCard";
 import { CircuitView } from "@/components/race/CircuitCard";
 import { WeatherLegend, WeatherView } from "@/components/race/WeatherCard";
@@ -24,7 +23,6 @@ import { IncidentsView } from "@/components/race/Incidents";
 import { RacePaceView } from "@/components/race/RacePace";
 import { StoryView } from "@/components/race/Story";
 import { ResultsView } from "@/components/race/Results";
-import { Verdict } from "@/components/race/Verdict";
 
 /** Page order; the manifest section decides whether each one exists. */
 const SECTIONS = [
@@ -59,20 +57,6 @@ export function App() {
     staleTime: Infinity,
   });
 
-  // Every stage with a prediction snapshot: each section's history and its latest stage,
-  // which trails the manifest stage once predictions stop (after qualifying, after the race).
-  const order = bundle ? STAGE_ORDER[bundle.manifest.format] : [];
-  const selectable = useMemo(() => {
-    const s = new Set<Stage>([current]);
-    if (bundle)
-      for (const k of PREDICTION_KEYS) {
-        const sec = bundle.manifest.sections[k];
-        for (const h of sec?.history ?? []) s.add(h);
-        if (sec?.stage) s.add(sec.stage);
-      }
-    return s;
-  }, [bundle, current]);
-
   // The trend's session columns are each prediction's newest snapshot, history included.
   const trendQ = useQuery({
     queryKey: ["trend", roundKey, bundle?.manifest.meta.generated_at],
@@ -96,11 +80,9 @@ export function App() {
   if (!bundle) return <Centered>Loading race week…</Centered>;
 
   const { manifest, docs, fetchErrors } = bundle;
-  const pred = <K extends PredictionKey>(k: K) =>
-    isHistory ? snap.data?.[k] : docs[k];
+  const fo = isHistory ? snap.data?.finishing_order : docs.finishing_order;
   const loadingSnap = isHistory && snap.isLoading;
   const sec = (k: keyof typeof manifest.sections) => manifest.sections[k];
-  const fo = pred("finishing_order");
   const foStage = STAGE_LABEL[fo?.meta.stage ?? selected];
   const resultsPending =
     sec("results")?.status !== "ready" && sec("results")?.status !== "stale";
@@ -109,6 +91,7 @@ export function App() {
     ({ key }) => sec(key)?.status !== "not_applicable",
   );
   const trend = fo ? predictionColumns(docs.event, trendQ.data ?? {}, fo) : [];
+  const tiles = stageTiles(manifest.format, current, sec("finishing_order"));
 
   return (
     <RaceProvider event={docs.event}>
@@ -116,47 +99,30 @@ export function App() {
         <Header
           manifest={manifest}
           event={docs.event}
-          selectable={selectable}
-          selected={selected}
-          onSelect={(s) => setPicked(s === current ? null : s)}
           sections={sections.map(({ id, nav }) => ({ id, label: nav }))}
         />
         <main className="mx-auto grid max-w-[1440px] grid-cols-1 items-start gap-x-6 gap-y-10 px-4 pt-6 pb-16 md:px-12 lg:grid-cols-12">
-          {fo && (
-            <div className="lg:col-span-12">
-              <Verdict
-                doc={fo}
-                stageLabel={foStage}
-                result={
-                  isHistory ? undefined : (docs.results?.race ?? undefined)
-                }
-              />
-            </div>
-          )}
           <SectionCard
             id="finishing"
-            title="Predicted finishing order"
+            title="Predicted race finishing order"
             prediction
-            subtitle={
-              fo &&
-              `Made after ${foStage} · percentages are ${probNoun(fo.model.calibrated)}s`
-            }
             className="lg:col-span-12"
             section={sec("finishing_order")}
             fetchError={fetchErrors.finishing_order}
             hasData={!!fo || loadingSnap}
             model={fo?.model}
-            stageKey={selected}
           >
-            {fo && (
-              <FinishingOrderView
-                doc={fo}
-                stageLabel={foStage}
-                trend={trend}
-                results={docs.results}
-                scored={!isHistory}
-              />
-            )}
+            <FinishingOrderView
+              doc={fo}
+              stageLabel={foStage}
+              trend={trend}
+              results={docs.results}
+              tiles={tiles}
+              selected={selected}
+              current={current}
+              sessions={docs.event?.sessions}
+              onSelect={(s) => setPicked(s === current ? null : s)}
+            />
           </SectionCard>
 
           <SectionCard
@@ -167,14 +133,11 @@ export function App() {
             className="lg:col-span-7 lg:self-stretch"
             section={sec("strategy")}
             fetchError={fetchErrors.strategy}
-            hasData={!!pred("strategy") || loadingSnap}
-            model={pred("strategy")?.model}
-            stageKey={selected}
-            aside={
-              pred("strategy") && <CompoundLegend doc={pred("strategy")!} />
-            }
+            hasData={!!docs.strategy}
+            model={docs.strategy?.model}
+            aside={docs.strategy && <CompoundLegend doc={docs.strategy} />}
           >
-            {pred("strategy") && <StrategyView doc={pred("strategy")!} />}
+            {docs.strategy && <StrategyView doc={docs.strategy} />}
           </SectionCard>
           <SectionCard
             id="risk"
@@ -183,13 +146,12 @@ export function App() {
             className="lg:col-span-5 lg:self-stretch"
             section={sec("race_incidents")}
             fetchError={fetchErrors.race_incidents}
-            hasData={!!pred("race_incidents") || loadingSnap}
-            model={pred("race_incidents")?.model}
-            stageKey={selected}
+            hasData={!!docs.race_incidents}
+            model={docs.race_incidents?.model}
           >
-            {pred("race_incidents") && (
+            {docs.race_incidents && (
               <IncidentsView
-                doc={pred("race_incidents")!}
+                doc={docs.race_incidents}
                 actual={docs.results?.race_incidents}
               />
             )}
