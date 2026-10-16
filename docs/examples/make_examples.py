@@ -146,7 +146,8 @@ for sid, _, start, status in SESSIONS:
         observed = S.ObservedWeather(air_temp_c_mean=26.4 if sid == "FP2" else 23.1,
                                      track_temp_c_max=44.0 if sid == "FP2" else 36.5,
                                      track_temp_c_min=31.5 if sid == "FP2" else 29.0,
-                                     humidity_mean=0.52, wind_speed_ms_mean=1.8, rain_share=0.0)
+                                     humidity_mean=0.52, wind_speed_ms_mean=1.8, rain_share=0.0,
+                                     wet_tyre_share=0.0)
     session_weather.append(S.SessionWeather(session_id=sid, start_utc=start,
                                             forecast=forecast_at(start), observed=observed))
 
@@ -234,9 +235,12 @@ incidents = S.RaceIncidentsDoc(
     meta=meta("race_incidents"), model=model_info("race_incidents_logit", calibrated=False),
     p_safety_car=0.42, p_vsc=0.35, p_red_flag=0.06, expected_safety_cars=0.51,
     by_lap_window=[S.LapWindow(start_lap=a, end_lap=b, p_safety_car=p) for a, b, p in windows],
-    circuit_history=[S.CircuitIncidentHistory(season=s, safety_cars=sc, vscs=v, red_flags=r)
-                     for s, sc, v, r in [(2024, 0, 1, 0), (2023, 0, 0, 0), (2022, 1, 1, 0),
-                                         (2021, 1, 0, 0), (2020, 1, 0, 1)]],
+    circuit_history=[S.CircuitIncidentHistory(season=s, safety_cars=sc, vscs=v, red_flags=r,
+                                              periods=[S.Neutralisation(kind=k, start_lap=a, end_lap=b) for k, a, b in p])
+                     for s, sc, v, r, p in [(2024, 0, 1, 0, [("VSC", 38, 39)]), (2023, 0, 0, 0, []),
+                                            (2022, 1, 1, 0, [("VSC", 46, 46), ("SC", 47, 53)]),
+                                            (2021, 1, 0, 0, [("SC", 1, 3)]),
+                                            (2020, 1, 0, 1, [("SC", 20, 24), ("RED", 24, 27)])]],
 )
 write("2025/16/race_incidents/FP2.json", incidents)
 
@@ -248,6 +252,7 @@ def stints(*spec):
 strategy = S.StrategyDoc(
     meta=meta("strategy"), model=model_info("strategy_sim"),
     race_laps=RACE_LAPS, pit_loss_s=23.8,
+    pit_loss_measured=S.PitLoss(pit_loss_s=23.8, stops=61, seasons=[2022, 2023, 2024]),
     compounds_available={"HARD": "C3", "MEDIUM": "C4", "SOFT": "C5"},
     options=[
         S.StrategyOption(id="1stop-m-h", stints=stints(("MEDIUM", 1, 22), ("HARD", 23, 53)),
@@ -266,6 +271,12 @@ strategy = S.StrategyDoc(
                            lap_delta_s=[round(k * a + (k ** 2) * b, 3) for k in range(1, L + 1)],
                            source_sessions=["FP2"])
         for c, L, a, b in [("SOFT", 14, 0.06, 0.004), ("MEDIUM", 24, 0.04, 0.0015), ("HARD", 32, 0.03, 0.0007)]
+    ],
+    measured_degradation=[
+        S.DegradationCurve(compound=c, tyre_life=list(range(1, L + 1)),
+                           lap_delta_s=[round((k - 1) * a + ((k - 1) ** 2) * b, 3) for k in range(1, L + 1)],
+                           source_sessions=["FP1", "FP2", "R"], seasons=[2022, 2023, 2024, 2025], stints=n)
+        for c, L, a, b, n in [("MEDIUM", 26, 0.045, 0.0012, 24), ("HARD", 34, 0.028, 0.0006, 31)]
     ],
 )
 write("2025/16/strategy/FP2.json", strategy)
