@@ -14,14 +14,14 @@ export function Verdict({
   stageLabel: string;
   result?: RaceRow[] | undefined;
 }) {
-  const { drivers, teams } = useRace();
+  const { drivers, teamOf } = useRace();
   const noun = probNoun(doc.model.calibrated);
   const fav = [...doc.drivers].sort((a, b) => b.p_win - a.p_win)[0];
   if (!fav) return null;
   const d = drivers.get(fav.driver_id);
-  const team = teams.get(d?.team_id ?? "");
+  const team = teamOf(fav.driver_id);
   const name = d ? `${d.first_name} ${d.last_name}` : fav.driver_id;
-  const code = (id?: string) => (id ? (drivers.get(id)?.code ?? id) : "—");
+  const code = (id: string) => drivers.get(id)?.code ?? id;
 
   const card = result ? scorecard(doc, result) : null;
   const won = card ? card.winner === fav.driver_id : null;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { EventDoc, RaceManifest } from "@/data/types";
 import { cn } from "@/lib/utils";
 import { relTime } from "./context";
@@ -30,7 +30,7 @@ export function Header({ manifest, event, sections }: Props) {
   // The session status can lag the clock; a race is over well within 3 hours of lights out.
   const pastRace = now != null && now > raceStart + RACE_OVER_MS;
 
-  let clock: React.ReactNode = "—";
+  let clock: ReactNode = "—";
   let countdown = false;
   if (race?.status === "live" && !pastRace) clock = "Live";
   else if (race?.status === "completed" || pastRace) clock = "Finished";

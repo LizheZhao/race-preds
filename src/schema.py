@@ -49,7 +49,7 @@ STAGE_ORDER: dict[str, list[str]] = {
     "conventional": ["pre_weekend", "FP1", "FP2", "FP3", "Q", "R"],
     "sprint_qualifying": ["pre_weekend", "FP1", "SQ", "S", "Q", "R"],
 }
-DRY_COMPOUNDS = {"SOFT", "MEDIUM", "HARD"}
+DRY_COMPOUNDS = set(DryCompound.__args__)
 
 ArtifactName = Literal["index", "manifest", "event", "weather", "finishing_order", "qualifying",
                        "sprint_qualifying", "sprint", "race_incidents", "strategy", "facts", "results"]

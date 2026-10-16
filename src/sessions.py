@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import pandas as pd
 import fastf1
 
-# session mapping
 SESSION_IDS = {
     "Practice 1": "FP1",
     "Practice 2": "FP2",
@@ -22,7 +21,7 @@ SESSION_ORDER = {
     "sprint_qualifying": ["FP1", "SQ", "S", "Q", "R"],
 }
 
-# session helper
+
 def load_weekend(year, rnd):
     """every session of one weekend, keyed by session id, loaded without telemetry"""
     event = fastf1.get_event(year, rnd)
@@ -35,8 +34,9 @@ def load_weekend(year, rnd):
             sessions[SESSION_IDS[name]] = s
     return sessions
 
+
 def get_sessions(year: int, rnd: int) -> list[dict]:
-    """every session of one weekend, keyed by session id, loaded without telemetry"""
+    """the weekend's sessions as dicts: session_id, session_name, session_dt, session_dt_utc"""
     event = fastf1.get_event(year, rnd)
     sessions = []
     for i in range(1, 6):

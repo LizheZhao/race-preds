@@ -1,17 +1,10 @@
 import type { ReactNode } from "react";
 import type { FinishingOrderDoc, ResultsDoc } from "@/data/types";
-import { tyreFill } from "./Strategy";
+import { OUT_LABEL } from "./compare";
+import { INITIAL, tyreFill } from "./Strategy";
 import { pct, useRace } from "./context";
 import { lapFmt, medianPosition, plural, teamAbbr } from "./format";
 import { useTip } from "./Tip";
-
-const OUT_WORD: Record<string, string> = {
-  R: "DNF",
-  D: "DSQ",
-  E: "EXC",
-  W: "WD",
-  N: "NC",
-};
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -59,11 +52,11 @@ export function DriverCard({
   );
   const stints =
     results?.race_strategies?.find((x) => x.driver_id === id)?.stints ?? [];
-  const weekend = results != null && (q || sprint || race);
+  const weekend = q || sprint || race;
   const finish = (r: typeof race) =>
     r?.position != null
       ? `P${r.position}`
-      : (OUT_WORD[r?.classified_as ?? ""] ?? "—");
+      : (OUT_LABEL[r?.classified_as ?? ""] ?? "—");
 
   return (
     <aside
@@ -159,7 +152,7 @@ export function DriverCard({
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
             {stints.length - 1}-stop ·{" "}
-            {stints.map((s) => s.compound[0]).join("–")}
+            {stints.map((s) => INITIAL[s.compound]).join("–")}
           </p>
         </section>
       )}

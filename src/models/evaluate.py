@@ -21,11 +21,11 @@ import pandas as pd
 
 from src.config import FEATURES_SNAPSHOT
 
-SECTIONS = ("finishing_order", "qualifying")
 SEASON_SPLIT = (2023, 2024)  # trained on the era's earlier seasons, 2022 on
 WALK_FORWARD = (2026, 6)  # season, first test round; later rounds join as they are played
 HOLDOUT = 2025
 LOG_FLOOR = 1e-6
+METRICS = ["rps", "log_loss", "first_hit", "top3_hits", "top10_hits", "rank_error"]
 
 
 @dataclass(frozen=True)
@@ -114,7 +114,7 @@ def run(features: pd.DataFrame, candidates: list, holdout: bool = False) -> pd.D
     """every candidate on every fold; returns one row per candidate x fold x stage"""
     features = features.assign(rk=rank_key(features["season"], features["round"]))
     labels = features.drop_duplicates(["season", "round", "driver_id"])  # labels repeat per stage
-    fitted = {}
+    fitted = set()
     results = []
     for fold in folds(features, holdout):
         test = features[(features["season"] == fold.season) & (features["round"] == fold.round)]
@@ -123,7 +123,7 @@ def run(features: pd.DataFrame, candidates: list, holdout: bool = False) -> pd.D
             key = (cand.name, fold.train_before)
             if key not in fitted:
                 cand.fit(features[features["rk"] < fold.train_before])
-                fitted[key] = True
+                fitted.add(key)
             rows = section_rows(cand.section, test)
             if rows.empty:
                 continue
@@ -135,8 +135,7 @@ def run(features: pd.DataFrame, candidates: list, holdout: bool = False) -> pd.D
 
 def summarize(scores: pd.DataFrame) -> pd.DataFrame:
     """mean over a split's rounds, per section x split x stage x model"""
-    metrics = ["rps", "log_loss", "first_hit", "top3_hits", "top10_hits", "rank_error"]
-    return (scores.groupby(["section", "split", "stage", "model"])[metrics].mean()
+    return (scores.groupby(["section", "split", "stage", "model"])[METRICS].mean()
             .join(scores.groupby(["section", "split", "stage", "model"]).size().rename("rounds")).reset_index())
 
 
@@ -157,7 +156,7 @@ def log_to_mlflow(summary: pd.DataFrame) -> None:
             mlflow.set_tags({"model": model, "section": section, "split": split})
             mlflow.log_param("rounds", int(g["rounds"].max()))
             for r in g.itertuples():
-                mlflow.log_metrics({f"{r.stage}.{m}": getattr(r, m) for m in ("rps", "log_loss", "first_hit", "top3_hits", "top10_hits", "rank_error")})
+                mlflow.log_metrics({f"{r.stage}.{m}": getattr(r, m) for m in METRICS})
 
 
 def snapshot() -> pd.DataFrame:

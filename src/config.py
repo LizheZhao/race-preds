@@ -41,7 +41,7 @@ def enable_cache(verbose: bool = True, cache_dir: Path | str | None = None) -> P
     point FastF1 at an on-disk cache
 
     locally: create the repo's data/models/outputs dirs and use data/fastf1_cache
-    in a Databricks job: pass a Volume path, the job's local disk is wiped after each run
+    in a Databricks job: pass a local temp dir, not a Volume (FastF1's SQLite cache needs real file locks)
     """
     if cache_dir is None:
         for directory in (CACHE_DIR, RAW_DIR, PROCESSED_DIR, MODEL_DIR, OUTPUT_DIR):

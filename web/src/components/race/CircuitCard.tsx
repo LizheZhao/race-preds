@@ -37,15 +37,11 @@ export function CircuitView({ event }: { event: EventDoc }) {
             )
           }
         />
-        <Stat
-          className="text-[26px]"
-          label="Laps"
-          value={c.race_laps != null ? String(c.race_laps) : "—"}
-        />
+        <Stat className="text-[26px]" label="Laps" value={c.race_laps ?? "—"} />
         <Stat
           className="text-[26px]"
           label="Corners"
-          value={String(c.corners.length)}
+          value={c.corners.length}
         />
         <Stat
           className="text-[26px]"

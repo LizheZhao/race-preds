@@ -20,7 +20,6 @@ def _track_status_summary(tables: SessionTables, start: float, end: float) -> di
       that began before the start (a wet start behind the SC counts as one SC)
       SC -> red flag -> SC counts as two SC periods and one red flag
     """
-
     TRACK_STATUS_NAMES = {"2": "yellow", "4": "sc", "5": "red", "6": "vsc"}
 
     ts = tables.track_status[["Time", "Status"]].copy()
@@ -63,7 +62,6 @@ def _weather_summary(tables: SessionTables, start: float, end: float) -> dict:
 
 def _race_control_by_driver(tables: SessionTables) -> pd.DataFrame:
     """per-driver counts of track limits, incidents, investigations, penalties, flags"""
-
     rc = tables.race_control
     msg = rc["Message"].fillna("")
 
@@ -176,7 +174,7 @@ def summarize_session(session) -> tuple[pd.DataFrame, pd.DataFrame]:
     # (also keeps every count an integer in every session, which the gold Delta table needs)
     count_cols = [c for c in by_driver.columns if c.startswith("laps_") or c.endswith("_n") or c == "clean_laps"]
     by_driver[count_cols] = by_driver[count_cols].fillna(0).astype(int)
-    by_driver = by_driver.assign(**keys)[list(keys) + [c for c in by_driver.columns]]
+    by_driver = by_driver.assign(**keys)[[*keys, *by_driver.columns]]
 
     # per session: timing window, weather, track status, race control
     laps = tables.laps
