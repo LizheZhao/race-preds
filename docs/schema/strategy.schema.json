@@ -43,6 +43,27 @@
           },
           "title": "Source Sessions",
           "type": "array"
+        },
+        "seasons": {
+          "default": [],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Seasons",
+          "type": "array"
+        },
+        "stints": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stints"
         }
       },
       "required": [
@@ -58,7 +79,7 @@
       "additionalProperties": false,
       "properties": {
         "schema_version": {
-          "default": "1.0.0",
+          "default": "1.1.0",
           "title": "Schema Version",
           "type": "string"
         },
@@ -238,6 +259,36 @@
       "title": "ModelInfo",
       "type": "object"
     },
+    "PitLoss": {
+      "additionalProperties": false,
+      "description": "Green-flag stops at this circuit: in-lap plus out-lap against twice the driver's median lap.",
+      "properties": {
+        "pit_loss_s": {
+          "exclusiveMinimum": 0,
+          "title": "Pit Loss S",
+          "type": "number"
+        },
+        "stops": {
+          "minimum": 1,
+          "title": "Stops",
+          "type": "integer"
+        },
+        "seasons": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Seasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "pit_loss_s",
+        "stops",
+        "seasons"
+      ],
+      "title": "PitLoss",
+      "type": "object"
+    },
     "PitWindow": {
       "additionalProperties": false,
       "properties": {
@@ -375,6 +426,17 @@
       "title": "Pit Loss S",
       "type": "number"
     },
+    "pit_loss_measured": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PitLoss"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "compounds_available": {
       "anyOf": [
         {
@@ -411,6 +473,14 @@
         "$ref": "#/$defs/DegradationCurve"
       },
       "title": "Degradation",
+      "type": "array"
+    },
+    "measured_degradation": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DegradationCurve"
+      },
+      "title": "Measured Degradation",
       "type": "array"
     }
   },

@@ -32,6 +32,7 @@ export type TrackTempCMin = number | null;
 export type HumidityMean = number;
 export type WindSpeedMsMean = number;
 export type RainShare = number;
+export type WetTyreShare = number | null;
 export type Sessions = SessionWeather[];
 export type TimeUtc = string;
 export type AirTempC1 = number;
@@ -102,6 +103,7 @@ export interface ObservedWeather {
   humidity_mean: HumidityMean;
   wind_speed_ms_mean: WindSpeedMsMean;
   rain_share: RainShare;
+  wet_tyre_share?: WetTyreShare;
 }
 /**
  * This interface was referenced by `WeatherDoc`'s JSON-Schema
@@ -117,7 +119,7 @@ export interface HourlyForecast {
   humidity: Humidity;
 }
 /**
- * Historical prior for this circuit, from FastF1 observed weather in past seasons.
+ * Historical prior for this circuit, from the earlier races here the lakehouse holds.
  *
  * This interface was referenced by `WeatherDoc`'s JSON-Schema
  * via the `definition` "Climatology".
