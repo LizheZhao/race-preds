@@ -721,6 +721,12 @@ is involved.
     all of it backfill and `build_features`. The SQL warehouse then answered "you have
     hit your free daily limit" too, which blocks publish's reads as well. Keep a
     backfill day well under 7 h, and never run one on a race-weekend day.
+  - **It did not reset at 00:00 UTC, nor by 12:11 UTC on 2026-10-16** (more than 13 h on).
+    By then the warehouse answered "Cannot start warehouse ... with Serverless Compute
+    since it is disabled in global warehouse config", although the workspace's warehouse
+    config still reads `enable_serverless_compute: true`. So the reset time is unknown and
+    may be longer than a day. If the block reaches 2026-10-22, the R18 publish has no
+    lakehouse to read.
 - Personal access tokens expire. An expired token makes every dispatcher run fail until
   you notice the failure emails, so record the expiry date (Dispatcher → Secrets).
 - Scheduled workflows in a public repo are disabled after 60 days without commits. Keep
