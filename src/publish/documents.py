@@ -387,6 +387,10 @@ def _predicted_quali(ctx: Context) -> tuple[list[str], dict[str, int] | None]:
 
 
 def qualifying(ctx: Context) -> schema.QualifyingDoc:
+    """the released champion until sprint qualifying has run; otherwise the baseline: the
+    sprint qualifying order once SQ has run, else the season mean"""
+    if "SQ" not in ctx.usable and (champion := _champion(ctx, "qualifying")):
+        return _scored_qualifying(ctx, *champion)
     order, grid = _predicted_quali(ctx)
     name, feature = ("quali-sprint-order", "sprint_qualifying_position") if grid else \
         ("quali-season-average", "season_mean_quali_position")
@@ -433,6 +437,14 @@ def _model_info(meta: dict) -> schema.ModelInfo:
     return schema.ModelInfo(name=meta["name"], version=meta["version"], trained_through=meta["trained_through"],
                             features=meta["features"], calibrated=meta["calibrated"],
                             backtest=[schema.Metric(**m) for m in meta["backtest"]])
+
+
+def _scored_qualifying(ctx: Context, bundle: registry.Bundle, rows: pd.DataFrame) -> schema.QualifyingDoc:
+    pred = bundle.model.predict(rows, rows.iloc[:0])
+    drivers = [schema.DriverQualiPrediction(driver_id=r.driver_id, position_probs=list(r.probs))
+               for r in pred.itertuples()]
+    drivers.sort(key=lambda d: d.expected_position)
+    return schema.QualifyingDoc(meta=ctx.meta("qualifying"), model=_model_info(bundle.meta), drivers=drivers)
 
 
 def _scored_finishing_order(ctx: Context, bundle: registry.Bundle, rows: pd.DataFrame) -> schema.FinishingOrderDoc:
