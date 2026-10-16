@@ -12,7 +12,8 @@ distribution with a "not classified" category
 
 strength-pl fits one strength model and temperature for every stage; strength-pl-stage
 fits one per stage, so the grid's weight and the spread after Q are not averaged with the
-stages where the grid is unknown
+stages where the grid is unknown. strength-pl-quali is strength-pl-stage on qualifying
+position, at the stages before Q, with no retirements
 
 pure numpy / scikit-learn, so publish can score it without Spark
 """
@@ -55,18 +56,25 @@ def _pl_loglik(temperature: float, groups: list[np.ndarray]) -> float:
     return total
 
 
-def _fit_strength(finished: pd.DataFrame):
-    """ridge on the classified drivers' finishing positions, and the Plackett-Luce temperature
-    from out-of-fold strengths, grouped by round so a round never predicts itself"""
-    strength = _strength_model().fit(finished[STRENGTH_FEATURES], finished["y_finish"])
-    rounds = finished["season"] * 100 + finished["round"]
+def _fit_strength(rows: pd.DataFrame, target: str = "y_finish"):
+    """ridge on a position (the classified drivers' finishing positions, or qualifying), and
+    the Plackett-Luce temperature from out-of-fold strengths, grouped by round so a round
+    never predicts itself"""
+    strength = _strength_model().fit(rows[STRENGTH_FEATURES], rows[target])
+    rounds = rows["season"] * 100 + rows["round"]
     k = min(FOLDS, rounds.nunique())
-    oof = (cross_val_predict(_strength_model(), finished[STRENGTH_FEATURES], finished["y_finish"],
+    oof = (cross_val_predict(_strength_model(), rows[STRENGTH_FEATURES], rows[target],
                              groups=rounds, cv=GroupKFold(k)) if k >= 2 else
-           strength.predict(finished[STRENGTH_FEATURES]))
-    scored = finished.assign(s=-oof)
-    groups = [g.sort_values("y_finish")["s"].to_numpy() for _, g in scored.groupby(["season", "round", "stage"])]
+           strength.predict(rows[STRENGTH_FEATURES]))
+    scored = rows.assign(s=-oof)
+    groups = [g.sort_values(target)["s"].to_numpy() for _, g in scored.groupby(["season", "round", "stage"])]
     return strength, minimize_scalar(lambda t: -_pl_loglik(t, groups), bounds=(0.05, 20), method="bounded").x
+
+
+def _fit_stages(rows: pd.DataFrame, target: str = "y_finish") -> dict:
+    """_fit_strength per stage_key, for the stages with at least MIN_STAGE_ROUNDS rounds"""
+    return {stage: _fit_strength(g, target) for stage, g in rows.groupby(stage_key(rows))
+            if g[["season", "round"]].drop_duplicates().shape[0] >= MIN_STAGE_ROUNDS}
 
 
 def stage_key(rows: pd.DataFrame) -> pd.Series:
@@ -90,18 +98,19 @@ class StrengthPL:
     def _strength_for(self, stage: str | None):
         return self.strength, self.temperature
 
+    def _p_dnf(self, g: pd.DataFrame) -> np.ndarray:
+        return (self.dnf.predict_proba(g[DNF_FEATURES])[:, 1] if not isinstance(self.dnf, float)
+                else np.full(len(g), self.dnf))
+
     def predict(self, rows: pd.DataFrame, history: pd.DataFrame) -> pd.DataFrame:
         rng = np.random.default_rng(SEED)
         out = []
         for stage, g in rows.groupby("stage"):
             g = g.sort_values("driver_id")
-            n = len(g)
             model, temperature = self._strength_for(stage_key(g).iat[0])
             strength = -model.predict(g[STRENGTH_FEATURES]) / temperature
-            p_dnf = (self.dnf.predict_proba(g[DNF_FEATURES])[:, 1] if not isinstance(self.dnf, float)
-                     else np.full(n, self.dnf))
             out += [{"stage": stage, "driver_id": d, "probs": p}
-                    for d, p in zip(g["driver_id"], simulate(strength, p_dnf, rng))]
+                    for d, p in zip(g["driver_id"], simulate(strength, self._p_dnf(g), rng))]
         return pd.DataFrame(out)
 
 
@@ -112,14 +121,33 @@ class StrengthPLStage(StrengthPL):
 
     def fit(self, train: pd.DataFrame) -> None:
         super().fit(train)
-        finished = train[train["y_classified"] == True]
-        self.stages = {stage: _fit_strength(g) for stage, g in finished.groupby(stage_key(finished))
-                       if g[["season", "round"]].drop_duplicates().shape[0] >= MIN_STAGE_ROUNDS}
+        self.stages = _fit_stages(train[train["y_classified"] == True])
 
     def _strength_for(self, stage: str | None):
         while stage not in self.stages and stage in STAGE_FALLBACK:
             stage = STAGE_FALLBACK[stage]
         return self.stages.get(stage, (self.strength, self.temperature))
+
+
+class QualiStrengthPL(StrengthPLStage):
+    """qualifying order, scored at the stages before Q: per-stage strength on qualifying
+    position, and a Plackett-Luce order of every entrant (no one retires)"""
+    name, section = "strength-pl-quali", "qualifying"
+    features = [f for f in STRENGTH_FEATURES if f not in ("q_best_lap_gap_pct", "quali_position", "grid_position")]
+
+    def fit(self, train: pd.DataFrame) -> None:
+        q_ran = train.groupby(["season", "round", "stage"])["quali_position"].transform(lambda q: q.notna().any())
+        rows = train[~q_ran & train["y_quali"].notna()]
+        self.strength, self.temperature = _fit_strength(rows, "y_quali")
+        self.stages = _fit_stages(rows, "y_quali")
+
+    def _p_dnf(self, g: pd.DataFrame) -> np.ndarray:
+        return np.zeros(len(g))
+
+    def predict(self, rows: pd.DataFrame, history: pd.DataFrame) -> pd.DataFrame:
+        out = super().predict(rows, history)
+        out["probs"] = out["probs"].apply(lambda p: p[:-1])  # drop the empty "not classified" category
+        return out
 
 
 def simulate(strength: np.ndarray, p_dnf: np.ndarray, rng: np.random.Generator,
