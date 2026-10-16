@@ -64,8 +64,9 @@ def long_runs(laps: pd.DataFrame) -> pd.DataFrame:
     -> the dry-compound laps of stints with at least LONG_RUN_LAPS of them, traffic dropped,
     with `time_s` fuel-corrected and a `run` key per stint
     """
-    laps = laps[laps["compound"].isin(DRY) & laps["tyre_life"].notna() & laps["lap_time_s"].notna()].copy()
-    laps["run"] = laps[["season", "round", "session_id", "driver", "stint"]].astype(str).agg("/".join, axis=1)
+    laps = laps[laps["compound"].isin(DRY) & laps["tyre_life"].notna() & laps["lap_time_s"].notna()
+                & laps["stint"].notna() & laps["stint_lap"].notna()].copy()  # a NaN stint would merge runs
+    laps["run"] = laps.groupby(["season", "round", "session_id", "driver", "stint"]).ngroup()
     laps["time_s"] = _fuel_corrected(laps)
     laps = laps[laps["time_s"] <= laps.groupby("run")["time_s"].transform("median") * TRAFFIC]
     return laps[laps.groupby("run")["time_s"].transform("size") >= LONG_RUN_LAPS]
@@ -76,7 +77,8 @@ def degradation(laps: pd.DataFrame) -> list[dict]:
     per dry compound with enough long runs: lap time loss vs tyre age 1, fitted as
     b1 (age - 1) + b2 (age - 1)^2 with one intercept per stint (within-stint demeaning), so
     a stint's base pace and fuel load drop out and only the shape over age is pooled.
-    Ages run from 1 to the 90th percentile of the ages observed
+    Ages run from 1 to the 90th percentile of the ages observed. Every season's runs weigh the
+    same. A fit that gets faster with age anywhere in that range is noise, not wear, and is left out
     """
     runs = long_runs(laps)
     curves = []
@@ -91,8 +93,10 @@ def degradation(laps: pd.DataFrame) -> list[dict]:
         (b1, b2), *_ = np.linalg.lstsq(x.to_numpy(), y.to_numpy(), rcond=None)
         top = int(np.percentile(c["tyre_life"], 90))
         life = list(range(1, max(top, 2) + 1))
-        curves.append({"compound": compound, "tyre_life": life,
-                       "lap_delta_s": [round(float(b1 * (a - 1) + b2 * (a - 1) ** 2), 3) for a in life],
+        delta = [round(float(b1 * (a - 1) + b2 * (a - 1) ** 2), 3) for a in life]
+        if np.any(np.diff(delta) < 0):
+            continue
+        curves.append({"compound": compound, "tyre_life": life, "lap_delta_s": delta,
                        "source_sessions": sorted(c["session_id"].unique().tolist()),
                        "seasons": sorted(int(s) for s in c["season"].unique()),
                        "stints": int(c["run"].nunique())})
