@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DATA_BASE_URL,
   loadCurrentRound,
+  loadFinishingSnapshots,
   loadStageDoc,
   stagePath,
   withVersion,
@@ -67,5 +68,26 @@ describe("loadCurrentRound", () => {
     const fp1 = await loadStageDoc(bundle, "finishing_order", "FP1");
     expect(fp1?.meta.stage).toBe("FP1");
     expect(await loadStageDoc(bundle, "finishing_order", "Q")).toBeUndefined();
+  });
+
+  it("loads the finishing-order snapshot of every stage, the current one included", async () => {
+    serveExamples();
+    const bundle = await loadCurrentRound();
+
+    const snapshots = await loadFinishingSnapshots(bundle);
+    expect(Object.keys(snapshots).sort()).toEqual(["FP1", "FP2"]);
+    expect(snapshots.FP1?.meta.stage).toBe("FP1");
+    expect(snapshots.FP2).toBe(bundle.docs.finishing_order);
+  });
+
+  it("carries the practice classification in the results", async () => {
+    serveExamples();
+    const bundle = await loadCurrentRound();
+
+    const fp1 = bundle.docs.results?.practice?.find(
+      (p) => p.session_id === "FP1",
+    );
+    expect(fp1?.rows[0]?.position).toBe(1);
+    expect(fp1?.rows.at(-1)?.best_lap_s).toBeNull();
   });
 });

@@ -6,7 +6,6 @@ import type {
   Stage,
 } from "@/data/types";
 import { BumpChart, type BumpColumn } from "./Bump";
-import { sessionColumns } from "./compare";
 import { DriverCard } from "./DriverCard";
 import { Heatmap } from "./Heatmap";
 import { Seg } from "./Seg";
@@ -17,6 +16,10 @@ import { Verdict } from "./Verdict";
 
 type Mode = "heat" | "trend" | "sessions";
 
+/** A chart needs two columns with data to draw a line. */
+const hasLines = (columns: BumpColumn[]) =>
+  columns.filter((c) => c.order).length >= 2;
+
 export function FinishingOrderView({
   doc,
   stageLabel,
@@ -25,6 +28,7 @@ export function FinishingOrderView({
   tiles,
   selected,
   current,
+  sessionResults,
   sessions,
   onSelect,
 }: {
@@ -32,8 +36,10 @@ export function FinishingOrderView({
   doc: FinishingOrderDoc | undefined;
   /** The stage this prediction was made at. */
   stageLabel: string;
-  /** Predicted order per session being predicted, first to last. */
+  /** One column per stage: the predicted race order, then the result. */
   trend: BumpColumn[];
+  /** One column per session: what it classified. */
+  sessionResults: BumpColumn[];
   results?: ResultsDoc | undefined;
   tiles: StageTile[];
   selected: Stage;
@@ -43,7 +49,12 @@ export function FinishingOrderView({
 }) {
   const [mode, setMode] = useState<Mode>("heat");
   const race = results?.race ?? undefined;
-  const sessionCols = results ? sessionColumns(results) : [];
+  const enabled = {
+    heat: true,
+    trend: hasLines(trend),
+    sessions: hasLines(sessionResults),
+  };
+  const view = enabled[mode] ? mode : "heat";
 
   return (
     <div>
@@ -62,7 +73,7 @@ export function FinishingOrderView({
           <div className="mt-6 mb-4">
             <Seg
               label="View"
-              value={mode}
+              value={view}
               onChange={setMode}
               options={[
                 { key: "heat", label: "Positions" },
@@ -70,28 +81,28 @@ export function FinishingOrderView({
                   key: "trend",
                   label: "Prediction trend",
                   short: "Trend",
-                  disabled: trend.length < 2,
+                  disabled: !enabled.trend,
                 },
                 {
                   key: "sessions",
                   label: "Session results",
                   short: "Results",
-                  disabled: sessionCols.length < 2,
+                  disabled: !enabled.sessions,
                 },
               ]}
             />
           </div>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-            <div key={mode} className="stage-fade min-w-0">
-              {mode === "heat" && (
+            <div key={view} className="stage-fade min-w-0">
+              {view === "heat" && (
                 <Heatmap
                   doc={doc}
                   noun={probNoun(doc.model.calibrated)}
                   result={race}
                 />
               )}
-              {mode === "trend" && <BumpChart columns={trend} />}
-              {mode === "sessions" && <BumpChart columns={sessionCols} />}
+              {view === "trend" && <BumpChart columns={trend} />}
+              {view === "sessions" && <BumpChart columns={sessionResults} />}
             </div>
             <DriverCard doc={doc} results={results} stageLabel={stageLabel} />
           </div>

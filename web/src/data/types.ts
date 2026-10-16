@@ -30,6 +30,8 @@ export type SessionId = Ev.Session["id"];
 
 export type ModelInfo = Fo.ModelInfo;
 export type FinishingOrderDoc = Fo.FinishingOrderDoc;
+/** Every published finishing-order snapshot of a round, by the stage it was made at. */
+export type FinishingSnapshots = Partial<Record<Stage, FinishingOrderDoc>>;
 export type QualifyingDoc = Qu.QualifyingDoc;
 export type SprintQualifyingDoc = Sq.SprintQualifyingDoc;
 export type SprintDoc = Sp.SprintDoc;
@@ -50,11 +52,3 @@ export type PredictionKey =
   | "sprint"
   | "strategy"
   | "race_incidents";
-export const PREDICTION_KEYS: PredictionKey[] = [
-  "finishing_order",
-  "qualifying",
-  "sprint_qualifying",
-  "sprint",
-  "strategy",
-  "race_incidents",
-];

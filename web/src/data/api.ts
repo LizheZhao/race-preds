@@ -1,9 +1,9 @@
 // The only module that fetches data. Point VITE_DATA_BASE_URL at another host to switch sources.
-import { PREDICTION_KEYS } from "./types";
 import type {
   EventDoc,
   FactsDoc,
   FinishingOrderDoc,
+  FinishingSnapshots,
   QualifyingDoc,
   RaceIncidentsDoc,
   RaceManifest,
@@ -141,33 +141,21 @@ export async function loadStageDoc<K extends PredictionKey>(
 }
 
 /**
- * The newest snapshot of a prediction, also once its session has run: a qualifying section
- * is then not_applicable with no path, and its snapshots live on as history at
- * `<section>/<stage>.json`.
+ * Every finishing-order snapshot of the round by stage: the manifest's history and the
+ * current document. A snapshot that fails to load is left out, so its stage reads as no data.
  */
-export async function loadLatestPrediction<K extends PredictionKey>(
+export async function loadFinishingSnapshots(
   bundle: RoundBundle,
-  key: K,
-): Promise<SectionDocs[K] | undefined> {
-  const s = bundle.manifest.sections[key];
-  const stage = s?.stage ?? s?.history?.at(-1);
-  if (!s || !stage) return undefined;
-  if (s.path && stage === s.stage) return bundle.docs[key];
-  return getJson<SectionDocs[K]>(`${bundle.roundDir}/${key}/${stage}.json`);
-}
-
-/** All prediction documents for an earlier stage (only those whose history lists it). */
-export async function loadStageSnapshots(bundle: RoundBundle, stage: Stage) {
-  const out: Partial<Pick<SectionDocs, PredictionKey>> = {};
-  await Promise.all(
-    PREDICTION_KEYS.map(async (key) => {
-      try {
-        const doc = await loadStageDoc(bundle, key, stage);
-        if (doc) (out as Record<string, unknown>)[key] = doc;
-      } catch {
-        /* missing snapshot: card shows "no snapshot" */
-      }
-    }),
+): Promise<FinishingSnapshots> {
+  const section = bundle.manifest.sections["finishing_order"];
+  const stages = [...(section?.history ?? [])];
+  if (section?.stage) stages.push(section.stage);
+  const docs = await Promise.all(
+    stages.map((stage) =>
+      loadStageDoc(bundle, "finishing_order", stage).catch(() => undefined),
+    ),
   );
-  return out;
+  return Object.fromEntries(
+    stages.flatMap((stage, i) => (docs[i] ? [[stage, docs[i]]] : [])),
+  );
 }

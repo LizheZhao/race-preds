@@ -1,17 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  loadCurrentRound,
-  loadLatestPrediction,
-  loadStageSnapshots,
-} from "@/data/api";
+import { loadCurrentRound, loadFinishingSnapshots } from "@/data/api";
 import type { Stage } from "@/data/types";
 import { RaceProvider } from "@/components/race/context";
-import {
-  predictionColumns,
-  TREND_KEYS,
-  type TrendDocs,
-} from "@/components/race/compare";
+import { sessionColumns, trendColumns } from "@/components/race/compare";
 import { Header } from "@/components/race/Header";
 import { STAGE_LABEL, stageTiles } from "@/components/race/stages";
 import { SectionCard } from "@/components/race/SectionCard";
@@ -48,26 +40,10 @@ export function App() {
   const roundKey = bundle?.roundDir;
   const current: Stage = bundle?.manifest.meta.stage ?? "pre_weekend";
   const selected = picked ?? current;
-  const isHistory = selected !== current;
 
-  const snap = useQuery({
-    queryKey: ["snap", roundKey, selected],
-    queryFn: () => loadStageSnapshots(bundle!, selected),
-    enabled: !!bundle && isHistory,
-    staleTime: Infinity,
-  });
-
-  // The trend's session columns are each prediction's newest snapshot, history included.
-  const trendQ = useQuery({
-    queryKey: ["trend", roundKey, bundle?.manifest.meta.generated_at],
-    queryFn: async () => {
-      const [sprint_qualifying, sprint, qualifying] = await Promise.all(
-        TREND_KEYS.map((k) =>
-          loadLatestPrediction(bundle!, k).catch(() => undefined),
-        ),
-      );
-      return { sprint_qualifying, sprint, qualifying } as TrendDocs;
-    },
+  const snapshots = useQuery({
+    queryKey: ["finishing", roundKey, bundle?.manifest.meta.generated_at],
+    queryFn: () => loadFinishingSnapshots(bundle!),
     enabled: !!bundle,
     staleTime: Infinity,
   });
@@ -80,17 +56,27 @@ export function App() {
   if (!bundle) return <Centered>Loading race week…</Centered>;
 
   const { manifest, docs, fetchErrors } = bundle;
-  const fo = isHistory ? snap.data?.finishing_order : docs.finishing_order;
-  const loadingSnap = isHistory && snap.isLoading;
+  const fo =
+    selected === current ? docs.finishing_order : snapshots.data?.[selected];
+  const loadingSnap = selected !== current && snapshots.isLoading;
   const sec = (k: keyof typeof manifest.sections) => manifest.sections[k];
-  const foStage = STAGE_LABEL[fo?.meta.stage ?? selected];
+  const shown = fo?.meta.stage ?? selected;
   const resultsPending =
     sec("results")?.status !== "ready" && sec("results")?.status !== "stale";
   const hasStrategies = !!docs.results?.race_strategies;
   const sections = SECTIONS.filter(
     ({ key }) => sec(key)?.status !== "not_applicable",
   );
-  const trend = fo ? predictionColumns(docs.event, trendQ.data ?? {}, fo) : [];
+  const trend = trendColumns(
+    manifest.format,
+    snapshots.data ?? {},
+    docs.results,
+    selected,
+    shown,
+  );
+  const sessionCols = docs.event
+    ? sessionColumns(docs.event, docs.results, selected)
+    : [];
   const tiles = stageTiles(manifest.format, current, sec("finishing_order"));
 
   return (
@@ -114,8 +100,9 @@ export function App() {
           >
             <FinishingOrderView
               doc={fo}
-              stageLabel={foStage}
+              stageLabel={STAGE_LABEL[shown]}
               trend={trend}
+              sessionResults={sessionCols}
               results={docs.results}
               tiles={tiles}
               selected={selected}
