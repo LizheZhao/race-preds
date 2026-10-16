@@ -274,11 +274,13 @@ def _strategies(stints: pd.DataFrame) -> list[schema.DriverStrategy]:
 
 
 def _practice(ctx: Context) -> list[schema.PracticeSession]:
-    """each practice session run so far, drivers ranked by best lap and those without a timed lap last"""
+    """each practice session run so far, the field's drivers ranked by best lap and those without a timed
+    lap last; FP1 stand-ins, and at FP1 a driver new since the last race, are not in the field"""
     ran = [sid for sid in ("FP1", "FP2", "FP3") if sid in ctx.usable]
     if not ran:
         return []
-    laps = _ids(ctx, lh.practice_laps(ctx.season, ctx.round, ran)).dropna(subset=["driver_id"])
+    laps = _ids(ctx, lh.practice_laps(ctx.season, ctx.round, ran))
+    laps = laps[laps["driver_id"].isin(entries(ctx)["driver_id"])]
     sessions = []
     for sid in ran:
         ranked = laps[laps["session_id"] == sid].sort_values(["best_lap_rank", "driver_id"], na_position="last")

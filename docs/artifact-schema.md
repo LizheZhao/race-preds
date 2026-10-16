@@ -108,7 +108,10 @@ clean green-flag race laps in lap order, for pace charts, with the compound of e
 `compounds` (since 1.1), so a wet start can be split from the dry laps.
 `results.practice` (since 1.2) lists each practice session run so far with its drivers ranked
 by best lap (`position`, `best_lap_s`); a driver with no timed lap comes last with a null
-`best_lap_s`, and only this weekend's entrants appear.
+`best_lap_s`. Only the field in `event.drivers` appears, and `position` ranks within it, so
+it can differ from the official timing: FP1 stand-ins never appear, and at the FP1 stage
+(where the field is still the previous race's) neither does a driver who has taken a seat
+since then.
 `results.sprint_qualifying` is the SQ classification (`q1_s`..`q3_s` hold SQ1..SQ3), and
 `results.race_neutralisations` lists every SC, VSC and red-flag period of the race in the
 leader's laps; every lap the status was active in counts, so a period covers the lap it was
