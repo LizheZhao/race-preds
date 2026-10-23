@@ -71,6 +71,9 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
+- **OpenF1 is the ingest fallback for practice and qualifying while F1 blocks the archive**
+  (2026-10-23). FP1 of R18 failed on the block; OpenF1 had the session, so ingest rebuilds
+  FastF1's tables from it instead of waiting. (Automation → Known constraints)
 - **The GCP server is a self-hosted runner candidate, not a migration target**
   (2026-10-21). Databricks and the GitHub Actions dispatcher stay. The server may host
   the fallback's runner-side ingest, once it is shown to reach F1 live timing, and not
@@ -753,6 +756,22 @@ Secrets).
     so 2022 ingests during a block and 2023–2026 don't.
   - Not covered: a block that looks exactly like a missing object, S3's own 403
     `AccessDenied` on every key, would still read as `not_available`.
+  - **Since 2026-10-23, practice and qualifying fall back to OpenF1** (`api.openf1.org`,
+    `src/ingest/openf1_session.py`) when the archive refuses (401 / 403) or FastF1 can't
+    load the schedule; a one-off error still fails the run. OpenF1 serves the same feed
+    once a session ends and Databricks serverless reaches it. The module rebuilds the
+    six `SessionTables` with FastF1's columns and types, so bronze, silver and gold run
+    unchanged; bronze `fastf1_version` reads `openf1`. Until OpenF1 has the whole session
+    (ended, every chequered flag, every endpoint filled) ingest is `not_available`, so the
+    next run retries quietly.
+    - Checked on 2026 R17 FP1, SQ and Q against FastF1's bronze rows: the session and
+      per-driver summaries match (one driver differs per session), qualifying and sprint
+      qualifying positions and Q1–Q3 match. OpenF1's own segment times count deleted and
+      red-flagged laps, so those are recomputed from the laps.
+    - Known differences: tyre life restarts at 0 for a set reused within a session, some
+      slow in- and cool-down lap times, no `SpeedFL`, a different session-time origin.
+    - Race and sprint are not covered (grid, points, classification): during a block R
+      and S still fail and email. First used live for 2026 R18 FP1.
   - To check by hand, `curl -sI -A BestHTTP
     https://livetiming.formula1.com/static/2024/2024-03-02_Bahrain_Grand_Prix/2024-03-02_Race/SessionInfo.jsonStream`.
     200 is open; 401 is blocked. Sessions recorded `not_available` during a block need

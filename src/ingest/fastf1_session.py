@@ -21,6 +21,7 @@ import requests
 from fastf1.exceptions import DataNotLoadedError
 from fastf1.req import Cache
 
+from src.ingest import openf1_session
 from src.sessions import SessionTables, get_sessions
 
 TABLES = [f.name for f in fields(SessionTables) if f.type is pd.DataFrame]
@@ -41,7 +42,12 @@ class SessionNotAvailable(Exception):
 
 
 class ArchiveRequestFailed(Exception):
-    """F1's live timing archive refused or failed a request: blocked, rate limited, down or unreachable"""
+    """F1's live timing archive refused or failed a request: blocked, rate limited, down or unreachable.
+    `refused` is a block (401 / 403, or no schedule at all), as opposed to a one-off error"""
+
+    def __init__(self, message: str, refused: bool = False):
+        super().__init__(message)
+        self.refused = refused
 
 
 # FastF1 reads every session file from the live timing archive, then from its own mirror
@@ -111,13 +117,12 @@ def _write_parquet(df: pd.DataFrame, path: Path, fixed: dict[str, pa.DataType]) 
     pq.write_table(table.cast(schema), path, coerce_timestamps="us", allow_truncated_timestamps=True)
 
 
-def ingest_session(season: int, rnd: int, session_id: str, root: Path | str) -> Path:
-    """
-    load one session without telemetry and write it under root, overwriting a previous pull
-    raises SessionNotAvailable when there is nothing to write yet, and ArchiveRequestFailed
-    when F1 refused or failed a request, so a block is not mistaken for data still to come
-    """
-    names = {s["session_id"]: s["session_name"] for s in get_sessions(season, rnd)}
+def _from_fastf1(season: int, rnd: int, session_id: str) -> SessionTables:
+    """one session through FastF1, without telemetry"""
+    try:
+        names = {s["session_id"]: s["session_name"] for s in get_sessions(season, rnd)}
+    except ValueError as exc:  # "Failed to load any schedule data": F1's API and Jolpica both failed
+        raise ArchiveRequestFailed(f"{season} R{rnd}: FastF1 could not load the schedule ({exc})", refused=True) from exc
     if session_id not in names:
         raise SessionNotAvailable(f"{season} R{rnd} has no {session_id}, only {list(names)}")
 
@@ -126,12 +131,33 @@ def ingest_session(season: int, rnd: int, session_id: str, root: Path | str) -> 
         session.load(laps=True, telemetry=False, weather=True, messages=True)
     if failures := _archive_failures(seen):
         raise ArchiveRequestFailed(f"{season} R{rnd} {session_id}: live timing archive failed "
-                                   + ", ".join(f"{n} x {what}" for what, n in failures.items()))
+                                   + ", ".join(f"{n} x {what}" for what, n in failures.items()),
+                                   refused=any(what.startswith(("HTTP 401", "HTTP 403")) for what in failures))
     # FastF1 does not fail in load(); a session without data fails on first access
     try:
-        tables = SessionTables.from_session(session)
+        return SessionTables.from_session(session)
     except DataNotLoadedError as exc:
         raise SessionNotAvailable(f"{season} R{rnd} {session_id}: FastF1 has no data yet") from exc
+
+
+def ingest_session(season: int, rnd: int, session_id: str, root: Path | str) -> Path:
+    """
+    load one session without telemetry and write it under root, overwriting a previous pull
+    raises SessionNotAvailable when there is nothing to write yet, and ArchiveRequestFailed
+    when F1 refused or failed a request, so a block is not mistaken for data still to come.
+    While F1 refuses (not on a one-off error), practice and qualifying come from OpenF1 instead
+    (openf1_session); until OpenF1 has the session that is SessionNotAvailable, so the next run retries
+    """
+    try:
+        tables, source = _from_fastf1(season, rnd, session_id), fastf1.__version__
+    except ArchiveRequestFailed as blocked:
+        if not blocked.refused or session_id not in openf1_session.SUPPORTED:
+            raise
+        print(f"{blocked}; loading {session_id} from OpenF1")
+        try:
+            tables, source = openf1_session.load_session(season, rnd, session_id), "openf1"
+        except openf1_session.OpenF1NotAvailable as exc:
+            raise SessionNotAvailable(f"{blocked}; and {exc}") from exc
 
     out = session_dir(root, season, rnd, session_id)
     out.mkdir(parents=True, exist_ok=True)
@@ -141,7 +167,7 @@ def ingest_session(season: int, rnd: int, session_id: str, root: Path | str) -> 
     # written last, so a directory without meta.json is an interrupted pull
     meta = {k: getattr(tables, k) for k in META}
     meta |= {"session_id": session_id, "date": tables.date.isoformat(),
-             "fastf1_version": fastf1.__version__,
+             "fastf1_version": source,  # "openf1" when the session came from OpenF1
              "pulled_at": pd.Timestamp.now(tz="UTC").isoformat()}
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
     return out
