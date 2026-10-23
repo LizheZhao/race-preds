@@ -19,14 +19,14 @@ The repo has three parts:
 
 ## Status and next steps
 
-As of 2026-10-15.
+As of 2026-10-21.
 
 | # | phase | status |
 |---|---|---|
 | 0 | Platform spike | **Done** 2026-10-08 (Phase 0 results) |
 | 1 | Lakehouse for one race | **Done** 2026-10-11 on 2026 R16 (Phase 1 record) |
 | 2 | Replay | **Done** 2026-10-11 on 2026 R15 (Phase 2 record) |
-| 2b | Fallback path | **Narrowed** 2026-10-13: release-hosted tree done; runner-side ingest deferred (runners can't reach F1 live timing). The rest folds into Phase 3 |
+| 2b | Fallback path | **Narrowed** 2026-10-13: release-hosted tree done; runner-side ingest deferred (runners can't reach F1 live timing). The rest folds into Phase 3. Candidate since 2026-10-21: a self-hosted runner on the GCP server, gated on the reachability check (Automation → Fallback) |
 | 3 | Backfill + models | **In progress.** Steps 1–5b built 2026-10-13 to 15. Backfill: 2024, 2025 and 2026 R1–R17 complete; 2022 and 2023 partial, held up by F1's live timing block (step 1, Progress). Season-split backtest run once on the partial data (step 4) |
 | 3b | Research swarm (optional) | Not started |
 | 4 | Front end | Live with real 2026 R15–R17 since 2026-10-13, including prediction vs result. Redesign built locally 2026-10-15 (tag `dashboard-review-v1`); what its cards still need from the pipeline is in `docs/dashboard-data-needs.md` |
@@ -71,6 +71,13 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
+- **OpenF1 is the ingest fallback for practice and qualifying while F1 blocks the archive**
+  (2026-10-23). FP1 of R18 failed on the block; OpenF1 had the session, so ingest rebuilds
+  FastF1's tables from it instead of waiting. (Automation → Known constraints)
+- **The GCP server is a self-hosted runner candidate, not a migration target**
+  (2026-10-21). Databricks and the GitHub Actions dispatcher stay. The server may host
+  the fallback's runner-side ingest, once it is shown to reach F1 live timing, and not
+  before the R18 weekend is over. (Automation → Fallback)
 - **A refused live timing request fails ingest; only a missing file is `not_available`**
   (2026-10-15). F1 blocked the archive with a 401 that FastF1 swallows, and ingest had
   recorded it as "no data yet", which no alert covers. (Automation → Known constraints)
@@ -683,6 +690,40 @@ is involved.
   equivalents (`laps.py` filters, the exploration modules). The two can drift, so a
   parity check guards them (Phase 2b exit check).
 
+#### Self-hosted runner on the GCP server (option, gated)
+
+Added 2026-10-21. The owner has a GCP server. It does not replace Databricks (kept as the
+Spark / Delta / MLflow showcase) or the GitHub Actions dispatcher (free, dry-run in CI,
+holds the secrets, emails on failure). Its one use is as a **self-hosted GitHub Actions
+runner**: the workflow, schedule, secrets and failure emails stay as they are, and only
+the machine the steps execute on changes, so the runner path above can load FastF1.
+
+**Gate: the server must reach the live timing archive.** Run from the server:
+
+```bash
+curl -sI -A BestHTTP https://livetiming.formula1.com/static/2024/2024-03-02_Bahrain_Grand_Prix/2024-03-02_Race/SessionInfo.jsonStream
+```
+
+- `200`: open; the option is on.
+- `401` with `x-cache: FunctionGeneratedResponse`: F1's global block (Known constraints),
+  which says nothing about GCP. Confirm the block from the Mac and retry later.
+- A `403` that is not S3's `AccessDenied`: F1 blocks that cloud range as it blocks
+  GitHub's; the server buys nothing for ingest and the option is off.
+
+If the gate passes, in this order, Tuesday or Wednesday only, never before R18 is over:
+
+1. Register the server as a runner with a label (`gcp`) and point only the fallback
+   steps at it with `runs-on`, so a Databricks outage is the only time it runs.
+2. Lock it down: a self-hosted runner in a public repo executes any pull request's
+   code. Keep "require approval for all outside collaborators" on, run the runner as an
+   unprivileged user, and never put the Databricks PAT in the runner's environment.
+3. Build the runner path as written above (FastF1 → `SessionTables` → pandas → score →
+   publish) and the parity check.
+
+What the server adds to the chores: patching, keeping the runner service alive, and a
+second place where tokens live. Record them next to the PAT expiry (Dispatcher →
+Secrets).
+
 ### Known constraints
 
 - GitHub cron can run 5–20 min late. That doesn't matter here.
@@ -715,6 +756,22 @@ is involved.
     so 2022 ingests during a block and 2023–2026 don't.
   - Not covered: a block that looks exactly like a missing object, S3's own 403
     `AccessDenied` on every key, would still read as `not_available`.
+  - **Since 2026-10-23, practice and qualifying fall back to OpenF1** (`api.openf1.org`,
+    `src/ingest/openf1_session.py`) when the archive refuses (401 / 403) or FastF1 can't
+    load the schedule; a one-off error still fails the run. OpenF1 serves the same feed
+    once a session ends and Databricks serverless reaches it. The module rebuilds the
+    six `SessionTables` with FastF1's columns and types, so bronze, silver and gold run
+    unchanged; bronze `fastf1_version` reads `openf1`. Until OpenF1 has the whole session
+    (ended, every chequered flag, every endpoint filled) ingest is `not_available`, so the
+    next run retries quietly.
+    - Checked on 2026 R17 FP1, SQ and Q against FastF1's bronze rows: the session and
+      per-driver summaries match (one driver differs per session), qualifying and sprint
+      qualifying positions and Q1–Q3 match. OpenF1's own segment times count deleted and
+      red-flagged laps, so those are recomputed from the laps.
+    - Known differences: tyre life restarts at 0 for a set reused within a session, some
+      slow in- and cool-down lap times, no `SpeedFL`, a different session-time origin.
+    - Race and sprint are not covered (grid, points, classification): during a block R
+      and S still fail and email. First used live for 2026 R18 FP1.
   - To check by hand, `curl -sI -A BestHTTP
     https://livetiming.formula1.com/static/2024/2024-03-02_Bahrain_Grand_Prix/2024-03-02_Race/SessionInfo.jsonStream`.
     200 is open; 401 is blocked. Sessions recorded `not_available` during a block need
@@ -779,7 +836,7 @@ at the top of this document.
 | 0 | **Platform spike.** Connect to the workspace locally, create catalog/schema/volume, upload one Parquet file, run a FastF1 `session.load()` in a Databricks notebook, read a table back with the SQL connector, trigger a job from outside with a token. | Written answers on network, external triggers and quotas. **Passed 2026-10-08.** |
 | 1 | **Lakehouse, one race.** Ingest one race, build bronze → silver → gold with Spark, add `ops.processed_sessions`. | Gold tables for that race; re-running produces identical tables. **Passed 2026-10-11** on 2026 R16. |
 | 2 | **Replay.** Run the dispatcher against a past weekend on a fake clock, session by session, with baseline models and a real publish step. | A full round directory that passes `python -m src.schema check`, with no manual steps. **Passed 2026-10-11** on 2026 R15. |
-| 2b | **Fallback path**, narrowed 2026-10-13. The published tree lives in a Release (done). Champions are exported to Release assets and scored without Spark (done inside Phase 3). Runner-side ingest is deferred. | A Databricks job failure leaves the site on the last complete stage and emails the owner; the next run recovers. Checked by the CI dry runs of 2026-10-13. |
+| 2b | **Fallback path**, narrowed 2026-10-13. The published tree lives in a Release (done). Champions are exported to Release assets and scored without Spark (done inside Phase 3). Runner-side ingest is deferred; since 2026-10-21 its candidate is a self-hosted runner on the owner's GCP server, gated on the server reaching F1 live timing (Automation → Fallback). | A Databricks job failure leaves the site on the last complete stage and emails the owner; the next run recovers. Checked by the CI dry runs of 2026-10-13. If the self-hosted runner lands: one session scored and published from the runner with Databricks unreachable, matching the Databricks output within the parity check. |
 | 3 | **Backfill + models** (Phase 3 plan). Backfill 2022 → now. Replace the baselines one section at a time, with MLflow tracking and a season-split backtest. Add the Monday champion check with shadow scoring. | Each model beats its baseline on the backtest. Calibration decided per model. |
 | 3b | **Research swarm** (optional). Parallel agents in sandboxes propose and backtest model changes against the frozen harness. | A swarm-proposed change beats the champion on the backtest **and** on the untouched holdout season, and, once the owner merges it, is picked by the Monday check. |
 | 4 | **Front end** (parallel from the start). Lovable design → `web/`, built against `docs/examples/v1/`, deployed to GitHub Pages, then pointed at real output. | Page renders every section status (`ready`, `stale`, `pending`, `error`, `not_applicable`). |
