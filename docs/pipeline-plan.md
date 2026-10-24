@@ -800,8 +800,8 @@ Secrets).
   the resource, please try again later") and every new job run was refused with
   "Triggering new runs for organization ... is currently disabled temporarily". Job usage
   since Friday was about 15 minutes, and status.databricks.com showed every service,
-  Free Edition included, operational. The API gives no reason or end time; check the
-  workspace in a browser for a notice.
+  Free Edition included, operational. Neither the API nor the workspace showed a reason
+  or a notice. It had lifted by 18:03 UTC, under 20 minutes after the failed run.
   - Effect on a race weekend: the dispatcher fails at its first warehouse query, so
     nothing is processed or published and every run emails. The site stays on the last
     published stage (R18 FP2 that day). Sessions catch up on the first healthy run.
