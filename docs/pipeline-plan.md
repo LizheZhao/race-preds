@@ -795,6 +795,19 @@ Secrets).
     warehouse config", although the workspace's warehouse config still read
     `enable_serverless_compute: true`. Plan as if a block costs the rest of the UTC day
     and half the next one: on a race weekend that is a lost session day.
+- **Databricks can also disable the whole workspace with no quota anywhere near**
+  (2026-10-24). From before 17:47 UTC, the SQL warehouse refused to start ("Cannot create
+  the resource, please try again later") and every new job run was refused with
+  "Triggering new runs for organization ... is currently disabled temporarily". Job usage
+  since Friday was about 15 minutes, and status.databricks.com showed every service,
+  Free Edition included, operational. The API gives no reason or end time; check the
+  workspace in a browser for a notice.
+  - Effect on a race weekend: the dispatcher fails at its first warehouse query, so
+    nothing is processed or published and every run emails. The site stays on the last
+    published stage (R18 FP2 that day). Sessions catch up on the first healthy run.
+  - Neither the GitHub runner nor the GCP server can publish meanwhile, because publish
+    reads the lakehouse through the warehouse. Covering this needs the runner path of
+    Phase 2b (Fallback when Databricks is unavailable), which is not built.
 - Personal access tokens expire. An expired token makes every dispatcher run fail until
   you notice the failure emails, so record the expiry date (Dispatcher → Secrets).
 - Scheduled workflows in a public repo are disabled after 60 days without commits. Keep
