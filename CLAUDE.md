@@ -184,11 +184,11 @@ with `as_tables()`. Inside them every duration is float seconds, never a `Timede
   FastF1 swallows HTTP errors, so ingest watches its requests: a refused or failed
   archive request raises `ArchiveRequestFailed` (recorded `failed`), and only a missing
   file raises `SessionNotAvailable` (`not_available`). When the archive refuses (401 / 403)
-  or the schedule won't load, practice and qualifying come from OpenF1 instead.
+  or the schedule won't load, practice, qualifying and the race come from OpenF1 instead.
 - `ingest/openf1_session.py` (pipeline): `load_session()` builds the same `SessionTables`
   from `api.openf1.org`, deriving track status, session status and deleted laps from race
-  control. Any column change must keep FastF1's names and types, or bronze's schema merge
-  fails. No race or sprint.
+  control, and a race's classification from Jolpica. Any column change must keep FastF1's
+  names and types, or bronze's schema merge fails. No sprint.
 - `etl/bronze.py` (pipeline, Spark only, no FastF1): `load_session(spark, session_dir)`
   replaces one session in the `race_preds.bronze.*` Delta tables. Runs as the second
   task of `process_session`; needs a Databricks Spark session, so it cannot run locally.

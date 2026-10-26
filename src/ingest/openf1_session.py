@@ -9,9 +9,9 @@ status, no session status and no deleted-lap flag, so this module derives them:
 - a lap is deleted when a "DELETED" message names its driver and its lap time
 Every duration is seconds from ORIGIN before the scheduled start, standing in for FastF1's
 stream start; race control keeps UTC, as in FastF1. Columns OpenF1 lacks (SpeedFL,
-LapStartDate, Position outside races) stay empty, as they are in many FastF1 sessions.
-Practice, qualifying and sprint qualifying only: race and sprint results need grid, points
-and classification that this module does not build.
+LapStartDate) stay empty, as they are in many FastF1 sessions.
+A race classification comes from Jolpica, as FastF1's comes from Ergast, so it carries the
+Ergast driver and constructor ids.
 """
 import re
 import time
@@ -26,7 +26,10 @@ API = "https://api.openf1.org/v1/"
 JOLPICA = "https://api.jolpi.ca/ergast/f1/"
 ORIGIN = pd.Timedelta(minutes=30)
 PACE_S = 0.5  # OpenF1's free tier allows a few requests a second
-SUPPORTED = {"FP1", "FP2", "FP3", "Q", "SQ"}
+# Sprints are left out: on 2026 R17 (a wet start behind the safety car) OpenF1 had six more
+# laps than FastF1 and a third of the lap times disagreed. The code below builds them like races
+SUPPORTED = {"FP1", "FP2", "FP3", "Q", "SQ", "R"}
+RACES = {"S", "R"}
 NAMES = {sid: name for name, sid in SESSION_IDS.items() if name != "Sprint Shootout"}
 
 DELETED_RE = re.compile(r"^CAR (\d+) \([A-Z]{3}\) TIME (\d+):(\d+\.\d+) DELETED - (.*?)(?:\d{2}:\d{2}:\d{2})?$")
@@ -124,13 +127,20 @@ def _track_status(rc: pd.DataFrame, t0: pd.Timestamp) -> pd.DataFrame:
     return out
 
 
-def _session_status(rc: pd.DataFrame, t0: pd.Timestamp) -> pd.DataFrame:
+def _session_status(rc: pd.DataFrame, t0: pd.Timestamp, race: bool) -> pd.DataFrame:
     """Started at each green light, Aborted at a red flag, Finished at each chequered flag
-    (one per qualifying segment); session_window reads the first Started and the last Finished"""
+    (one per qualifying segment); session_window reads the first Started and the last Finished.
+    A race's green light opens the pit exit before the formation; it starts at "SESSION STARTED"
+    (or "RESUMED" after a red flag)"""
+    def started(m):
+        if race:
+            return m["category"] == "SessionStatus" and any(w in str(m["message"]) for w in ("STARTED", "RESUMED"))
+        return m["flag"] == "GREEN" and m["scope"] == "Track"
+
     events = []
     for _, m in rc.iterrows():
         t = (m["date"] - t0).total_seconds()
-        if m["flag"] == "GREEN" and m["scope"] == "Track":
+        if started(m):
             events.append((t, "Started"))
         elif m["flag"] == "RED":
             events.append((t, "Aborted"))
@@ -168,14 +178,16 @@ def _deletions(rc: pd.DataFrame) -> dict[tuple[str, float], str]:
 
 
 def _laps(raw: pd.DataFrame, stints: pd.DataFrame, pits: pd.DataFrame, drivers: pd.DataFrame,
-          rc: pd.DataFrame, ts: pd.DataFrame, t0: pd.Timestamp) -> pd.DataFrame:
+          rc: pd.DataFrame, ts: pd.DataFrame, t0: pd.Timestamp, positions: pd.DataFrame | None) -> pd.DataFrame:
+    """FastF1's laps table. positions (OpenF1 position changes) is given for races only"""
+    race = positions is not None
     laps = raw.sort_values(["driver_number", "lap_number"]).reset_index(drop=True)
     laps["DriverNumber"] = laps["driver_number"].astype(str)
     secs = lambda s: (_utc(s) - t0).dt.total_seconds()
 
     # OpenF1 starts a lap at its line crossing, or an out-lap at pit exit (else the pit row
-    # of that lap); an out-lap's duration then counts the time in the garage, so FastF1 has
-    # no lap time for it and ends it where the next lap starts
+    # of that lap). Outside races an out-lap's duration counts the time in the garage, so
+    # FastF1 has no lap time for it and ends it where the next lap starts
     by_driver = laps["DriverNumber"]
     crossing = secs(laps["date_start"])
     if not pits.empty:
@@ -185,9 +197,12 @@ def _laps(raw: pd.DataFrame, stints: pd.DataFrame, pits: pd.DataFrame, drivers: 
                                               zip(by_driver, laps["lap_number"])], index=laps.index))
     out_lap = laps["is_pit_out_lap"].fillna(False).astype(bool)
     last = laps["lap_number"] == laps.groupby("DriverNumber")["lap_number"].transform("max")
-    in_lap = out_lap.groupby(by_driver).shift(-1, fill_value=False).astype(bool) | last
+    # outside races the last lap is the drive back to the garage; a race ends at the flag
+    in_lap = out_lap.groupby(by_driver).shift(-1, fill_value=False).astype(bool) | (last & ~race)
 
-    duration = laps["lap_duration"].astype(float).where(~out_lap)
+    duration = laps["lap_duration"].astype(float)
+    if not race:
+        duration = duration.where(~out_lap)
     sectors = laps[["duration_sector_1", "duration_sector_2", "duration_sector_3"]].astype(float)
     nxt = crossing.groupby(by_driver).shift(-1)
     end = (crossing + duration).fillna(nxt).fillna(crossing + sectors.sum(axis=1, min_count=3))
@@ -246,15 +261,57 @@ def _laps(raw: pd.DataFrame, stints: pd.DataFrame, pits: pd.DataFrame, drivers: 
     df["LapStartTime"] = start
     df["LapStartDate"] = pd.Series(pd.NaT, index=df.index, dtype="datetime64[us]")
     df["TrackStatus"] = _lap_status(df, ts)
-    df["Position"] = np.nan
+    df["Position"] = _lap_positions(df, positions, t0) if race else np.nan
     df["DeletedReason"] = [r or "" for r in reason]
     df["FastF1Generated"] = False
-    df["IsAccurate"] = (df["LapTime"].notna() & ~out_lap & ~in_lap).astype(bool)
+    # a race's first lap starts from the grid, which FastF1 does not count as accurate timing
+    df["IsAccurate"] = (df["LapTime"].notna() & ~out_lap & ~in_lap & ~(race & (df["LapNumber"] == 1))).astype(bool)
     return df[["Time", "Driver", "DriverNumber", "LapTime", "LapNumber", "Stint", "PitOutTime", "PitInTime",
                "Sector1Time", "Sector2Time", "Sector3Time", "Sector1SessionTime", "Sector2SessionTime",
                "Sector3SessionTime", "SpeedI1", "SpeedI2", "SpeedFL", "SpeedST", "IsPersonalBest", "Compound",
                "TyreLife", "FreshTyre", "Team", "LapStartTime", "LapStartDate", "TrackStatus", "Position",
                "Deleted", "DeletedReason", "FastF1Generated", "IsAccurate"]]
+
+
+def _lap_positions(laps: pd.DataFrame, positions: pd.DataFrame, t0: pd.Timestamp) -> pd.Series:
+    """each driver's running position when the lap ended, from OpenF1's position changes"""
+    pos = positions.assign(DriverNumber=positions["driver_number"].astype(str),
+                           t=(_utc(positions["date"]) - t0).dt.total_seconds())[["DriverNumber", "t", "position"]]
+    ends = laps[["DriverNumber", "Time"]].reset_index().dropna(subset=["Time"])
+    hit = pd.merge_asof(ends.sort_values("Time"), pos.sort_values("t"), left_on="Time", right_on="t",
+                        by="DriverNumber", direction="backward")
+    return hit.set_index("index")["position"].reindex(laps.index).astype(float)
+
+
+def _gap_s(text: str) -> float:
+    """Jolpica's "+7.335" or "+1:21.666" in seconds; anything else (laps, empty) is NaN"""
+    if m := re.fullmatch(r"\+(?:(\d+):)?(\d+\.\d+)", text or ""):
+        return int(m[1] or 0) * 60 + float(m[2])
+    return np.nan
+
+
+def _classification(season: int, rnd: int, session_id: str) -> pd.DataFrame:
+    """the official race or sprint result from Jolpica, in FastF1's columns, by car number:
+    Time is the winner's race time and every other car's gap to the winner"""
+    path, key = ("results", "Results") if session_id == "R" else ("sprint", "SprintResults")
+    races = _get(JOLPICA, f"{season}/{rnd}/{path}.json", limit=100)["MRData"]["RaceTable"]["Races"]
+    rows = races[0].get(key, []) if races else []
+    if not rows:
+        raise OpenF1NotAvailable(f"Jolpica has no {season} R{rnd} {session_id} result yet")
+    out = pd.DataFrame({
+        "DriverNumber": [r["number"] for r in rows],
+        "DriverId": [r["Driver"]["driverId"] for r in rows],
+        "TeamId": [r["Constructor"]["constructorId"] for r in rows],
+        "Position": [float(r["position"]) for r in rows],
+        "ClassifiedPosition": [r["positionText"] for r in rows],
+        "GridPosition": [float(r["grid"]) for r in rows],
+        "Time": [float(r["Time"]["millis"]) / 1000 if r["position"] == "1" and "Time" in r
+                 else _gap_s(r.get("Time", {}).get("time", "")) for r in rows],
+        "Status": [r["status"] for r in rows],
+        "Points": [float(r["points"]) for r in rows],
+        "Laps": [float(r["laps"]) for r in rows],
+    })
+    return out.set_index("DriverNumber")
 
 
 def _segment_times(res: pd.DataFrame, laps: pd.DataFrame, status: pd.DataFrame) -> pd.DataFrame:
@@ -288,9 +345,10 @@ def _classify(res: pd.DataFrame, times: pd.DataFrame) -> pd.Series:
 
 
 def _results(drivers: pd.DataFrame, result: pd.DataFrame, session_id: str,
-             laps: pd.DataFrame, status: pd.DataFrame) -> pd.DataFrame:
-    """FastF1's results: entrants from the drivers list; position and Q1-Q3 for qualifying only.
-    Ergast ids stay empty, as FastF1 leaves them until Ergast publishes the round"""
+             laps: pd.DataFrame, status: pd.DataFrame, classification: pd.DataFrame | None) -> pd.DataFrame:
+    """FastF1's results: entrants from the drivers list; position and Q1-Q3 for qualifying, the
+    Jolpica classification for races. Elsewhere Ergast ids stay empty, as FastF1 leaves them
+    until Ergast publishes the round"""
     df = drivers.copy()
     for c in ["Position", "GridPosition", "Q1", "Q2", "Q3", "Time", "Points", "Laps"]:
         df[c] = np.nan
@@ -302,6 +360,10 @@ def _results(drivers: pd.DataFrame, result: pd.DataFrame, session_id: str,
         df["Position"] = df["DriverNumber"].map(_classify(res, times)).astype(float)
         for q in times.columns:
             df[q] = df["DriverNumber"].map(times[q]).astype(float)
+    if classification is not None:
+        for c in classification.columns:
+            mapped = df["DriverNumber"].map(classification[c])
+            df[c] = mapped.astype(float) if classification[c].dtype == float else mapped.fillna(df[c])
     return df[["DriverNumber", "BroadcastName", "Abbreviation", "DriverId", "TeamName", "TeamColor", "TeamId",
                "FirstName", "LastName", "FullName", "HeadshotUrl", "CountryCode", "Position", "ClassifiedPosition",
                "GridPosition", "Q1", "Q2", "Q3", "Time", "Status", "Points", "Laps"]]
@@ -382,9 +444,15 @@ def load_session(season: int, rnd: int, session_id: str) -> SessionTables:
         "Lap": messages["lap_number"].astype("Int64"),
     }).reset_index(drop=True)
 
+    race = session_id in RACES
+    classification = _classification(season, rnd, session_id) if race else None
+    positions = _frame("position", session_key=key) if race else None
+    if race and positions.empty:
+        raise OpenF1NotAvailable(f"{pending}: position empty")
+
     sprint = any(s["session_name"] == "Sprint" for s in meeting)
-    laps = _laps(raw_laps, stints, pits, drivers, rc, ts, t0)
-    status = _session_status(rc, t0)
+    laps = _laps(raw_laps, stints, pits, drivers, rc, ts, t0, positions)
+    status = _session_status(rc, t0, race)
     return SessionTables(
         season=season,
         round=rnd,
@@ -392,7 +460,7 @@ def load_session(season: int, rnd: int, session_id: str) -> SessionTables:
         event_format="sprint_qualifying" if sprint else "conventional",
         date=scheduled,
         laps=laps,
-        results=_results(drivers, result, session_id, laps, status),
+        results=_results(drivers, result, session_id, laps, status, classification),
         weather=weather,
         track_status=ts,
         session_status=status,
