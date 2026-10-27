@@ -71,9 +71,11 @@ model scores, as designed.
 The decisions that shape everything below, newest first. Details are in the sections they
 point to.
 
-- **OpenF1 is the ingest fallback for practice and qualifying while F1 blocks the archive**
-  (2026-10-23). FP1 of R18 failed on the block; OpenF1 had the session, so ingest rebuilds
-  FastF1's tables from it instead of waiting. (Automation → Known constraints)
+- **OpenF1 is the ingest fallback for practice, qualifying and the race while F1 blocks the
+  archive** (2026-10-23, race 2026-10-26). FP1 of R18 failed on the block; OpenF1 had the
+  session, so ingest rebuilds FastF1's tables from it instead of waiting. A race's
+  classification comes from Jolpica. Sprints stay out until they match. (Automation →
+  Known constraints)
 - **The GCP server is a self-hosted runner candidate, not a migration target**
   (2026-10-21). Databricks and the GitHub Actions dispatcher stay. The server may host
   the fallback's runner-side ingest, once it is shown to reach F1 live timing, and not
@@ -756,7 +758,8 @@ Secrets).
     so 2022 ingests during a block and 2023–2026 don't.
   - Not covered: a block that looks exactly like a missing object, S3's own 403
     `AccessDenied` on every key, would still read as `not_available`.
-  - **Since 2026-10-23, practice and qualifying fall back to OpenF1** (`api.openf1.org`,
+  - **Since 2026-10-23, practice and qualifying fall back to OpenF1, and races since
+    2026-10-26** (`api.openf1.org`,
     `src/ingest/openf1_session.py`) when the archive refuses (401 / 403) or FastF1 can't
     load the schedule; a one-off error still fails the run. OpenF1 serves the same feed
     once a session ends and Databricks serverless reaches it. The module rebuilds the
@@ -770,8 +773,16 @@ Secrets).
       red-flagged laps, so those are recomputed from the laps.
     - Known differences: tyre life restarts at 0 for a set reused within a session, some
       slow in- and cool-down lap times, no `SpeedFL`, a different session-time origin.
-    - Race and sprint are not covered (grid, points, classification): during a block R
-      and S still fail and email. First used live for 2026 R18 FP1.
+    - A race takes laps, race control and running positions from OpenF1 and the
+      classification from Jolpica (as FastF1 takes it from Ergast), Ergast ids included;
+      its start is OpenF1's "SESSION STARTED", since the green light opens the pit exit
+      before the formation. Checked on 2026 R17 R: the classification is identical in
+      every column, the session summary (SC / VSC / red counts included) matches, lap
+      times match on 98% of laps and running positions on 99.8%.
+    - Sprints are not covered: on 2026 R17 S (a wet start behind the safety car) OpenF1
+      had six more laps than FastF1 and a third of lap times disagreed, so during a block
+      S still fails and emails. First used live for 2026 R18 FP1; R18 R published from it
+      on 2026-10-26.
   - To check by hand, `curl -sI -A BestHTTP
     https://livetiming.formula1.com/static/2024/2024-03-02_Bahrain_Grand_Prix/2024-03-02_Race/SessionInfo.jsonStream`.
     200 is open; 401 is blocked. Sessions recorded `not_available` during a block need
@@ -795,6 +806,19 @@ Secrets).
     warehouse config", although the workspace's warehouse config still read
     `enable_serverless_compute: true`. Plan as if a block costs the rest of the UTC day
     and half the next one: on a race weekend that is a lost session day.
+- **Databricks can also disable the whole workspace with no quota anywhere near**
+  (2026-10-24). From before 17:47 UTC, the SQL warehouse refused to start ("Cannot create
+  the resource, please try again later") and every new job run was refused with
+  "Triggering new runs for organization ... is currently disabled temporarily". Job usage
+  since Friday was about 15 minutes, and status.databricks.com showed every service,
+  Free Edition included, operational. Neither the API nor the workspace showed a reason
+  or a notice. It had lifted by 18:03 UTC, under 20 minutes after the failed run.
+  - Effect on a race weekend: the dispatcher fails at its first warehouse query, so
+    nothing is processed or published and every run emails. The site stays on the last
+    published stage (R18 FP2 that day). Sessions catch up on the first healthy run.
+  - Neither the GitHub runner nor the GCP server can publish meanwhile, because publish
+    reads the lakehouse through the warehouse. Covering this needs the runner path of
+    Phase 2b (Fallback when Databricks is unavailable), which is not built.
 - Personal access tokens expire. An expired token makes every dispatcher run fail until
   you notice the failure emails, so record the expiry date (Dispatcher → Secrets).
 - Scheduled workflows in a public repo are disabled after 60 days without commits. Keep
