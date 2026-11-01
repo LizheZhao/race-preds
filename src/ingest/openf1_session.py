@@ -416,7 +416,14 @@ def load_session(season: int, rnd: int, session_id: str) -> SessionTables:
         raise OpenF1NotAvailable(f"{pending}: stints have no compounds")
     raw_laps, stints, pits = frames["laps"], frames["stints"], frames["pit"]
     weather_raw, result = frames["weather"], frames["session_result"]
-    drivers = _drivers(frames["drivers"])
+    drivers_raw = frames["drivers"]
+    # a session's driver list can miss a car that set laps (2026 R19 FP3, #30): take it from the meeting
+    if missing := set(raw_laps["driver_number"]) - set(drivers_raw["driver_number"]):
+        meeting_drivers = _frame("drivers", meeting_key=session["meeting_key"])
+        drivers_raw = pd.concat([drivers_raw, meeting_drivers[meeting_drivers["driver_number"].isin(missing)]])
+    if missing := set(raw_laps["driver_number"]) - set(drivers_raw["driver_number"]):
+        raise OpenF1NotAvailable(f"{pending}: no driver entry for car {sorted(missing)}")
+    drivers = _drivers(drivers_raw)
 
     ts = _track_status(rc, t0)
     weather = pd.DataFrame({
